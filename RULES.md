@@ -54,6 +54,23 @@ would hide it.
 Without the dump nothing claims engine provenance: `source` is `derived`, `harmful`
 and the targeting fields are null, and the rules are the inferences below.
 
+The join is checked before anything merges. Both sides name every effect, so a dump
+that is off by even one index is refused outright rather than rewriting all 141 rules:
+
+```
+The effect dump does not line up with the catalogs: 140 of 140 matched indices
+name a different effect.
+  1: catalog 'Swift Swim' vs dump 'Water Breathing'
+```
+
+That is not hypothetical — it is what the first version of the dumper produced, by
+keying on position in the record list rather than on the engine's effect id.
+
+A dump also sees effects that no plugin defines. Tamriel Rebuilt registers extra
+summons through Lua, so a TR run reports 186 effects against 141 in the data. They
+carry no engine id, are listed under `luaAdded`, and are deliberately not merged;
+`verification.engineEffectsUnmatched` names any the catalogs lack.
+
 ## How the rules are derived
 
 Bethesda and the Tamriel Rebuilt authors wrote every spell, enchantment and potion

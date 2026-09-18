@@ -98,6 +98,35 @@ def load_flags(path):
     return {record['index']: record for record in payload['records']}
 
 
+def check_alignment(effects, engine):
+    """Refuse to merge on an index the two sides disagree about.
+
+    Both sides name every effect, so a join that is off by even one shows up
+    immediately. Without this check a shifted dump silently rewrites every rule.
+    """
+    matched = mismatched = 0
+    examples = []
+    for effect in effects:
+        record = engine.get(effect['effectId'])
+        if record is None:
+            continue
+        if record.get('name') == effect['name']:
+            matched += 1
+        else:
+            mismatched += 1
+            if len(examples) < 4:
+                examples.append(f"{effect['effectId']}: catalog {effect['name']!r} "
+                                f"vs dump {record.get('name')!r}")
+    if mismatched:
+        raise ExportError(
+            f'The effect dump does not line up with the catalogs: {mismatched} of '
+            f'{matched + mismatched} matched indices name a different effect.\n  '
+            + '\n  '.join(examples)
+            + '\n  Rebuild the dump with the current openmw_effect_dump, or pass '
+              '--no-flags to infer from content alone.')
+    return matched
+
+
 def agreement(inferred, fact):
     """How the content-derived answer fared against the engine's own."""
     if inferred is None:
@@ -149,6 +178,8 @@ def rule(effect, seen, engine=None):
 def build(release, output, profiles, flags=None):
     pooled = observe(release, profiles)
     engine = load_flags(flags)
+    if engine:
+        check_alignment(catalog(release, profiles[0], 'MagicEffects'), engine)
     published = []
     for profile in profiles:
         effects = catalog(release, profile, 'MagicEffects')
@@ -166,6 +197,9 @@ def build(release, output, profiles, flags=None):
                            'decided': derived, 'unknown': len(records)-derived},
             'costFormula': COST_FORMULA,
             'verification': {'source': 'engine' if engine else 'content only',
+                             'engineEffectsUnmatched': sorted(
+                                 engine[i]['name'] for i in engine
+                                 if i not in {e['effectId'] for e in effects}),
                              'effectsFromEngine': sum(1 for r in records if r['source'] == 'engine'),
                              'confirmed': verdicts['confirmed'], 'corrected': verdicts['corrected'],
                              'decided': verdicts['decided'],

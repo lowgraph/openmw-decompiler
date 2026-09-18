@@ -51,6 +51,17 @@ The dump reflects whatever content is enabled, so running it under the Tamriel R
 profile covers TR's effects too. The effect table is engine-wide rather than per
 profile, so one run is enough.
 
+## Effects that exist only at runtime
+
+Tamriel Rebuilt registers extra summon effects through Lua rather than through a
+plugin record — `content=Tamriel_Data.omwscripts` in `openmw.cfg` is what does it. A
+run under that load order dumps 186 effects where the plugin files define 141.
+
+Those 45 have no engine id, so nothing can join them to a catalog. They are listed
+under `luaAdded` in `effect-flags.json` and reported by the importer, and left out of
+the merge rather than lined up against the wrong effect. No extraction of the plugin
+files will ever see them; only a runtime dump can.
+
 ## What it does not collect
 
 Display units — whether a magnitude reads as points, a percentage, levels or feet — are
@@ -69,10 +80,14 @@ save.
 Each line is one JSON object:
 
 ```
-SILTDUMP BEGIN 1 menu 141
-SILTDUMP {"index":14,"id":"fire damage","name":"Fire Damage",...,"harmful":true,...}
-SILTDUMP END 141
+SILTDUMP BEGIN 2 menu 186 unmapped=45
+SILTDUMP {"index":14,"id":"firedamage","name":"Fire Damage",...,"harmful":true,...}
+SILTDUMP END 186
 ```
+
+`index` is the engine's own effect id, resolved through `core.magic.EFFECT_TYPE`, and
+is null for a Lua-added effect. Version 1 keyed by position in the record list instead,
+which was off by one against every effect; the importer refuses it by version.
 
 The importer takes the last complete `BEGIN`/`END` block, so re-running simply
 supersedes an earlier dump, and a truncated block is refused rather than half-read.

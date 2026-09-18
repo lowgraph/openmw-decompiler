@@ -21,9 +21,9 @@ from export_items import ExportError
 from extract_foundation import ROOT, load_config
 
 VERSION = '1.0.0'
-SUPPORTED_DUMP = 1
+SUPPORTED_DUMP = 2
 MARKER = 'SILTDUMP'
-BEGIN = re.compile(re.escape(MARKER)+r' BEGIN (\d+) (\w+) (\d+)\s*$')
+BEGIN = re.compile(re.escape(MARKER)+r' BEGIN (\d+) (\w+) (\d+)(?: unmapped=(\d+))?\s*$')
 END = re.compile(re.escape(MARKER)+r' END (\d+)\s*$')
 RECORD = re.compile(re.escape(MARKER)+r' (\{.*\})\s*$')
 ERROR = re.compile(re.escape(MARKER)+r' ERROR (\w+) (.*)$')
@@ -59,7 +59,8 @@ def parse(text):
         start = BEGIN.match(line)
         if start:
             current = {'dumpVersion': int(start.group(1)), 'context': start.group(2),
-                       'declared': int(start.group(3)), 'effects': []}
+                       'declared': int(start.group(3)),
+                       'unmapped': int(start.group(4) or 0), 'effects': []}
             continue
         failure = ERROR.match(line)
         if failure:
@@ -82,17 +83,24 @@ def parse(text):
 
 def validate(block):
     if block['dumpVersion'] != SUPPORTED_DUMP:
-        raise ExportError(f'Unsupported dump version {block["dumpVersion"]}; '
-                          f'this tool reads version {SUPPORTED_DUMP}')
+        raise ExportError(
+            f'Unsupported dump version {block["dumpVersion"]}; this tool reads version '
+            f'{SUPPORTED_DUMP}. Version 1 keyed effects by their position in the record '
+            'list rather than their id, which is off by one. Reinstall the mod from '
+            'openmw_effect_dump and run OpenMW again.')
     if not (len(block['effects']) == block['declared'] == block['ended']):
         raise ExportError(f'Truncated dump: {len(block["effects"])} records between a header '
                           f'claiming {block["declared"]} and a footer claiming {block["ended"]}. '
                           'Let OpenMW exit normally so the log is flushed, then rerun.')
-    by_index = {}
+    by_index, unmapped = {}, []
     for effect in block['effects']:
         index = effect.get('index')
+        if index is None:
+            # Added by a Lua mod rather than a plugin, so no engine id exists for it.
+            unmapped.append(effect.get('name') or effect.get('id') or '?')
+            continue
         if not isinstance(index, int):
-            raise ExportError('A dump record has no integer index')
+            raise ExportError('A dump record has a non-integer index')
         if index in by_index:
             raise ExportError(f'Effect index {index} appears twice in the dump')
         missing = [f for f in REQUIRED if not isinstance(effect.get(f), bool)]
@@ -100,7 +108,7 @@ def validate(block):
             raise ExportError(f'Effect {index} is missing {", ".join(missing)}; the dump came '
                               'from an OpenMW too old for this tool')
         by_index[index] = effect
-    return by_index
+    return by_index, unmapped
 
 
 def build(log, output):
@@ -110,14 +118,18 @@ def build(log, output):
             '\n  Enable silt_effect_dump.omwscripts in the launcher, run OpenMW, and quit.')
         raise ExportError(f'No complete effect dump in {log}.{detail}')
     block = blocks[-1]
-    effects = validate(block)
+    effects, unmapped = validate(block)
     payload = {'schemaVersion': VERSION, 'effects': len(effects),
+               'luaAdded': sorted(unmapped),
                'source': {'tool': 'openmw_effect_dump', 'dumpVersion': block['dumpVersion'],
                           'context': block['context'], 'log': str(Path(log).resolve()),
                           'blocksFound': len(blocks), 'capturedAtUnix': time.time()},
                'coverage': 'Read from the running engine through its Lua API, so these are '
                            'facts rather than inferences. Display units are not among them: '
-                           'OpenMW decides those in its interface, not in the effect record.',
+                           'OpenMW decides those in its interface, not in the effect record. '
+                           'luaAdded lists effects a Lua mod registered at runtime; they have '
+                           'no engine id and appear in no plugin file, so nothing can join '
+                           'them to a catalog.',
                'records': [effects[i] for i in sorted(effects)]}
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -140,6 +152,11 @@ def main(argv=None):
         log = find_log(args.log)
         destination, payload = build(log, args.output or root)
         harmful = sum(1 for r in payload['records'] if r['harmful'])
+        if payload['luaAdded']:
+            print(f'{len(payload["luaAdded"])} effects were added by Lua mods and carry no '
+                  f'engine id, so they are recorded but not joinable:\n  '
+                  + ', '.join(payload['luaAdded'][:8])
+                  + (' ...' if len(payload['luaAdded']) > 8 else ''), flush=True)
         print(f'Read {payload["effects"]} effects from {log}\n'
               f'  context: {payload["source"]["context"]}, '
               f'{payload["source"]["blocksFound"]} dump block(s) in the log\n'

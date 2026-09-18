@@ -5,8 +5,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from build_rules_library import (MINIMUM_USES, agreement, build, fixed_at, load_flags,
-                                 observe, rule)
+from build_rules_library import (MINIMUM_USES, agreement, build, check_alignment, fixed_at,
+                                 load_flags, observe, rule)
 from export_items import ExportError
 
 SNAPSHOT = 'snapshot-for-tests'
@@ -59,7 +59,10 @@ class RulesFixture(unittest.TestCase):
 
     def flags(self, *records):
         """An effect-flags.json as import_effect_flags.py writes it."""
-        base = {'harmful': False, 'continuousVfx': False, 'hasDuration': True,
+        # Name defaults to the fixture effect's, so records line up unless a test
+        # deliberately shifts them.
+        base = {'name': 'Test Effect',
+                'harmful': False, 'continuousVfx': False, 'hasDuration': True,
                 'hasMagnitude': True, 'isAppliedOnce': False, 'casterLinked': False,
                 'nonRecastable': False, 'hasAttribute': False, 'hasSkill': False,
                 'onSelf': True, 'onTouch': True, 'onTarget': True, 'unreflectable': False,
@@ -189,8 +192,7 @@ class EngineFlagTests(RulesFixture):
 
     def test_engine_facts_replace_the_inference_and_add_what_it_could_not_reach(self):
         quiet = [spell(use(1, magnitude=(1, 1), duration=1)) for _ in range(5)]
-        flags = self.flags({'index': 1, 'id': 'one', 'name': 'One', 'school': 'destruction',
-                            'baseCost': 1.0, 'harmful': True, 'hasMagnitude': False,
+        flags = self.flags({'index': 1, 'harmful': True, 'hasMagnitude': False,
                             'hasDuration': False, 'onTouch': False, 'onTarget': False})
         payload, row = self.merged({'vanilla': {'Spells': quiet}}, flags)
         self.assertEqual(row['source'], 'engine')
@@ -253,6 +255,31 @@ class EngineFlagTests(RulesFixture):
         path.write_text(json.dumps({'schemaVersion': '9.9.9', 'records': []}), encoding='utf-8')
         with self.assertRaises(ExportError):
             load_flags(path)
+
+    def test_a_shifted_dump_is_refused_before_it_rewrites_anything(self):
+        # The off-by-one that positional keying produced: every index names a
+        # different effect, and merging it would silently corrupt all 141 rules.
+        effects = [effect(1, 'One'), effect(2, 'Two')]
+        flags = self.flags({'index': 1, 'name': 'Two'}, {'index': 2, 'name': 'Three'})
+        with self.assertRaises(ExportError) as caught:
+            self.merged({'vanilla': {}}, flags, effects)
+        self.assertIn('does not line up', str(caught.exception))
+        self.assertIn("catalog 'One' vs dump 'Two'", str(caught.exception))
+
+    def test_an_aligned_dump_passes_the_check(self):
+        effects = [effect(1, 'One'), effect(2, 'Two')]
+        flags = self.flags({'index': 1, 'name': 'One'}, {'index': 2, 'name': 'Two'})
+        payload, _ = self.merged({'vanilla': {}}, flags, effects)
+        self.assertEqual(payload['verification']['effectsFromEngine'], 2)
+
+    def test_check_alignment_ignores_effects_the_dump_does_not_carry(self):
+        self.assertEqual(check_alignment([effect(1, 'One'), effect(2, 'Two')],
+                                         {1: {'name': 'One'}}), 1)
+
+    def test_engine_effects_with_no_catalog_entry_are_reported(self):
+        flags = self.flags({'index': 1, 'name': 'One'}, {'index': 99, 'name': 'Summon Devourer'})
+        payload, _ = self.merged({'vanilla': {}}, flags, [effect(1, 'One')])
+        self.assertEqual(payload['verification']['engineEffectsUnmatched'], ['Summon Devourer'])
 
     def test_agreement_labels(self):
         self.assertEqual(agreement(None, True), 'decided')
