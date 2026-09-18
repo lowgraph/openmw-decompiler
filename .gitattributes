@@ -1,0 +1,4 @@
+# LF in the repository and in the working tree, on every platform.
+# Without this, core.autocrlf on Windows checks files out as CRLF and a clone
+# elsewhere shows whole-file diffs that are only line endings.
+* text=auto eol=lf
