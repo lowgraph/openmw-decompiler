@@ -48,8 +48,10 @@ until the site adds it to `FEATURE_CATALOGS`. Everything else is breaking, fails
 loudly at staging with a readable message, and requires a version bump agreed on
 both sides in the same session.
 
-Worth adding to the site's test suite: a fixture that asserts these six outcomes, so
-a loader change that tightens validation is caught before it blocks a data release.
+`test/bundle-contract.test.js` in the site repository pins these outcomes, so a loader
+change that tightens validation is caught here before it blocks a data release. It also
+asserts the case the data side depends on most: **a wholly new catalog loads with no
+site change**, provided every profile emits or inherits it.
 
 ## The pin
 
