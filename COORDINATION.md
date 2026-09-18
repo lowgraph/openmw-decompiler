@@ -1,0 +1,102 @@
+# Coordination
+
+Two agents work on Silt Strider in parallel. This file is identical in both
+repositories. If you change it, change both copies in the same session.
+
+## Who owns what
+
+| | Site agent | Data agent |
+| --- | --- | --- |
+| Repository | `A:\Claude\morrowind-tools` | `C:\Users\tiago\OneDrive\Documents\ChatGPT\OpenMW Decompiler` |
+| Owns | Next.js, React, calculators, UI, Clerk, `cloudflare/`, D1 routes and migrations | extraction, catalogs, policy, gear rows, the rules library, the app bundle |
+| Reads | `public/game-data/` | the plugin files and `A:\Cache\OpenMWFoundation` |
+| Never | opens a SQLite database or runs an extractor | writes JSX, CSS, or a route handler |
+
+**One agent per repository.** Both agents can reach both folders; that is the only
+thing that can actually break this arrangement. If you need a change on the other
+side, say so and stop — do not reach across.
+
+## The contract is the bundle
+
+The site consumes `public/game-data/<bundleId>/`: a content-addressed, hash-verified
+release described by `manifest.json` and selected by `current.json`. It is the only
+interface between the two halves. The site never reads `world.sqlite`,
+`acquisition.sqlite`, `services.sqlite`, `journal.sqlite` or `game-data.sqlite`.
+
+`bundle-types.ts`, `catalog-types.ts`, `policy-types.ts` and `gear-rows-types.ts`
+live in the data repository and are the written form of that contract. At runtime
+the manifest is the real contract and `lib/bundle-loader.mjs` validates it, so drift
+cannot ship silently — but keep the two in step deliberately, not by luck.
+
+## What the loader accepts and rejects
+
+Measured against the real bundle, not assumed:
+
+```
+ACCEPTS   extra field on every record
+ACCEPTS   extra top-level field in a payload
+ACCEPTS   extra field in the manifest
+
+REJECTS   schemaVersion bumped          -> "manifest version/snapshot mismatch"
+REJECTS   catalog declared, not emitted -> "missing/ambiguous catalog <name>"
+REJECTS   record count drift            -> "record count mismatch"
+```
+
+So: **additive changes to schema 1.0.0 are safe and need no site change.** A new
+catalog ships for free provided it is emitted for every profile, and stays inert
+until the site adds it to `FEATURE_CATALOGS`. Everything else is breaking, fails
+loudly at staging with a readable message, and requires a version bump agreed on
+both sides in the same session.
+
+Worth adding to the site's test suite: a fixture that asserts these six outcomes, so
+a loader change that tightens validation is caught before it blocks a data release.
+
+## The pin
+
+`npm run data:stage` validates every hash and reconstructs every delta before it
+switches `current.json`. Until someone runs it, the site keeps serving the release it
+already has. A rebuild on the data side therefore cannot break a working site by
+accident — which is what makes parallel work safe rather than merely possible.
+
+Every artifact carries the `snapshotId` it came from and refuses to mix revisions.
+Keep that property in anything new.
+
+## Current split of work
+
+**Site agent**
+
+1. Rewire the legacy calculators to the loader. `DATA_LOADER.md` is explicit that
+   the loader is ready and the calculators still use their verified legacy tables;
+   until this lands, the bundle powers nothing.
+2. Repoint `scripts/stage-game-data.mjs` away from its `A:/Cache/OpenMWBundlePreview`
+   default to `A:/Cache/OpenMWFoundation/app-bundle`. The preview folder is scratch
+   and will be deleted.
+3. Commit or delete the untracked `lib/character-catalogs.mjs`.
+4. Build the three-toggle UI: steal early gear, endgame gear early, near starting
+   areas. See POLICY.md in the data repository for what each one means.
+5. D1 schema and routes for journal progress, equipped loadouts, known spells and
+   saved challenges. The existing 16 KB `character_json` cap will not hold them.
+   The data agent supplies the field requirements; the migrations are yours.
+
+**Data agent**
+
+1. Ship gear rows through the bundle as a `GearRows` catalog. 424 rows per profile
+   currently sit unused because they are a separate artifact. Additive, so it costs
+   the site nothing to ship and one line to use.
+2. The rules library. `CATALOGS.md` states that engine-fixed targeting,
+   no-magnitude and no-duration effect rules, harmful-effect flags and display units
+   are **not** synthesized. Alchemy, enchanting and spellmaking cannot be correct
+   without them. This is the largest gap in the project.
+3. The travel graph as a shipped catalog, from `services.sqlite`.
+4. Merchant barter pricing, for "gold price per merchant".
+5. The 326 journal topics with no resolvable title.
+6. Save import for OpenMW `.omwsave`, format v37.
+
+## Asking across the boundary
+
+State the request as a contract change, not a task. Name the catalog or field, say
+whether it is additive, and give the shape. The other side decides how to implement
+it. If a change is breaking, both sides bump and land it together — never one alone.
+
+When either side finishes something the other can use, say so explicitly with the
+artifact name. Silence reads as "not ready yet".

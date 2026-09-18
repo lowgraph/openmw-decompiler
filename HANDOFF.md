@@ -4,6 +4,9 @@ You are picking up the game-data pipeline for **Silt Strider**, a Morrowind buil
 planner and challenge-run generator. This document is the whole picture: what the app
 needs, what exists, what was learned the hard way, and what to do next.
 
+A second agent owns the site in parallel: read [COORDINATION.md](COORDINATION.md)
+for the ownership split and the additive-only contract rule.
+
 Read [README.md](README.md) for the run order, then the doc for whatever stage you
 touch. `AGENTS.md` holds the local workflow rules and they are not optional: **the
 user runs full real-data extractions themselves in VS Code.** Build the code, verify
@@ -13,13 +16,15 @@ with synthetic fixtures, hand over commands.
 
 | | Path | What |
 | --- | --- | --- |
-| Site | `A:\Claude\morrowind-tools` | The app. One self-contained `index.html`, Clerk auth, a Cloudflare Worker and D1 |
+| Site | `A:\Claude\morrowind-tools` | The app. Next.js 16 / React 19, Tailwind, Clerk auth, a Cloudflare Worker and D1 |
 | Pipeline | this repo | Extraction, catalogs, policy, rows. Pushed to `lowgraph/openmw-decompiler` (private) |
 | Artifacts | `A:\Cache\OpenMWFoundation` | ~3.6 GB of SQLite. Never committed, always rebuildable |
 
-`A:\Claude\morrowind-tools\AGENTS.md` declares a React/Next.js/Tailwind/shadcn stack,
-while the app is actually a single static `index.html` with no build step. Do not
-resolve that yourself — ask the user which is true before writing any site code.
+The site moved from a single static `index.html` to Next.js 16 with a Cloudflare
+export, and now consumes the app bundle through `lib/bundle-loader.mjs`. The legacy
+markup is still extracted into the React shell during the transition, and the
+calculators have not been rewired to the loader yet. That work belongs to the site
+agent; see [COORDINATION.md](COORDINATION.md).
 
 ## What the app does
 
@@ -110,7 +115,8 @@ must not imply a verdict on its own.
 classes, 10 weapon rows by skill and handedness, 10 clothing slots, times 8 toggle
 combinations.
 
-**Git.** The repo had no commits. It now has eight, and a private GitHub remote.
+**Git.** The repo had no commits. It now has a full history and a private GitHub
+remote at `lowgraph/openmw-decompiler`.
 
 ## Rules that cost real debugging
 

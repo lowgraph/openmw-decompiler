@@ -1,3 +1,10 @@
+# Two agents work on this project
+
+Read [COORDINATION.md](COORDINATION.md) before starting, and [HANDOFF.md](HANDOFF.md)
+if you are picking this up cold. You own this repository; a second agent owns the
+site at `A:/Claude/morrowind-tools` and consumes the bundle you publish. Do not edit
+that repository.
+
 # Local workflow preferences
 
 - The user runs full game-data extraction commands locally in VS Code. Build the
