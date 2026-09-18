@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0.0",
+  "policyVersion": "2026.09.18",
+  "name": "Silt Strider default acquisition policy",
+  "notes": [
+    "Authored rules, versioned independently of any extraction snapshot.",
+    "Changing a rule here never requires re-extracting the game data.",
+    "Thresholds are stated once; the evaluator derives numbers from the game."
+  ],
+  "hostileFightThreshold": 70,
+  "earlyGame": {
+    "characterLevel": 1,
+    "maxGoldPerItem": 500,
+    "allowTheft": false,
+    "assumeFactionAccess": true,
+    "requireGuaranteedSource": true,
+    "countRestockingMerchantsAsGuaranteed": true,
+    "danger": {
+      "benchmark": {
+        "profile": "vanilla",
+        "cellKey": "interior:samarys ancestral tomb",
+        "label": "Mentor's Ring, Samarys Ancestral Tomb"
+      },
+      "limits": null
+    }
+  }
+}

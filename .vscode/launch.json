@@ -2,6 +2,23 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Query item sources with policy (Mentor\u2019s Ring)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/query_item_sources.py",
+      "args": [
+        "--profile",
+        "vanilla",
+        "--item",
+        "ring_mentor_unique",
+        "--policy",
+        "--max-placements",
+        "8000"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
       "name": "Build app bundle",
       "type": "debugpy",
       "request": "launch",

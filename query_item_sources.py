@@ -11,11 +11,13 @@ from export_items import CATEGORIES,ExportError
 from build_acquisition_index import metadata
 from inspect_acquisition_index import query_item
 from inspect_script_evidence import item_evidence
+from evaluate_policy import assess,load_policy
 
 
 def unified_sources(acquisition,world,evidence,profile,item,record_type=None,
                     max_nodes=2000,max_edges=5000,max_depth=12,max_placements=100,
-                    max_events=100,max_script_targets=200,max_anchors=100,max_anchor_placements=100):
+                    max_events=100,max_script_targets=200,max_anchors=100,max_anchor_placements=100,
+                    policy=None,services=None,catalogs=None):
     if min(max_events,max_script_targets,max_anchors,max_anchor_placements)<1:
         raise ExportError('Evidence limits must be positive')
     am,wm,em=metadata(acquisition),metadata(world),metadata(evidence)
@@ -104,7 +106,9 @@ def unified_sources(acquisition,world,evidence,profile,item,record_type=None,
         'counts':{'staticPlacements':len(static['placements']),'scriptEvents':len(events),
             'scriptContextDefinitions':len(anchors),'scriptContextPlacements':len(locations)},
         'coverage':'Static containment plus lexical script evidence for the item and discovered ancestors. Context locations are not item placements or proof of execution.',
-        'assessment':{'obtainable':None,'theftRequired':None,'saleStatus':None,'price':None,'earlyGameEligible':None},
+        # Null until a policy is supplied: evidence never implies a verdict on its own.
+        'assessment':assess(world,services,catalogs,profile,static,{'events':events},policy,None,bool(reasons)) if policy else
+            {'obtainable':None,'theftRequired':None,'saleStatus':None,'price':None,'earlyGameEligible':None},
         'static':static,'script':{'events':events,'contextAnchors':list(anchors.values()),'contextLinks':anchor_links,
             'contextPlacements':locations,'targetsExamined':targets_examined,
             'limits':{'events':max_events,'targets':max_script_targets,'anchors':max_anchors,'anchorPlacements':max_anchor_placements}}}
@@ -116,6 +120,9 @@ def main(argv=None):
     parser.add_argument('--profile',default='tr',choices=['vanilla','tr','tr_arce'])
     parser.add_argument('--acquisition-database',type=Path);parser.add_argument('--world-database',type=Path)
     parser.add_argument('--evidence-database',type=Path)
+    parser.add_argument('--policy',type=Path,nargs='?',const=ROOT/'policy/early-game.json',
+        help='Evaluate this authored policy; defaults to policy/early-game.json when given without a path')
+    parser.add_argument('--services-database',type=Path);parser.add_argument('--catalogs',type=Path)
     for name,default in [('nodes',2000),('edges',5000),('depth',12),('placements',100),('events',100),('script-targets',200),('anchors',100),('anchor-placements',100)]:
         parser.add_argument('--max-'+name,type=int,default=default)
     args=parser.parse_args(argv)
@@ -124,13 +131,21 @@ def main(argv=None):
     try:
         root=load_config(ROOT/'foundation_config.json')[2]
         paths=(args.acquisition_database or root/'acquisition/acquisition.sqlite',args.world_database or root/'world/world.sqlite',args.evidence_database or root/'script-evidence/script-evidence.sqlite')
+        policy=load_policy(args.policy) if args.policy else None
+        if policy:
+            paths+=(args.services_database or root/'services/services.sqlite',)
         with ExitStack() as stack:
             dbs=[]
             for path in paths:
                 db=stack.enter_context(closing(sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True)))
                 db.execute('PRAGMA temp_store=MEMORY');db.execute('PRAGMA cache_size=-16384');db.execute('BEGIN');dbs.append(db)
-            result=unified_sources(*dbs,args.profile,args.item,args.record_type,args.max_nodes,args.max_edges,args.max_depth,args.max_placements,
-                args.max_events,args.max_script_targets,args.max_anchors,args.max_anchor_placements)
+            catalogs=args.catalogs
+            if policy and catalogs is None:
+                pointer=root/'catalogs/current.json'
+                catalogs=root/'catalogs'/json.loads(pointer.read_text(encoding='utf-8'))['releaseId'] if pointer.is_file() else None
+            result=unified_sources(*dbs[:3],args.profile,args.item,args.record_type,args.max_nodes,args.max_edges,args.max_depth,args.max_placements,
+                args.max_events,args.max_script_targets,args.max_anchors,args.max_anchor_placements,
+                policy,dbs[3] if policy else None,catalogs)
             print(json.dumps(result,ensure_ascii=False,indent=2,allow_nan=False));return 0
     except (OSError,ValueError,KeyError,sqlite3.Error) as exc:
         print(f'Item source query failed: {exc}',file=sys.stderr);return 1

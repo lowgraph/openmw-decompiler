@@ -35,6 +35,13 @@ inventories and leveled lists, without expanding location paths.
 `python inspect_script_evidence.py --item katana_goldbrand_unique`.
 See [SCRIPT_EVIDENCE.md](SCRIPT_EVIDENCE.md) for command coverage and uncertainty.
 
+**Acquisition policy:** add `--policy` to `query_item_sources.py` to fill in the
+`assessment` block: obtainability, theft, sale status, price and early-game eligibility.
+See [POLICY.md](POLICY.md) and `policy-types.ts`. The rules are authored in
+[policy/early-game.json](policy/early-game.json) and versioned separately from any
+extraction snapshot, so a rule change never costs a re-extraction. Without `--policy`
+the assessment stays null.
+
 **Unified item sources:** run `python query_item_sources.py --item katana_goldbrand_unique`.
 This combines the existing static index and script evidence with bounded context
 location lookups. No new database build is needed. See [ITEM_SOURCES.md](ITEM_SOURCES.md).
