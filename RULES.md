@@ -66,10 +66,34 @@ name a different effect.
 That is not hypothetical — it is what the first version of the dumper produced, by
 keying on position in the record list rather than on the engine's effect id.
 
+Effects join on **name**. OpenMW keys its own records by a string id the catalogs do
+not carry, and two effects — Call Wolf and Call Bear — have ids that do not match their
+names either, so name is the only key that covers all 141. A name the dump repeats is
+dropped rather than resolved arbitrarily; Tamriel Rebuilt ships two Wabbajack effects
+and two Corruption effects with distinct ids.
+
 A dump also sees effects that no plugin defines. Tamriel Rebuilt registers extra
-summons through Lua, so a TR run reports 186 effects against 141 in the data. They
-carry no engine id, are listed under `luaAdded`, and are deliberately not merged;
-`verification.engineEffectsUnmatched` names any the catalogs lack.
+summons through Lua, via `content=Tamriel_Data.omwscripts`, so a TR run reports 186
+effects against 141 in the data — `Tamriel_Data.esm` contributes no MGEF records at
+all. `verification.engineEffectsUnmatched` names them; on the current release that is
+41.
+
+### How the inferences actually fared
+
+```
+549 confirmed    1 corrected    14 previously unknown
+```
+
+The one correction is Corprus, where four uses all at duration 1 suggested no duration
+and the engine disagrees — exactly the thin-evidence case the threshold was meant to
+catch, sitting right on it.
+
+Three effects report `rangesUnexplained`, and the cause is real rather than a bug.
+Rally Humanoid, Absorb Attribute and Absorb Health are all forbidden on Self by the
+engine, yet four records use them that way: the vanilla enchantments `magnus' wrath`
+and `vampire's kiss_en`, and the Tamriel Rebuilt spells `tr_m1_telwarlock` and
+`tr_m3_farascultbuff`. Absorbing from yourself does nothing, so these are authoring
+mistakes the engine tolerates. The flag is informational and does not stop the merge.
 
 ## How the rules are derived
 
@@ -93,7 +117,7 @@ with far more confidence than either alone.
 An effect the content never exercises at least three times in any one profile reports
 `null` rather than a guess. On the current release that is 7 of 141: Cure Corprus
 Disease, Remove Curse, EXTRA SPELL, Stunted Magicka, Summon Fabricant, Call Bear and
-Summon Bonewolf. **134 are decided.**
+Summon Bonewolf. **134 are decided**, and with a dump all 141 are.
 
 `rangesObserved` proves a range is allowed. It does not prove an unobserved range is
 forbidden, and the field is named for what it is. Potions contribute magnitude and

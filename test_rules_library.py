@@ -69,8 +69,9 @@ class RulesFixture(unittest.TestCase):
                 'allowsSpellmaking': True, 'allowsEnchanting': True, 'negativeLight': False}
         path = Path(tempfile.mkdtemp())/'effect-flags.json'
         path.write_text(json.dumps({'schemaVersion': '1.0.0', 'effects': len(records),
-                                    'source': {'tool': 'test'},
-                                    'records': [base | r for r in records]}), encoding='utf-8')
+                                    'source': {'tool': 'test'}, 'ambiguousNames': [],
+                                    'records': [base | {'id': str(r.get('index', 0))} | r
+                                                for r in records]}), encoding='utf-8')
         return path
 
     def merged(self, profiles, flags, effects=None, ident=1):
@@ -236,13 +237,10 @@ class EngineFlagTests(RulesFixture):
         self.assertEqual(row['rangesUnexplained'], ['target'])
         self.assertEqual(payload['verification']['rangesUnexplained'], [row['name']])
 
-    def test_an_effect_absent_from_the_dump_falls_back_to_inference(self):
-        flags = self.flags({'index': 999})
-        payload, row = self.merged({'vanilla': {'Spells': [spell(use(1))]*3}}, flags)
-        self.assertEqual(row['source'], 'derived')
-        self.assertIsNone(row['harmful'])
-        self.assertIsNone(row['agreement'])
-        self.assertEqual(payload['verification']['effectsFromEngine'], 0)
+    def test_a_dump_missing_a_catalog_effect_is_refused(self):
+        flags = self.flags({'index': 999, 'name': 'Something Else'})
+        with self.assertRaises(ExportError):
+            self.merged({'vanilla': {'Spells': [spell(use(1))]*3}}, flags)
 
     def test_without_a_dump_nothing_claims_engine_provenance(self):
         payload, row = self.merged({'vanilla': {'Spells': [spell(use(1))]*3}}, None)
@@ -263,8 +261,8 @@ class EngineFlagTests(RulesFixture):
         flags = self.flags({'index': 1, 'name': 'Two'}, {'index': 2, 'name': 'Three'})
         with self.assertRaises(ExportError) as caught:
             self.merged({'vanilla': {}}, flags, effects)
-        self.assertIn('does not line up', str(caught.exception))
-        self.assertIn("catalog 'One' vs dump 'Two'", str(caught.exception))
+        self.assertIn('does not cover the catalogs', str(caught.exception))
+        self.assertIn('One', str(caught.exception))
 
     def test_an_aligned_dump_passes_the_check(self):
         effects = [effect(1, 'One'), effect(2, 'Two')]
@@ -272,9 +270,10 @@ class EngineFlagTests(RulesFixture):
         payload, _ = self.merged({'vanilla': {}}, flags, effects)
         self.assertEqual(payload['verification']['effectsFromEngine'], 2)
 
-    def test_check_alignment_ignores_effects_the_dump_does_not_carry(self):
-        self.assertEqual(check_alignment([effect(1, 'One'), effect(2, 'Two')],
-                                         {1: {'name': 'One'}}), 1)
+    def test_check_alignment_requires_every_catalog_effect(self):
+        self.assertEqual(check_alignment([effect(1, 'One')], {'One': {'name': 'One'}}), 1)
+        with self.assertRaises(ExportError):
+            check_alignment([effect(1, 'One'), effect(2, 'Two')], {'One': {'name': 'One'}})
 
     def test_engine_effects_with_no_catalog_entry_are_reported(self):
         flags = self.flags({'index': 1, 'name': 'One'}, {'index': 99, 'name': 'Summon Devourer'})

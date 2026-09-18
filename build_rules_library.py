@@ -89,42 +89,38 @@ def fixed_at(values, sentinel):
 
 
 def load_flags(path):
-    """Engine facts from import_effect_flags.py, keyed by effect index."""
+    """Engine facts from import_effect_flags.py, keyed by effect name.
+
+    OpenMW keys its own records by a string id that the catalogs do not carry, and two
+    of them (Call Wolf, Call Bear) do not match their name either, so the join is on
+    name. Names the dump repeats are dropped rather than resolved arbitrarily.
+    """
     if path is None or not Path(path).is_file():
         return {}
     payload = json.loads(Path(path).read_text(encoding='utf-8'))
     if payload.get('schemaVersion') != VERSION:
         raise ExportError(f'Unsupported effect flag schema {payload.get("schemaVersion")!r}')
-    return {record['index']: record for record in payload['records']}
+    ambiguous = set(payload.get('ambiguousNames') or ())
+    return {record['name']: record for record in payload['records']
+            if record.get('name') and record['name'] not in ambiguous}
 
 
 def check_alignment(effects, engine):
-    """Refuse to merge on an index the two sides disagree about.
+    """Refuse to merge a dump that does not cover the catalogs.
 
-    Both sides name every effect, so a join that is off by even one shows up
-    immediately. Without this check a shifted dump silently rewrites every rule.
+    A dump from a different game, a stale one, or one whose join key has drifted shows
+    up here as missing names. Without this check it would quietly rewrite the rules of
+    whatever it did happen to match.
     """
-    matched = mismatched = 0
-    examples = []
-    for effect in effects:
-        record = engine.get(effect['effectId'])
-        if record is None:
-            continue
-        if record.get('name') == effect['name']:
-            matched += 1
-        else:
-            mismatched += 1
-            if len(examples) < 4:
-                examples.append(f"{effect['effectId']}: catalog {effect['name']!r} "
-                                f"vs dump {record.get('name')!r}")
-    if mismatched:
+    missing = [e['name'] for e in effects if e['name'] not in engine]
+    if missing:
         raise ExportError(
-            f'The effect dump does not line up with the catalogs: {mismatched} of '
-            f'{matched + mismatched} matched indices name a different effect.\n  '
-            + '\n  '.join(examples)
-            + '\n  Rebuild the dump with the current openmw_effect_dump, or pass '
-              '--no-flags to infer from content alone.')
-    return matched
+            f'The effect dump does not cover the catalogs: {len(missing)} of '
+            f'{len(effects)} effects are absent from it.\n  '
+            + ', '.join(missing[:6]) + (' ...' if len(missing) > 6 else '')
+            + '\n  Rebuild the dump with the current openmw_effect_dump under the same '
+              'content, or pass --no-flags to infer from content alone.')
+    return len(effects)
 
 
 def agreement(inferred, fact):
@@ -183,7 +179,7 @@ def build(release, output, profiles, flags=None):
     published = []
     for profile in profiles:
         effects = catalog(release, profile, 'MagicEffects')
-        records = [rule(effect, pooled.get(effect['effectId']), engine.get(effect['effectId']))
+        records = [rule(effect, pooled.get(effect['effectId']), engine.get(effect['name']))
                    for effect in sorted(effects, key=lambda e: e['effectId'])]
         derived = sum(1 for r in records if r['noMagnitude'] is not None)
         verdicts = Counter(v for r in records if r['agreement'] for v in r['agreement'].values())
@@ -198,8 +194,7 @@ def build(release, output, profiles, flags=None):
             'costFormula': COST_FORMULA,
             'verification': {'source': 'engine' if engine else 'content only',
                              'engineEffectsUnmatched': sorted(
-                                 engine[i]['name'] for i in engine
-                                 if i not in {e['effectId'] for e in effects}),
+                                 set(engine) - {e['name'] for e in effects}),
                              'effectsFromEngine': sum(1 for r in records if r['source'] == 'engine'),
                              'confirmed': verdicts['confirmed'], 'corrected': verdicts['corrected'],
                              'decided': verdicts['decided'],
