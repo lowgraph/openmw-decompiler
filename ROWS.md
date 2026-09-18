@@ -21,11 +21,11 @@ See `gear-rows-types.ts` for the app contract.
 | Category | Split by | Count |
 | --- | --- | --- |
 | `armor` | slot × armour class | 10 × 3 = 30 |
-| `shield` | nothing; shields are one row | 1 |
+| `shield` | armour class | 3 |
 | `weapon` | skill × handedness | 10 |
 | `clothing` | slot | 10 |
 
-51 definitions × 8 toggle combinations = **408 rows per profile**. Every combination
+53 definitions × 8 toggle combinations = **424 rows per profile**. Every combination
 is emitted even when empty, so the site can index straight into it rather than
 searching. Arrows and bolts are ammunition, not a slot, and get no row.
 
@@ -49,8 +49,10 @@ best far one when nothing is close. `alternative` is the strongest far piece, an
 published **only** when the primary was near and the far piece is strictly stronger —
 an equal piece farther away earns no row. Ties on strength go to the cheaper piece.
 
-Measured on the vanilla profile, all 51 rows fill with every toggle off, and 18 carry
-an "or". Turning theft and endgame on moves the "or" rows to the Mournhold Museum of
+Measured on the vanilla profile, every row fills with all three toggles off except
+the ones vanilla genuinely lacks nearby, and 18 carry an "or". Requiring near-start
+empties medium gauntlets and the light right bracer: vanilla's only medium gauntlets
+are Bear Gauntlets in Skaal Village, on Solstheim. That is the rule working, not a gap. Turning theft and endgame on moves the "or" rows to the Mournhold Museum of
 Artifacts, which is what the site already says that toggle does.
 
 ## Toggles
@@ -61,7 +63,7 @@ all eight against it through a shared cache — the reason a full profile takes 
 rather than hours.
 
 ```
-vanilla: 1,605 items -> 408 rows, 398 filled, 246 KB, 196s
+vanilla: 1,605 items -> 424 rows, 414 filled, 254 KB, 196s
 ```
 
 ## Options and verification

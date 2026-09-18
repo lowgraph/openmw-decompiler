@@ -49,7 +49,7 @@ export type GearRow = {
   category: RowCategory;
   /** Set for armor and clothing rows; null for shields and weapons. */
   slot: ArmorSlot | ClothingSlot | null;
-  /** Set for armor rows only. */
+  /** Set for armor and shield rows; null for weapons and clothing. */
   armorClass: ArmorClass | null;
   /** Set for weapon rows only. */
   skill: WeaponSkill | null;

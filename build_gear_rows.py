@@ -79,11 +79,12 @@ def strength(record):
 
 def row_key(record, settings):
     if record['recordType'] == 'ARMO':
-        if record['type'] == 'shield':
-            return ('shield', None, None, None)
         if record['type'] not in ARMOR_WEIGHT_GMST:
             return None
-        return ('armor', record['type'], armor_class(record, settings), None)
+        # Shields are their own category but still split light/medium/heavy.
+        category = 'shield' if record['type'] == 'shield' else 'armor'
+        slot = None if category == 'shield' else record['type']
+        return (category, slot, armor_class(record, settings), None)
     if record['recordType'] == 'WEAP':
         if record['type'] not in WEAPON_ROWS:
             return None
@@ -150,7 +151,7 @@ def assemble(buckets, categories):
     if 'armor' in categories:
         definitions += [('armor', slot, armour, None) for slot in ARMOR_SLOTS for armour in ARMOR_CLASSES]
     if 'shield' in categories:
-        definitions += [('shield', None, None, None)]
+        definitions += [('shield', None, armour, None) for armour in ARMOR_CLASSES]
     if 'weapon' in categories:
         definitions += [('weapon', None, None, pair) for pair in sorted(set(WEAPON_ROWS.values()))]
     if 'clothing' in categories:

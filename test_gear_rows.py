@@ -58,8 +58,9 @@ class StrengthTests(unittest.TestCase):
 
 
 class RowKeyTests(unittest.TestCase):
-    def test_shields_get_their_own_row_not_a_class_split(self):
-        self.assertEqual(row_key(armour('shield', 8), SETTINGS), ('shield', None, None, None))
+    def test_shields_are_their_own_category_but_still_split_by_class(self):
+        self.assertEqual(row_key(armour('shield', 8), SETTINGS), ('shield', None, 'light', None))
+        self.assertEqual(row_key(armour('shield', 14), SETTINGS), ('shield', None, 'heavy', None))
 
     def test_armour_splits_by_slot_and_class(self):
         self.assertEqual(row_key(armour('boots', 5), SETTINGS), ('armor', 'boots', 'light', None))
@@ -99,24 +100,25 @@ class AssembleTests(unittest.TestCase):
     def rows(self, buckets, categories=('armor', 'shield', 'weapon', 'clothing')):
         return assemble(buckets, set(categories))
 
-    def shield_row(self, buckets, toggles=(False, False, False)):
+    def shield_row(self, buckets, toggles=(False, False, False), armour='light'):
         theft, endgame, near = toggles
         return next(r for r in self.rows(buckets) if r['category'] == 'shield'
+                    and r['armorClass'] == armour
                     and r['toggles'] == {'theft': theft, 'endgame': endgame, 'nearStart': near})
 
     def test_one_row_per_slot_per_toggle_combination(self):
         rows = self.rows({})
-        expected = (len(ARMOR_SLOTS)*len(ARMOR_CLASSES) + 1
+        expected = ((len(ARMOR_SLOTS) + 1)*len(ARMOR_CLASSES)
                     + len(set(WEAPON_ROWS.values())) + len(CLOTHING_SLOTS))
         self.assertEqual(len(rows), expected*8)
         self.assertTrue(all(row['primary'] is None for row in rows))
 
     def test_categories_can_be_built_separately(self):
-        self.assertEqual(len(self.rows({}, ('shield',))), 8)
+        self.assertEqual(len(self.rows({}, ('shield',))), len(ARMOR_CLASSES)*8)
         self.assertEqual(len(self.rows({}, ('clothing',))), len(CLOTHING_SLOTS)*8)
 
     def test_the_closest_source_wins_even_when_weaker(self):
-        key = ('shield', None, None, None)
+        key = ('shield', None, 'light', None)
         buckets = {key: {(False, False, False): [candidate('near shield', 10, True),
                                                  candidate('far shield', 90, False)]}}
         row = self.shield_row(buckets)
@@ -125,21 +127,21 @@ class AssembleTests(unittest.TestCase):
         self.assertEqual((row['eligible'], row['nearStart']), (2, 1))
 
     def test_no_or_row_when_the_far_piece_is_not_stronger(self):
-        key = ('shield', None, None, None)
+        key = ('shield', None, 'light', None)
         buckets = {key: {(False, False, False): [candidate('near', 50, True), candidate('far', 50, False)]}}
         row = self.shield_row(buckets)
         self.assertEqual(row['primary']['name'], 'near')
         self.assertIsNone(row['alternative'], 'an equal piece farther away earns no row')
 
     def test_a_far_piece_fills_the_row_when_nothing_is_close(self):
-        key = ('shield', None, None, None)
+        key = ('shield', None, 'light', None)
         buckets = {key: {(False, False, False): [candidate('far', 20, False)]}}
         row = self.shield_row(buckets)
         self.assertEqual(row['primary']['name'], 'far')
         self.assertIsNone(row['alternative'], 'the far piece is already the primary')
 
     def test_toggle_buckets_do_not_leak_into_each_other(self):
-        key = ('shield', None, None, None)
+        key = ('shield', None, 'light', None)
         buckets = {key: {(True, False, False): [candidate('stolen', 40, True)]}}
         self.assertEqual(self.shield_row(buckets, (True, False, False))['primary']['name'], 'stolen')
         self.assertIsNone(self.shield_row(buckets, (False, False, False))['primary'])
