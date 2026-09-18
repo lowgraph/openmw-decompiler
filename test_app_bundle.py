@@ -167,9 +167,10 @@ class BundleTests(unittest.TestCase):
             (directory/(profile+'-0000.json')).write_text(json.dumps(payload), encoding='utf-8')
         return directory
 
-    def bundle_with(self, tag, **kwargs):
+    def bundle_with(self, tag, gear_rows=None, **kwargs):
         with contextlib.redirect_stdout(io.StringIO()):
-            return build_bundle(self.root/'catalogs', self.root/('bundle-'+tag), **kwargs)
+            return build_bundle(self.root/'catalogs', self.root/('bundle-'+tag),
+                                extras={'GearRows': gear_rows}, **kwargs)
 
     def test_gear_rows_ship_as_a_catalog_carrying_their_policy(self):
         bundle = self.bundle_with('gear', gear_rows=self.rows_dir('rows-ok'))
@@ -220,7 +221,7 @@ class BundleTests(unittest.TestCase):
                                                       {'key': 'shield/-/light/000'}])
         with self.assertRaises(ExportError) as caught:
             self.bundle_with('gear-dupe', gear_rows=duplicated)
-        self.assertIn('duplicate row keys', str(caught.exception))
+        self.assertIn('duplicate keys', str(caught.exception))
 
     def test_rebuild_refuses_and_preserves_the_active_pointer(self):
         before = (self.root/'bundle/current.json').read_bytes()

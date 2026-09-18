@@ -70,10 +70,12 @@ means eligible for starting-spell selection, not guaranteed learned by every cha
 Enchantments expose stored cost, charges, effects, and auto-calculation flags.
 
 MagicEffects exposes stored base costs, school, asset IDs, color, and raw MEDT flags.
-The spellmaking/enchanting availability bits are decoded. **Engine-fixed targeting,
-no-magnitude/no-duration, harmful-effect, and display-unit rules are not synthesized
-here.** A later rules library must combine these with extracted values before a
-calculator can accurately evaluate every effect. This is data supply, not a new
+The spellmaking/enchanting availability bits are decoded, and they are the only two the
+plugin files carry: every effect's MEDT flags are either 1536 or 0. **Engine-fixed
+targeting, no-magnitude/no-duration, harmful-effect, and display-unit rules are not
+synthesized here.** `build_rules_library.py` now derives targeting, no-magnitude and
+no-duration from content usage and publishes them as `EffectRules`; harmful-effect flags
+and display units remain unavailable. See [RULES.md](RULES.md). This is data supply, not a new
 implementation of alchemy or spellmaking calculations.
 
 GameSettings preserves string/integer/float distinctions and represents an unset

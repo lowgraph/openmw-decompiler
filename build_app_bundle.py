@@ -19,9 +19,14 @@ SUPPORTED_CATALOGS = {'1.0.0', '1.1.0'}
 # Book prose is the single largest catalog and no calculator reads it. It stays
 # out of the eager bundle; --include-book-text publishes it as its own file.
 DEFAULT_EXCLUDED = frozenset({BOOK_TEXT})
-# Gear rows are built separately but ship as an ordinary catalog, keyed per row.
-GEAR_ROWS = 'GearRows'
-GEAR_ROW_FIELDS = ('policy', 'limits', 'categories', 'coverage')
+# Catalogs built by their own tool rather than decoded from the foundation. Each
+# publishes <profile>-<hash>.json files; `carry` names the fields that travel with the
+# payload, which the loader accepts as unknown extras.
+EXTRA_CATALOGS = {
+    'GearRows': {'directory': 'gear-rows', 'array': 'rows',
+                 'carry': ('policy', 'limits', 'categories', 'coverage')},
+    'EffectRules': {'directory': 'rules', 'array': 'records',
+                    'carry': ('derivation', 'costFormula', 'coverage')}}
 
 
 def identity(record):
@@ -51,8 +56,9 @@ def delta(base, target, where):
     return changed, removed
 
 
-def load_gear_rows(directory, profile, snapshot):
-    """The newest rows file for this profile, pinned to the catalogs' own snapshot."""
+def load_extra(directory, profile, snapshot, name):
+    """The newest file for this profile, pinned to the catalogs' own snapshot."""
+    array = EXTRA_CATALOGS[name]['array']
     found = sorted(Path(directory).glob(profile+'-*.json'), key=lambda f: f.stat().st_mtime)
     if not found:
         return None
@@ -60,15 +66,16 @@ def load_gear_rows(directory, profile, snapshot):
     payload = json.loads(path.read_text(encoding='utf-8'))
     if payload.get('snapshotId') != snapshot:
         raise ExportError(f'{path.name} was built from a different snapshot than the catalogs; '
-                          'rebuild gear rows before bundling')
-    if not isinstance(payload.get('rows'), list) or not payload['rows']:
-        raise ExportError(f'{path.name} has no rows')
+                          f'rebuild {name} before bundling')
+    entries = payload.get(array)
+    if not isinstance(entries, list) or not entries:
+        raise ExportError(f'{path.name} has no {array}')
     # The loader joins records on key, so enforce that here rather than in the browser.
-    keys = [row.get('key') for row in payload['rows']]
+    keys = [entry.get('key') for entry in entries]
     if not all(isinstance(key, str) and key for key in keys):
-        raise ExportError(f'{path.name} has rows without a key; rebuild with build_gear_rows.py')
+        raise ExportError(f'{path.name} has {array} without a key; rebuild it')
     if len(set(keys)) != len(keys):
-        raise ExportError(f'{path.name} has duplicate row keys')
+        raise ExportError(f'{path.name} has duplicate keys')
     return payload | {'sourceFile': path.name}
 
 
@@ -115,7 +122,7 @@ def load_release(source):
     return release, json.loads(manifest.read_text(encoding='utf-8'))
 
 
-def build(source, output, profiles=None, include_book_text=False, gear_rows=None):
+def build(source, output, profiles=None, include_book_text=False, extras=None):
     release, catalogs = load_release(source)
     if catalogs.get('schemaVersion') not in SUPPORTED_CATALOGS:
         raise ExportError(f'Unsupported catalog schema {catalogs.get("schemaVersion")!r}')
@@ -132,16 +139,19 @@ def build(source, output, profiles=None, include_book_text=False, gear_rows=None
     if include_book_text and BOOK_TEXT not in names:
         raise ExportError(f'This catalog release has no {BOOK_TEXT} catalog; rebuild catalogs with schema 1.1.0')
     # All profiles or none: a catalog missing from one profile is a bundle the loader refuses.
-    gear = {}
-    if gear_rows is not None and Path(gear_rows).is_dir():
-        found = {p: load_gear_rows(gear_rows, p, catalogs['snapshotId']) for p in selected}
-        absent = sorted(p for p, rows in found.items() if rows is None)
+    extra = {}
+    for name in EXTRA_CATALOGS:
+        directory = (extras or {}).get(name)
+        if directory is None or not Path(directory).is_dir():
+            continue
+        found = {p: load_extra(directory, p, catalogs['snapshotId'], name) for p in selected}
+        absent = sorted(p for p, payload in found.items() if payload is None)
         if absent and len(absent) != len(selected):
-            raise ExportError('Gear rows found for some profiles but missing for '
-                              + ', '.join(absent) + '; build the rest or pass --no-gear-rows')
+            raise ExportError(f'{name} found for some profiles but missing for '
+                              + ', '.join(absent) + '; build the rest or disable it')
         if not absent:
-            gear = found
-            names.append(GEAR_ROWS)
+            extra[name] = found
+            names.append(name)
 
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -156,7 +166,8 @@ def build(source, output, profiles=None, include_book_text=False, gear_rows=None
     try:
         identifier = hashlib.sha256((catalogs['snapshotId'] + VERSION + catalogs['schemaVersion']
                                      + ','.join(sorted(selected)) + str(include_book_text)
-                                     + ','.join(sorted(rows['sourceFile'] for rows in gear.values()))
+                                     + ','.join(sorted(payload['sourceFile'] for group in extra.values()
+                                                       for payload in group.values()))
                                      ).encode()).hexdigest()[:24]
         destination = output/identifier
         if destination.exists():
@@ -169,8 +180,8 @@ def build(source, output, profiles=None, include_book_text=False, gear_rows=None
             cache = {}
 
             def records_for(profile_id, name):
-                if name == GEAR_ROWS:
-                    return gear[profile_id]['rows']
+                if name in extra:
+                    return extra[name][profile_id][EXTRA_CATALOGS[name]['array']]
                 if (profile_id, name) not in cache:
                     rows = read_catalog(release, profile_id, name)['records']
                     if name == 'Books':
@@ -194,11 +205,12 @@ def build(source, output, profiles=None, include_book_text=False, gear_rows=None
                     common = {'schemaVersion': VERSION, 'snapshotId': catalogs['snapshotId'],
                               'profile': {k: profile[k] for k in ('id', 'world', 'version', 'arce')},
                               'catalog': name}
-                    if name == GEAR_ROWS:
-                        # Unknown payload fields are accepted by the loader, so the policy
-                        # that produced these rows travels with them.
-                        common |= {k: gear[profile_id][k] for k in GEAR_ROW_FIELDS
-                                   if k in gear[profile_id]}
+                    if name in extra:
+                        # Unknown payload fields are accepted by the loader, so whatever
+                        # produced these records travels with them.
+                        source_payload = extra[name][profile_id]
+                        common |= {k: source_payload[k] for k in EXTRA_CATALOGS[name]['carry']
+                                   if k in source_payload}
                     if base is None:
                         payload = common | {'kind': 'full', 'records': rows}
                         entry = {'kind': 'full', 'records': len(rows)}
@@ -244,13 +256,16 @@ def main(argv=None):
     parser.add_argument('--profile', action='append', choices=['vanilla', 'tr', 'tr_arce'])
     parser.add_argument('--include-book-text', action='store_true', help='Publish book prose as its own file')
     parser.add_argument('--gear-rows', type=Path, help='Gear row directory; defaults to <root>/gear-rows')
-    parser.add_argument('--no-gear-rows', action='store_true', help='Publish catalogs only')
+    parser.add_argument('--no-gear-rows', action='store_true', help='Leave gear rows out')
+    parser.add_argument('--rules', type=Path, help='Rules library directory; defaults to <root>/rules')
+    parser.add_argument('--no-rules', action='store_true', help='Leave the rules library out')
     args = parser.parse_args(argv)
     try:
         root = load_config(ROOT/'foundation_config.json')[2]
         build(args.catalogs or root/'catalogs', args.output or root/'app-bundle',
               args.profile, args.include_book_text,
-              None if args.no_gear_rows else (args.gear_rows or root/'gear-rows'))
+              {'GearRows': None if args.no_gear_rows else (args.gear_rows or root/'gear-rows'),
+               'EffectRules': None if args.no_rules else (args.rules or root/'rules')})
         return 0
     except KeyboardInterrupt:
         print('\nCancelled; previous active bundle is unchanged.')

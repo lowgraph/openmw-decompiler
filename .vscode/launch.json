@@ -2,6 +2,14 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Build effect rules library",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/build_rules_library.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
       "name": "Build gear rows (vanilla)",
       "type": "debugpy",
       "request": "launch",

@@ -87,10 +87,11 @@ Keep that property in anything new.
    that produced them travelling as payload fields. Rows must be rebuilt first: the
    packager refuses a file from another snapshot or one whose rows predate the key.
    Nothing changes on the site until `FEATURE_CATALOGS` gains a `gear` group.
-2. The rules library. `CATALOGS.md` states that engine-fixed targeting,
-   no-magnitude and no-duration effect rules, harmful-effect flags and display units
-   are **not** synthesized. Alchemy, enchanting and spellmaking cannot be correct
-   without them. This is the largest gap in the project.
+2. ~~The rules library.~~ **Partly done.** `build_rules_library.py` derives targeting,
+   no-magnitude and no-duration from content usage and ships them as the `EffectRules`
+   catalog, with the spell cost formula's engine literals authored alongside. 134 of 141
+   effects are decided, 7 report `null`. Display units and harmful-effect flags are still
+   absent and are not inferable from content; see RULES.md.
 3. The travel graph as a shipped catalog, from `services.sqlite`.
 4. Merchant barter pricing, for "gold price per merchant".
 5. The 326 journal topics with no resolvable title.

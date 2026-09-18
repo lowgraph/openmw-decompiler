@@ -26,6 +26,15 @@ Skill, scroll, value, weight and enchantment fields all remain. Pass
 `--include-book-text` to publish the prose as its own file, which requires a 1.1.0
 release. The site should fetch it only when it actually displays a book.
 
+**Catalogs built elsewhere are picked up.** `GearRows` and `EffectRules` are produced
+by their own tools rather than decoded from the foundation, and publish
+`<profile>-<hash>.json` files that the packager reads. Each must come from the same
+extraction snapshot as the catalogs, carry a unique `key` per entry, and exist for every
+selected profile — a catalog missing from one profile is a bundle the loader refuses, so
+the packager refuses it first with a message naming the profile. Whatever produced the
+records travels with them as payload fields, which the loader accepts. `--no-gear-rows`
+and `--no-rules` leave them out; `--gear-rows` and `--rules` read them from elsewhere.
+
 **Gear rows ship as a catalog.** `build_gear_rows.py` writes its own artifact per
 profile; the packager reads the newest file for each and publishes it as `GearRows`,
 keyed by row. The policy, limits, categories and coverage that produced the rows travel
@@ -51,7 +60,8 @@ Measured against release `6325cee99aad127fb8abf68b`:
 | `tr` | 21 | 0 | 13.91 MB | 965 KB |
 | `tr_arce` | 3 | 18 | 0.08 MB | **13 KB** |
 
-Gear rows add about 10 KB gzipped to vanilla and 15 KB to TR, and nothing to ARCE.
+Gear rows add about 10 KB gzipped to vanilla and 15 KB to TR; effect rules add 5 KB to
+each. Both cost ARCE nothing, because it inherits them unchanged.
 
 A visitor loads one profile: 253 KB gzipped for Vanilla, 965 KB for TR, and 978 KB
 for TR + ARCE. Book prose alone would have added 2.7 MB per profile.
@@ -74,7 +84,7 @@ bundle active. Completed bundles are retained and never deleted automatically.
 
 ```powershell
 python build_app_bundle.py --profile vanilla --profile tr
-python build_app_bundle.py --no-gear-rows
+python build_app_bundle.py --no-gear-rows --no-rules
 python build_app_bundle.py --catalogs A:\Cache\OpenMWFoundation\catalogs\<releaseId>
 python build_app_bundle.py --output A:\Cache\BundlePreview
 python -m unittest test_app_bundle -v
