@@ -1,5 +1,8 @@
 # OpenMW inventory exporter
 
+**Picking this up cold? Start with [HANDOFF.md](HANDOFF.md)** for the project scope,
+what exists, the rules that cost real debugging, and the ordered next steps.
+
 **New foundation:** start with [FOUNDATION.md](FOUNDATION.md) and run
 `python extract_foundation.py`. It preserves plugin records and resolves Vanilla,
 TR, and TR + ARCE profiles in `A:\Cache\OpenMWFoundation\game-data.sqlite`.
