@@ -5,8 +5,9 @@ import sqlite3
 import tempfile
 import unittest
 
-from evaluate_policy import (assess, cell_danger, load_policy, reachability, resolve_limits,
-                             with_obstacle, within_limits, DIRECT, INVENTORY, RESTOCKING, RANDOM)
+from evaluate_policy import (assess, cell_danger, effective_value, load_policy, reachability,
+                             resolve_limits, with_obstacle, within_limits,
+                             DIRECT, INVENTORY, RESTOCKING, RANDOM)
 from export_items import ExportError
 
 POLICY = {
@@ -15,6 +16,7 @@ POLICY = {
     'earlyGame': {'characterLevel': 1, 'maxGoldPerItem': 500, 'allowTheft': False,
                   'assumeFactionAccess': True, 'requireGuaranteedSource': True,
                   'countRestockingMerchantsAsGuaranteed': True,
+                  'vendorOwnedPlacementsArePurchasable': True, 'allowBrokenItems': False,
                   'danger': {'benchmark': {'profile': 'p', 'cellKey': 'tomb'}, 'limits': None}}}
 
 WORLD_SQL = '''
@@ -90,7 +92,8 @@ def edge(parent, target, kind='inventory', **details):
 def placement(node_version, cell, **extra):
     return {'nodeVersionId': node_version, 'placementVersionId': 1, 'referenceKey': 'r',
             'cellKey': cell, 'ownerKey': extra.get('owner'), 'factionKey': extra.get('faction'),
-            'details': {'lockLevelRaw': 0, 'trapId': None}}
+            'details': {'lockLevelRaw': 0, 'trapId': None,
+                        'itemChargeOrConditionRaw': extra.get('condition', -1)}}
 
 
 class PolicyDocumentTests(unittest.TestCase):
@@ -177,6 +180,29 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual((combined['hostiles'], combined['maxActorLevel'], combined['totalHealth']), (2, 20, 260))
         self.assertEqual(danger['hostiles'], 1)
         self.assertIs(with_obstacle(danger, None), danger)
+
+
+class ConditionValueTests(unittest.TestCase):
+    def test_worth_scales_with_remaining_condition(self):
+        # The Glass Dagger case: 4000 gold at 2 of 300 condition is 27 gold.
+        worth, condition = effective_value(4000, 300, 2)
+        self.assertEqual(worth, 27)
+        self.assertTrue(condition['worn'])
+        self.assertEqual((condition['raw'], condition['maximum']), (2, 300))
+
+    def test_undamaged_and_unknown_keep_the_base_value(self):
+        for raw in (-1, None):
+            self.assertEqual(effective_value(4000, 300, raw), (4000, None))
+        self.assertEqual(effective_value(4000, None, 2), (4000, None), 'no maximum, no scaling')
+        self.assertEqual(effective_value(None, 300, 2), (None, None))
+
+    def test_condition_above_maximum_is_clamped(self):
+        self.assertEqual(effective_value(4000, 300, 900)[0], 4000)
+
+    def test_a_broken_item_is_worth_nothing(self):
+        worth, condition = effective_value(4000, 300, 0)
+        self.assertEqual(worth, 0)
+        self.assertEqual(condition['ratio'], 0.0)
 
 
 class ReachabilityTests(unittest.TestCase):
@@ -347,6 +373,66 @@ class AssessmentTests(unittest.TestCase):
         result = self.assess(static([node(1, 'sword', 'WEAP'), node(2, 'urn', 'CONT')],
                                     [edge(2, 1)], [placement(2, 'tomb')]), truncated=True)
         self.assertTrue(result['earlyGameEligible'])
+
+    def shop(self, value, health, condition, policy=None):
+        """One worn weapon lying in a weapon merchant's shop, in its own world."""
+        world = World()
+        self.addCleanup(world.close)
+        world.object('dagger', 'WEAP')
+        world.object('trader', 'NPC_', level=5, health=50, fight=30)
+        world.merchant('trader', 1)
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        catalogs = Path(directory.name)
+        (catalogs/'p').mkdir()
+        (catalogs/'p/Weapons.json').write_text(json.dumps(
+            {'records': [{'key': 'dagger', 'value': value, 'health': health}]}), encoding='utf-8')
+        graph = static([node(1, 'dagger', 'WEAP')], [],
+                       [placement(1, 'shop', owner='trader', condition=condition)])
+        return assess(world.db, world.services, catalogs, 'p', graph, {'events': []},
+                      policy or POLICY, self.limits, False)
+
+    def test_worn_shop_stock_is_a_purchase_at_its_worn_price(self):
+        result = self.shop(4000, 300, 2)
+        route = result['routes'][0]
+        self.assertEqual(route['acquisition'], 'purchase')
+        self.assertFalse(route['theftRequired'])
+        self.assertEqual((route['value'], route['price']), (27, 27))
+        self.assertEqual(result['basisValue'], 4000, 'the base value stays visible')
+        self.assertTrue(result['earlyGameEligible'], 'over the cap at 4000, under it at 27')
+
+    def test_an_undamaged_copy_of_the_same_item_fails_the_cap(self):
+        result = self.shop(4000, 300, -1)
+        self.assertEqual(result['routes'][0]['value'], 4000)
+        self.assertFalse(result['earlyGameEligible'])
+        self.assertIn('above the 500 gold cap', ' '.join(result['routes'][0]['reasons']))
+
+    def test_vendor_ownership_can_be_treated_as_theft_instead(self):
+        strict = copy.deepcopy(POLICY)
+        strict['earlyGame']['vendorOwnedPlacementsArePurchasable'] = False
+        route = self.shop(4000, 300, 2, policy=strict)['routes'][0]
+        self.assertEqual(route['acquisition'], 'theft')
+        self.assertTrue(route['theftRequired'])
+        self.assertIsNone(route['price'])
+
+    def test_a_broken_item_is_refused_until_the_policy_allows_it(self):
+        result = self.shop(4000, 300, 0)
+        self.assertFalse(result['earlyGameEligible'])
+        self.assertIn('unusable until repaired', ' '.join(result['routes'][0]['reasons']))
+        self.assertIsNone(result['price'], 'broken stock sets no headline price')
+        self.assertEqual(result['saleStatus'], 'stocked', 'it is still stocked, just broken')
+        permissive = copy.deepcopy(POLICY)
+        permissive['earlyGame']['allowBrokenItems'] = True
+        allowed = self.shop(4000, 300, 0, policy=permissive)
+        self.assertTrue(allowed['earlyGameEligible'])
+        self.assertEqual(allowed['price'], 0)
+
+    def test_categories_without_condition_ignore_the_charge_field(self):
+        self.world.object('ring', 'CLOT')
+        self.world.object('urn', 'CONT')
+        result = self.assess(static([node(1, 'ring', 'CLOT'), node(2, 'urn', 'CONT')],
+                                    [edge(2, 1)], [placement(2, 'tomb', condition=5)]))
+        self.assertIsNone(result['routes'][0]['condition'])
 
     def test_the_verdict_cites_its_policy(self):
         self.world.object('sword', 'WEAP')

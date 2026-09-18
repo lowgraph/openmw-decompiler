@@ -20,6 +20,9 @@ MAGIC_ITEMS_BIT = 4096
 # path makes the whole path a chance, however guaranteed the rest of it is.
 DIRECT, INVENTORY, RESTOCKING, RANDOM = range(4)
 QUALITY_NAMES = ['direct', 'inventory', 'restocking', 'random']
+# Field holding full condition per category. A CellRef's condition/uses value is
+# pro rata worth: a Glass Dagger at 2 of 300 is worth 27 gold, not 4000.
+CONDITION_MAX = {'WEAP': 'health', 'ARMO': 'health', 'LOCK': 'uses', 'PROB': 'uses', 'REPA': 'uses'}
 CATEGORY_FILES = {'WEAP': 'Weapons', 'ARMO': 'Armor', 'CLOT': 'Clothing', 'BOOK': 'Books',
                   'ALCH': 'Potions', 'INGR': 'Ingredients', 'APPA': 'Apparatus', 'LOCK': 'Lockpicks',
                   'PROB': 'Probes', 'REPA': 'RepairTools', 'LIGH': 'Lights', 'MISC': 'Miscellaneous'}
@@ -34,7 +37,9 @@ def load_policy(path):
         raise ExportError('Policy has no earlyGame section')
     for name, kind in [('characterLevel', int), ('maxGoldPerItem', (int, float)), ('allowTheft', bool),
                        ('assumeFactionAccess', bool), ('requireGuaranteedSource', bool),
-                       ('countRestockingMerchantsAsGuaranteed', bool)]:
+                       ('countRestockingMerchantsAsGuaranteed', bool),
+                       ('vendorOwnedPlacementsArePurchasable', bool),
+                       ('allowBrokenItems', bool)]:
         if not isinstance(early.get(name), kind) or isinstance(early.get(name), bool) != (kind is bool):
             raise ExportError(f'Policy earlyGame.{name} is missing or the wrong type')
     if early['characterLevel'] < 1 or early['maxGoldPerItem'] < 0:
@@ -175,8 +180,18 @@ def reachability(static):
     return rank
 
 
+def effective_value(value, maximum, condition):
+    """Worth scales with remaining condition; -1 and absent both mean undamaged."""
+    if value is None or not maximum or condition is None or condition < 0:
+        return value, None
+    remaining = min(condition, maximum)
+    return round(value*remaining/maximum), {'raw': condition, 'maximum': maximum,
+                                            'ratio': round(remaining/maximum, 4),
+                                            'worn': remaining < maximum}
+
+
 def sells(services, profile, actor_key, record_type, enchanted):
-    if services is None:
+    if services is None or not actor_key:
         return None
     row = services.execute('''SELECT p.services_raw FROM profile_providers f
         JOIN providers p ON p.version_id=f.version_id WHERE f.profile_id=? AND f.actor_key=?''',
@@ -211,12 +226,18 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
     record = catalog_record(catalogs, profile, root['recordType'], root['key']) or {}
     enchanted = bool(record.get('enchantmentId'))
     value = record.get('value')
+    maximum = record.get(CONDITION_MAX.get(root['recordType'], ''))
     cache, routes = {}, []
     for placement in static['placements']:
         holder = nodes[placement['nodeVersionId']]
         quality = rank.get(holder['versionId'], RANDOM)
-        purchasable = bool(quality == RESTOCKING or sells(services, profile, holder['key'],
-                                                          root['recordType'], enchanted))
+        extra = placement.get('details') or {}
+        worth, condition = effective_value(value, maximum, extra.get('itemChargeOrConditionRaw'))
+        # Shop stock is owned by its merchant, so the owner is a vendor, not a victim.
+        vendor = placement.get('ownerKey') if early['vendorOwnedPlacementsArePurchasable'] else None
+        purchasable = bool(quality == RESTOCKING
+                           or sells(services, profile, holder['key'], root['recordType'], enchanted)
+                           or sells(services, profile, vendor, root['recordType'], enchanted))
         # An item inside an actor is guarded by that actor, however placid it is standing there.
         carrier = (actor_stats(world, profile, holder['key'], cache)
                    if holder['recordType'] in ('NPC_', 'CREA') and not purchasable else None)
@@ -225,22 +246,25 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
         theft = not purchasable and (bool(carrier) or
                                      (owned and not (faction_only and early['assumeFactionAccess'])))
         danger = with_obstacle(cell_danger(world, profile, placement['cellKey'], level, threshold, cache), carrier)
-        extra = placement.get('details') or {}
         reasons = []
         if quality == RANDOM:
             reasons.append('random: only reachable through a leveled list')
         elif early['requireGuaranteedSource'] and quality == RESTOCKING and not early['countRestockingMerchantsAsGuaranteed']:
             reasons.append('restocking merchant stock is not counted as guaranteed')
+        if condition and not condition['ratio'] and not early['allowBrokenItems']:
+            # Worth nothing and does nothing until a hammer and an Armorer skill say otherwise.
+            reasons.append(f'fully worn ({condition["raw"]} of {condition["maximum"]}): '
+                           'unusable until repaired')
         if theft and not early['allowTheft']:
             reasons.append('requires theft and the policy forbids it')
         if not within_limits(danger, limits):
             reasons.append(f'danger above the benchmark: {danger["hostiles"]} hostile(s), '
                            f'level up to {danger["maxActorLevel"]}, {danger["totalHealth"]} total health')
         if purchasable:
-            if value is None:
+            if worth is None:
                 reasons.append('purchase price unknown: no catalog value available')
-            elif value > early['maxGoldPerItem']:
-                reasons.append(f'costs {value} gold, above the {early["maxGoldPerItem"]} gold cap')
+            elif worth > early['maxGoldPerItem']:
+                reasons.append(f'costs {worth} gold, above the {early["maxGoldPerItem"]} gold cap')
         routes.append({
             'holder': {'key': holder['key'], 'name': holder['name'], 'recordType': holder['recordType']},
             'quality': QUALITY_NAMES[quality],
@@ -251,7 +275,8 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
             'cellKey': placement['cellKey'], 'referenceKey': placement['referenceKey'],
             'ownerKey': placement.get('ownerKey'), 'factionKey': placement.get('factionKey'),
             'lockLevel': extra.get('lockLevelRaw') or 0, 'trapId': extra.get('trapId'),
-            'theftRequired': theft, 'price': value if purchasable else None,
+            'condition': condition, 'value': worth,
+            'theftRequired': theft, 'price': worth if purchasable else None,
             'danger': danger, 'dangerWithinBenchmark': within_limits(danger, limits),
             'earlyGameEligible': not reasons, 'reasons': reasons})
 
@@ -259,6 +284,9 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
               if event.get('effectCategory') in ('addition', 'creation', 'list_addition')]
     guaranteed = [r for r in routes if r['sourceQuality'] == 'guaranteed']
     purchases = [r for r in routes if r['price'] is not None]
+    # A broken item is stocked but not a price anyone would quote.
+    priced = purchases if early['allowBrokenItems'] else [
+        r for r in purchases if not (r['condition'] and not r['condition']['ratio'])]
     eligible = [r for r in routes if r['earlyGameEligible']]
     if guaranteed:
         obtainable = 'guaranteed'
@@ -277,7 +305,7 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
         'theftRequired': None if not routes else all(r['theftRequired'] for r in routes),
         'evidenceTruncated': bool(truncated),
         'saleStatus': 'restocking' if restocks else 'stocked' if purchases else 'not_sold',
-        'price': min((r['price'] for r in purchases), default=None),
+        'price': min((r['price'] for r in priced), default=None),
         'earlyGameEligible': True if eligible else None if truncated else False,
         'basisValue': value,
         'counts': {'routes': len(routes), 'guaranteed': len(guaranteed),

@@ -19,7 +19,7 @@ costs one re-evaluation and never a re-extraction.
 | Rule | Stated as | Number |
 | --- | --- | --- |
 | Danger | "no harder than the Mentor's Ring" | measured from the benchmark cell |
-| Spending | at most 500 gold per item | authored |
+| Spending | at most 500 gold per item | authored, against condition-scaled worth |
 | Theft | a toggle, off by default | authored |
 | Faction access | assumed, so faction-owned is not theft | authored |
 | Source | guaranteed only; restocking merchants count | authored |
@@ -59,8 +59,18 @@ Each route is then checked against the policy, and fails with stated reasons:
   empty room.
 - **Ownership means theft** unless the holder sells that category of item, or the
   only claim is a faction's and faction access is assumed.
-- **A merchant that stocks the item's service bit is a purchase**, priced at the
-  catalog base value against the gold cap.
+- **A merchant that stocks the item's service bit is a purchase**, whether it holds
+  the item or owns it where it lies. Shop stock is owned by its merchant, so an owner
+  that sells the category is a vendor, not a victim. Set
+  `vendorOwnedPlacementsArePurchasable` to false to treat it as theft instead.
+- **Worn gear is priced pro rata.** Weapons, armour and tools carry a condition on
+  each placement, and worth scales with what is left of it. A Glass Dagger at 2 of
+  300 condition is worth 27 gold, not 4000 — which is the whole reason worn shop
+  stock is an early-game route at all. 1,697 of vanilla's 2,552 equipment placements
+  carry an explicit condition, and 40 cross the 500 gold line once it is applied.
+- **A fully worn item is refused**, because it does nothing until repaired, and it
+  sets no headline price. `allowBrokenItems` lets them through if you would rather
+  carry a hammer.
 - **Danger** is the cell's worst-case hostile population at the policy's character
   level, plus any holder, compared against the budget on all three dimensions.
 
@@ -91,13 +101,15 @@ rather than guessed.
 
 Tests use synthetic worlds built in memory: level gating, worst-candidate selection,
 benchmark derivation and override, route quality and leveled absorption, carried
-items, theft and faction toggles, price caps, script-only items, and truncation.
+items, theft and faction toggles, condition scaling and clamping, worn shop stock,
+broken items, vendor ownership, price caps, script-only items, and truncation.
 
 ## What this layer does not do
 
 It does not simulate merchant markup, disposition, or Mercantile: `price` is the
-catalog base value, and a barter calculator is separate work. It does not model
-combat, character builds, or travel distance, so "danger" is population and level,
+catalog value scaled by condition, and a barter calculator is separate work. A cheap
+item worn nearly to nothing can round to a price of 0, which is what it is worth.
+It does not model combat, character builds, or travel distance, so "danger" is population and level,
 not a fight simulation. It does not rank items or choose a best in slot — that is
 the optimizer's job, and it consumes these verdicts rather than replacing them.
 It writes nothing: verdicts are computed per query.

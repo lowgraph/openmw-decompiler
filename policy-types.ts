@@ -38,6 +38,10 @@ export type Route = {
   cellKey: string; referenceKey: string;
   ownerKey: string | null; factionKey: string | null;
   lockLevel: number; trapId: string | null;
+  /** Remaining condition for weapons, armour and tools; null when undamaged or not applicable. */
+  condition: { raw: number; maximum: number; ratio: number; worn: boolean } | null;
+  /** Catalog value scaled by this placement's condition. */
+  value: number | null;
   /** The actor this route must be taken from, when the item is carried. */
   heldBy: ActorThreat | null;
   theftRequired: boolean;
@@ -56,10 +60,12 @@ export type Assessment = {
   theftRequired: boolean | null;
   evidenceTruncated: boolean;
   saleStatus: SaleStatus;
-  /** Lowest catalog base value among purchase routes. Merchant markup is not simulated. */
+  /** Lowest condition-scaled value among purchase routes, broken stock excluded.
+   *  Merchant markup and disposition are not simulated. */
   price: number | null;
   /** null means undetermined under truncated evidence, not ineligible. */
   earlyGameEligible: boolean | null;
+  /** Undamaged catalog value, for comparison against a worn route's price. */
   basisValue: number | null;
   counts: { routes: number; guaranteed: number; earlyGameEligible: number; scriptGrants: number };
   coverage: string;

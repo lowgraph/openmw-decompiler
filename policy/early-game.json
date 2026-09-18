@@ -5,7 +5,8 @@
   "notes": [
     "Authored rules, versioned independently of any extraction snapshot.",
     "Changing a rule here never requires re-extracting the game data.",
-    "Thresholds are stated once; the evaluator derives numbers from the game."
+    "Thresholds are stated once; the evaluator derives numbers from the game.",
+    "Worn gear is priced pro rata: a CellRef condition of 2 of 300 is worth 27 gold."
   ],
   "hostileFightThreshold": 70,
   "earlyGame": {
@@ -22,6 +23,8 @@
         "label": "Mentor's Ring, Samarys Ancestral Tomb"
       },
       "limits": null
-    }
+    },
+    "vendorOwnedPlacementsArePurchasable": true,
+    "allowBrokenItems": false
   }
 }
