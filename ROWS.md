@@ -16,6 +16,13 @@ and rebuild; no re-extraction is involved.
 Output goes to `A:\Cache\OpenMWFoundation\gear-rows\<profile>-<hash>.json`.
 See `gear-rows-types.ts` for the app contract.
 
+`build_app_bundle.py` picks these up automatically and publishes them as the `GearRows`
+catalog, so the site reads rows through the same loader as everything else. Each row
+carries a stable `key` — `category/slot-or-skill/armorClass/theft endgame nearStart`,
+for example `armor/helmet/light/000` or `shield/-/heavy/111` — because the loader joins
+records on it. Rebuild rows before bundling; the packager refuses a rows file from a
+different snapshot, or one whose rows predate the key.
+
 ## The rows
 
 | Category | Split by | Count |

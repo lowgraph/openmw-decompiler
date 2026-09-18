@@ -17,7 +17,7 @@ including the resolution rule and a reference `applyDelta`.
 ## What it changes about the catalogs
 
 The catalog release is the complete, per-profile reference copy. The bundle is the
-shipped copy, and differs from it in exactly two ways.
+shipped copy, and differs from it in three ways.
 
 **Book prose is excluded.** Catalog schema 1.1.0 already writes it to a separate
 `BookText.json`; a 1.0.0 release still carries `text` inside `Books.json`, and the
@@ -25,6 +25,16 @@ packager strips it either way, so an old release does not need rebuilding first.
 Skill, scroll, value, weight and enchantment fields all remain. Pass
 `--include-book-text` to publish the prose as its own file, which requires a 1.1.0
 release. The site should fetch it only when it actually displays a book.
+
+**Gear rows ship as a catalog.** `build_gear_rows.py` writes its own artifact per
+profile; the packager reads the newest file for each and publishes it as `GearRows`,
+keyed by row. The policy, limits, categories and coverage that produced the rows travel
+with them as payload fields, which the loader accepts. Rows must come from the same
+extraction snapshot as the catalogs, must carry a unique `key` per row, and must exist
+for every selected profile — a catalog missing from one profile is a bundle the loader
+refuses, so the packager refuses it first with a message naming the profile. Pass
+`--no-gear-rows` to publish catalogs only, or `--gear-rows` to read them from elsewhere.
+ARCE inherits them unchanged, because the rows are identical to TR's.
 
 **ARCE is published as a delta.** ARCE toggles which races and classes are playable;
 it is not a separate body of game data. Any catalog whose records are identical to
@@ -41,14 +51,17 @@ Measured against release `6325cee99aad127fb8abf68b`:
 | `tr` | 21 | 0 | 13.91 MB | 965 KB |
 | `tr_arce` | 3 | 18 | 0.08 MB | **13 KB** |
 
+Gear rows add about 10 KB gzipped to vanilla and 15 KB to TR, and nothing to ARCE.
+
 A visitor loads one profile: 253 KB gzipped for Vanilla, 965 KB for TR, and 978 KB
 for TR + ARCE. Book prose alone would have added 2.7 MB per profile.
 
 ## Outputs
 
 `current.json` points at an immutable bundle directory named by a hash of the source
-snapshot, packager version, catalog schema, selected profiles, and the book-text
-choice. Every published file records `bytes`, `gzipBytes` and `sha256` in the manifest,
+snapshot, packager version, catalog schema, selected profiles, the book-text choice
+and the gear row files consumed, so a rows rebuild produces a new bundle rather than
+silently reusing the old one. Every published file records `bytes`, `gzipBytes` and `sha256` in the manifest,
 so the download budget is auditable without re-reading the files, and the hashes serve
 as cache keys. Payloads are written compactly; `gzipBytes` is a measurement, not a
 stored artifact, because the CDN negotiates its own transport encoding.
@@ -61,6 +74,7 @@ bundle active. Completed bundles are retained and never deleted automatically.
 
 ```powershell
 python build_app_bundle.py --profile vanilla --profile tr
+python build_app_bundle.py --no-gear-rows
 python build_app_bundle.py --catalogs A:\Cache\OpenMWFoundation\catalogs\<releaseId>
 python build_app_bundle.py --output A:\Cache\BundlePreview
 python -m unittest test_app_bundle -v
@@ -73,12 +87,15 @@ Close any running packager before removing a stale `build.lock` left by a forced
 Tests cover the prose split, ARCE inheritance and delta reconstruction, delta
 semantics for changed/added/removed and for derived rows that join on `id`, base
 selection across worlds and versions, single-profile selection, manifest size and
-hash agreement, atomic publication, and a schema 1.0.0 release.
+hash agreement, atomic publication, a schema 1.0.0 release, and gear rows: their
+catalog and travelling policy, ARCE inheriting them, omission when absent or declined,
+and refusal on a partial profile set, a foreign snapshot, a missing key or a duplicate.
 
 ## What this stage does not do
 
-It does not evaluate obtainability, price, theft or early-game eligibility; that
-policy layer is authored separately and versioned on its own. It does not package
+It does not evaluate obtainability, price, theft or early-game eligibility. It ships
+those verdicts as gear rows, but the policy that produced them is authored separately
+and versioned on its own, and the packager only carries it. It does not package
 world, services, journal, acquisition or script-evidence data — those remain local
 tooling databases behind their own query tools. It does not upload anything, set
 cache headers, or decide the site's storage layout.

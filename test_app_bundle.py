@@ -151,6 +151,77 @@ class BundleTests(unittest.TestCase):
         self.assertEqual(profile['inherits'], [])
         self.assertEqual(json.loads((alone/profile['files']['Races']['path']).read_text(encoding='utf-8'))['kind'], 'full')
 
+    # --- gear rows, built separately but shipped as an ordinary catalog ---
+
+    def rows_dir(self, name, profiles=('vanilla', 'tr', 'tr_arce'), rows=None, snapshot=None):
+        directory = self.root/name
+        directory.mkdir(parents=True, exist_ok=True)
+        default = [{'key': 'shield/-/light/000', 'category': 'shield', 'primary': None},
+                   {'key': 'shield/-/heavy/000', 'category': 'shield', 'primary': None}]
+        for profile in profiles:
+            payload = {'schemaVersion': '1.0.0', 'profile': profile,
+                       'snapshotId': snapshot or self.manifest['snapshotId'],
+                       'policy': {'version': 'test-policy'}, 'limits': {'source': 'authored'},
+                       'categories': ['shield'], 'coverage': 'test rows', 'builtAtUnix': 0.0,
+                       'rows': default if rows is None else rows}
+            (directory/(profile+'-0000.json')).write_text(json.dumps(payload), encoding='utf-8')
+        return directory
+
+    def bundle_with(self, tag, **kwargs):
+        with contextlib.redirect_stdout(io.StringIO()):
+            return build_bundle(self.root/'catalogs', self.root/('bundle-'+tag), **kwargs)
+
+    def test_gear_rows_ship_as_a_catalog_carrying_their_policy(self):
+        bundle = self.bundle_with('gear', gear_rows=self.rows_dir('rows-ok'))
+        manifest = json.loads((bundle/'manifest.json').read_text(encoding='utf-8'))
+        self.assertIn('GearRows', manifest['catalogs'])
+        vanilla = next(p for p in manifest['profiles'] if p['id'] == 'vanilla')
+        payload = json.loads((bundle/vanilla['files']['GearRows']['path']).read_text(encoding='utf-8'))
+        self.assertEqual(payload['kind'], 'full')
+        self.assertEqual([r['key'] for r in payload['records']],
+                         ['shield/-/light/000', 'shield/-/heavy/000'])
+        self.assertEqual(payload['policy']['version'], 'test-policy',
+                         'the policy that produced the rows travels with them')
+        self.assertEqual(payload['limits']['source'], 'authored')
+
+    def test_identical_rows_are_inherited_by_arce(self):
+        bundle = self.bundle_with('gear-inherit', gear_rows=self.rows_dir('rows-same'))
+        manifest = json.loads((bundle/'manifest.json').read_text(encoding='utf-8'))
+        arce = next(p for p in manifest['profiles'] if p['id'] == 'tr_arce')
+        self.assertIn('GearRows', arce['inherits'])
+        self.assertNotIn('GearRows', arce['files'])
+
+    def test_rows_are_omitted_when_the_directory_is_absent_or_declined(self):
+        for tag, gear in (('gear-none', None), ('gear-missing', self.root/'no-such-rows')):
+            manifest = json.loads((self.bundle_with(tag, gear_rows=gear)/'manifest.json')
+                                  .read_text(encoding='utf-8'))
+            self.assertNotIn('GearRows', manifest['catalogs'])
+
+    def test_rows_for_only_some_profiles_are_refused(self):
+        partial = self.rows_dir('rows-partial', profiles=('tr',))
+        with self.assertRaises(ExportError) as caught:
+            self.bundle_with('gear-partial', gear_rows=partial)
+        self.assertIn('vanilla', str(caught.exception))
+
+    def test_rows_from_another_snapshot_are_refused(self):
+        stale = self.rows_dir('rows-stale', snapshot='a-different-snapshot')
+        with self.assertRaises(ExportError) as caught:
+            self.bundle_with('gear-stale', gear_rows=stale)
+        self.assertIn('different snapshot', str(caught.exception))
+
+    def test_rows_without_a_key_are_refused_before_the_browser_sees_them(self):
+        keyless = self.rows_dir('rows-keyless', rows=[{'category': 'shield', 'primary': None}])
+        with self.assertRaises(ExportError) as caught:
+            self.bundle_with('gear-keyless', gear_rows=keyless)
+        self.assertIn('without a key', str(caught.exception))
+
+    def test_duplicate_row_keys_are_refused(self):
+        duplicated = self.rows_dir('rows-dupe', rows=[{'key': 'shield/-/light/000'},
+                                                      {'key': 'shield/-/light/000'}])
+        with self.assertRaises(ExportError) as caught:
+            self.bundle_with('gear-dupe', gear_rows=duplicated)
+        self.assertIn('duplicate row keys', str(caught.exception))
+
     def test_rebuild_refuses_and_preserves_the_active_pointer(self):
         before = (self.root/'bundle/current.json').read_bytes()
         with self.assertRaises(ExportError):

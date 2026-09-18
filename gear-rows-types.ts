@@ -46,6 +46,8 @@ export type Pick = {
 };
 
 export type GearRow = {
+  /** Stable, unique: `category/slot-or-skill/armorClass/theft endgame nearStart`. */
+  key: string;
   category: RowCategory;
   /** Set for armor and clothing rows; null for shields and weapons. */
   slot: ArmorSlot | ClothingSlot | null;
@@ -64,6 +66,8 @@ export type GearRow = {
   alternative: Pick | null;
 };
 
+/** The standalone artifact. In the app bundle these rows ship as the `GearRows` catalog,
+ *  where `policy`, `limits`, `categories` and `coverage` travel as payload fields. */
 export type GearRows = {
   schemaVersion: "1.0.0";
   profile: "vanilla" | "tr" | "tr_arce";
@@ -76,8 +80,11 @@ export type GearRows = {
   rows: GearRow[];
 };
 
-/** Rows are keyed by category, slot/skill and toggle set; this is the index key. */
-export function rowKey(row: GearRow): string {
+/**
+ * Rows carry their own `key`; this is the derivation the builder uses, kept here so
+ * a caller can compute the key of a row it wants before loading anything.
+ */
+export function rowKey(row: Pick<GearRow, "category" | "slot" | "armorClass" | "skill" | "hands" | "toggles">): string {
   const slot = row.slot ?? (row.skill ? `${row.skill}-${row.hands}h` : "-");
   const t = `${+row.toggles.theft}${+row.toggles.endgame}${+row.toggles.nearStart}`;
   return `${row.category}/${slot}/${row.armorClass ?? "-"}/${t}`;

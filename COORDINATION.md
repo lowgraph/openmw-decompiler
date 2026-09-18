@@ -82,9 +82,11 @@ Keep that property in anything new.
 
 **Data agent**
 
-1. Ship gear rows through the bundle as a `GearRows` catalog. 424 rows per profile
-   currently sit unused because they are a separate artifact. Additive, so it costs
-   the site nothing to ship and one line to use.
+1. ~~Ship gear rows through the bundle as a `GearRows` catalog.~~ **Done.**
+   `build_app_bundle.py` publishes them automatically, keyed per row, with the policy
+   that produced them travelling as payload fields. Rows must be rebuilt first: the
+   packager refuses a file from another snapshot or one whose rows predate the key.
+   Nothing changes on the site until `FEATURE_CATALOGS` gains a `gear` group.
 2. The rules library. `CATALOGS.md` states that engine-fixed targeting,
    no-magnitude and no-duration effect rules, harmful-effect flags and display units
    are **not** synthesized. Alchemy, enchanting and spellmaking cannot be correct

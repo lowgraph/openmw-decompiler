@@ -103,6 +103,13 @@ def pick(record, verdict, route):
             'evidenceTruncated': verdict['evidenceTruncated']}
 
 
+def row_identity(category, slot, armour, weapon, toggles):
+    """Stable key for one row. Unique across the 53 definitions and 8 toggle sets."""
+    part = slot or (f'{weapon[0]}-{weapon[1]}h' if weapon else '-')
+    flags = f"{int(toggles['theft'])}{int(toggles['endgame'])}{int(toggles['nearStart'])}"
+    return f"{category}/{part}/{armour or '-'}/{flags}"
+
+
 def best(candidates):
     # Strongest first; among equals the one that costs least.
     return max(candidates, key=lambda c: (c['strength'], -(c['price'] or 0)), default=None)
@@ -168,7 +175,8 @@ def assemble(buckets, categories):
             # An "or" row only earns its place when it beats the close pick.
             alternative = (strongest if primary and strongest and primary['nearStart']
                            and strongest['strength'] > primary['strength'] else None)
-            rows.append({'category': category, 'slot': slot, 'armorClass': armour,
+            rows.append({'key': row_identity(category, slot, armour, weapon, toggles),
+                         'category': category, 'slot': slot, 'armorClass': armour,
                          'skill': weapon[0] if weapon else None,
                          'hands': weapon[1] if weapon else None,
                          'toggles': toggles, 'eligible': len(candidates),

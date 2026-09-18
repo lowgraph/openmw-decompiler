@@ -113,6 +113,20 @@ class AssembleTests(unittest.TestCase):
         self.assertEqual(len(rows), expected*8)
         self.assertTrue(all(row['primary'] is None for row in rows))
 
+    def test_every_row_has_a_unique_stable_key(self):
+        rows = self.rows({})
+        keys = [r['key'] for r in rows]
+        self.assertEqual(len(set(keys)), len(rows), 'keys must be unique across all 424 rows')
+        self.assertIn('armor/helmet/light/000', keys)
+        self.assertIn('shield/-/heavy/111', keys)
+        self.assertIn('weapon/short_blade-1h/-/000', keys)
+        self.assertIn('clothing/ring/-/010', keys)
+
+    def test_the_key_encodes_the_toggle_set(self):
+        rows = {r['key']: r for r in self.rows({}) if r['category'] == 'shield'}
+        self.assertEqual(rows['shield/-/light/101']['toggles'],
+                         {'theft': True, 'endgame': False, 'nearStart': True})
+
     def test_categories_can_be_built_separately(self):
         self.assertEqual(len(self.rows({}, ('shield',))), len(ARMOR_CLASSES)*8)
         self.assertEqual(len(self.rows({}, ('clothing',))), len(CLOTHING_SLOTS)*8)
