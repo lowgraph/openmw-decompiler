@@ -1,0 +1,5 @@
+.validation-deps/
+__pycache__/
+/items/*.json
+/items/export-report.json
+/silt-strider-armory.html

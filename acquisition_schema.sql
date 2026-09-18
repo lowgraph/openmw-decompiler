@@ -1,0 +1,10 @@
+PRAGMA foreign_keys=ON;
+CREATE TABLE metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+CREATE TABLE profiles(id TEXT PRIMARY KEY,world TEXT NOT NULL,version TEXT NOT NULL,arce INTEGER NOT NULL);
+CREATE TABLE nodes(version_id INTEGER PRIMARY KEY,record_type TEXT NOT NULL,object_key TEXT NOT NULL,name TEXT NOT NULL,plugin TEXT NOT NULL,script_key TEXT,details_json TEXT NOT NULL);
+CREATE TABLE profile_nodes(profile_id TEXT REFERENCES profiles(id),record_type TEXT NOT NULL,object_key TEXT NOT NULL,version_id INTEGER REFERENCES nodes(version_id),origin_plugin TEXT NOT NULL,PRIMARY KEY(profile_id,record_type,object_key));
+CREATE INDEX node_revision ON profile_nodes(profile_id,version_id);
+CREATE TABLE edges(parent_version_id INTEGER REFERENCES nodes(version_id),kind TEXT NOT NULL,entry_index INTEGER NOT NULL,target_key TEXT NOT NULL,details_json TEXT NOT NULL,PRIMARY KEY(parent_version_id,kind,entry_index));
+CREATE TABLE profile_edges(profile_id TEXT REFERENCES profiles(id),parent_version_id INTEGER,kind TEXT NOT NULL,entry_index INTEGER NOT NULL,target_version_id INTEGER REFERENCES nodes(version_id),status TEXT NOT NULL,PRIMARY KEY(profile_id,parent_version_id,kind,entry_index),FOREIGN KEY(parent_version_id,kind,entry_index) REFERENCES edges(parent_version_id,kind,entry_index));
+CREATE INDEX reverse_edges ON profile_edges(profile_id,target_version_id);
+CREATE TABLE warnings(profile_id TEXT,code TEXT NOT NULL,target_key TEXT NOT NULL,count INTEGER NOT NULL);

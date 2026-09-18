@@ -1,0 +1,87 @@
+# App bundle packager
+
+Run in this project's VS Code terminal:
+
+```powershell
+python build_app_bundle.py
+```
+
+This reads a completed catalog release and writes the files the website downloads.
+It opens no databases, reads no plugins, and never modifies the catalog release.
+Python 3.10+ is sufficient; there are no new dependencies.
+
+Default input is `A:\Cache\OpenMWFoundation\catalogs`, default output is
+`A:\Cache\OpenMWFoundation\app-bundle`. See `bundle-types.ts` for the app contract,
+including the resolution rule and a reference `applyDelta`.
+
+## What it changes about the catalogs
+
+The catalog release is the complete, per-profile reference copy. The bundle is the
+shipped copy, and differs from it in exactly two ways.
+
+**Book prose is excluded.** Catalog schema 1.1.0 already writes it to a separate
+`BookText.json`; a 1.0.0 release still carries `text` inside `Books.json`, and the
+packager strips it either way, so an old release does not need rebuilding first.
+Skill, scroll, value, weight and enchantment fields all remain. Pass
+`--include-book-text` to publish the prose as its own file, which requires a 1.1.0
+release. The site should fetch it only when it actually displays a book.
+
+**ARCE is published as a delta.** ARCE toggles which races and classes are playable;
+it is not a separate body of game data. Any catalog whose records are identical to
+the base profile's is listed in `inherits` and published once. The rest are published
+as `{changed, removed}` against that base. Base selection is by matching world and
+version with `arce: false`; a base profile is always complete, so resolution never
+recurses. Selecting `tr_arce` on its own instead publishes it in full.
+
+Measured against release `6325cee99aad127fb8abf68b`:
+
+| Profile | Files | Inherited | Raw | Gzipped |
+| --- | --- | --- | --- | --- |
+| `vanilla` | 21 | 0 | 3.48 MB | 253 KB |
+| `tr` | 21 | 0 | 13.91 MB | 965 KB |
+| `tr_arce` | 3 | 18 | 0.08 MB | **13 KB** |
+
+A visitor loads one profile: 253 KB gzipped for Vanilla, 965 KB for TR, and 978 KB
+for TR + ARCE. Book prose alone would have added 2.7 MB per profile.
+
+## Outputs
+
+`current.json` points at an immutable bundle directory named by a hash of the source
+snapshot, packager version, catalog schema, selected profiles, and the book-text
+choice. Every published file records `bytes`, `gzipBytes` and `sha256` in the manifest,
+so the download budget is auditable without re-reading the files, and the hashes serve
+as cache keys. Payloads are written compactly; `gzipBytes` is a measurement, not a
+stored artifact, because the CDN negotiates its own transport encoding.
+
+Publication stages into a temporary directory, renames it into place, then replaces
+the pointer atomically. A failure before pointer replacement leaves the previous
+bundle active. Completed bundles are retained and never deleted automatically.
+
+## Options and verification
+
+```powershell
+python build_app_bundle.py --profile vanilla --profile tr
+python build_app_bundle.py --catalogs A:\Cache\OpenMWFoundation\catalogs\<releaseId>
+python build_app_bundle.py --output A:\Cache\BundlePreview
+python -m unittest test_app_bundle -v
+```
+
+`--catalogs` accepts either a release directory or the folder holding `current.json`.
+An identical existing bundle is not overwritten; use a different `--output` to rebuild.
+Close any running packager before removing a stale `build.lock` left by a forced kill.
+
+Tests cover the prose split, ARCE inheritance and delta reconstruction, delta
+semantics for changed/added/removed and for derived rows that join on `id`, base
+selection across worlds and versions, single-profile selection, manifest size and
+hash agreement, atomic publication, and a schema 1.0.0 release.
+
+## What this stage does not do
+
+It does not evaluate obtainability, price, theft or early-game eligibility; that
+policy layer is authored separately and versioned on its own. It does not package
+world, services, journal, acquisition or script-evidence data — those remain local
+tooling databases behind their own query tools. It does not upload anything, set
+cache headers, or decide the site's storage layout.
+
+`query_item_sources.py` and the five extraction databases are untouched by this
+stage and by the catalog schema bump. Nothing here reads `world.sqlite`.

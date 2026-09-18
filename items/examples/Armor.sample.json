@@ -1,0 +1,26 @@
+{
+  "id": "chitin cuirass",
+  "name": "Chitin Cuirass",
+  "gameDataVersion": {
+    "world": "vanilla",
+    "version": "OpenMW 0.51.0"
+  },
+  "sourcePlugin": "Morrowind.esm",
+  "model": "a\\A_M_Chitin_Cuirass_GND.nif",
+  "icon": "a\\TX_Chitin_curaiss.tga",
+  "script": null,
+  "health": 300,
+  "armorRating": 10,
+  "type": "cuirass",
+  "enchantp": 100,
+  "enchantment": null,
+  "bodyParts": [
+    {
+      "slot": 3,
+      "male": "a_m_chitin_chest",
+      "female": null
+    }
+  ],
+  "weight": 6.0,
+  "value": 45
+}

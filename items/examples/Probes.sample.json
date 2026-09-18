@@ -1,0 +1,16 @@
+{
+  "id": "probe_apprentice_01",
+  "name": "Apprentice's Probe",
+  "gameDataVersion": {
+    "world": "vanilla",
+    "version": "OpenMW 0.51.0"
+  },
+  "sourcePlugin": "Morrowind.esm",
+  "model": "m\\Probe_Apprentice_01.NIF",
+  "icon": "m\\Tx_probe_A_01.tga",
+  "script": null,
+  "quality": 0.5,
+  "uses": 25,
+  "weight": 1.0,
+  "value": 10
+}

@@ -1,0 +1,15 @@
+{
+  "id": "Gold_001",
+  "name": "Gold",
+  "gameDataVersion": {
+    "world": "vanilla",
+    "version": "OpenMW 0.51.0"
+  },
+  "sourcePlugin": "Morrowind.esm",
+  "model": "m\\Gold_001.NIF",
+  "icon": "m\\Tx_Gold_001.tga",
+  "script": null,
+  "isKey": false,
+  "weight": 0.0,
+  "value": 1
+}

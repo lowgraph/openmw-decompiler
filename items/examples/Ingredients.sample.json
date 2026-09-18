@@ -1,0 +1,44 @@
+{
+  "id": "ingred_dreugh_wax_01",
+  "name": "Dreugh Wax",
+  "gameDataVersion": {
+    "world": "vanilla",
+    "version": "OpenMW 0.51.0"
+  },
+  "sourcePlugin": "Morrowind.esm",
+  "model": "n\\Ingred_Dreugh_wax_01.NIF",
+  "icon": "n\\Tx_dreugh_wax_01.tga",
+  "script": null,
+  "effects": [
+    {
+      "slot": 0,
+      "effectId": 79,
+      "name": "Fortify Attribute",
+      "skill": null,
+      "attribute": "strength"
+    },
+    {
+      "slot": 1,
+      "effectId": 74,
+      "name": "Restore Attribute",
+      "skill": null,
+      "attribute": "strength"
+    },
+    {
+      "slot": 2,
+      "effectId": 17,
+      "name": "Drain Attribute",
+      "skill": null,
+      "attribute": "luck"
+    },
+    {
+      "slot": 3,
+      "effectId": 17,
+      "name": "Drain Attribute",
+      "skill": null,
+      "attribute": "willpower"
+    }
+  ],
+  "weight": 0.20000000298023224,
+  "value": 100
+}

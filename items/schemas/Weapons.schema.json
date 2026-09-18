@@ -1,0 +1,149 @@
+{
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "recordType": {
+      "const": "WEAP"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "gameDataVersion": {
+            "$ref": "Common.schema.json#/$defs/GameDataVersion"
+          },
+          "sourcePlugin": {
+            "type": "string"
+          },
+          "weight": {
+            "type": "number",
+            "minimum": 0
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "script": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enchantp": {
+            "type": "number",
+            "minimum": 0
+          },
+          "health": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "SB1H",
+              "LB1H",
+              "LB2H",
+              "BL1H",
+              "BL2C",
+              "BL2W",
+              "SP2H",
+              "AX1H",
+              "AX2H",
+              "BOW",
+              "CROSSBOW",
+              "THROWN",
+              "ARROW",
+              "BOLT"
+            ]
+          },
+          "speed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "reach": {
+            "type": "number",
+            "minimum": 0
+          },
+          "chop": {
+            "$ref": "Common.schema.json#/$defs/Damage"
+          },
+          "slash": {
+            "$ref": "Common.schema.json#/$defs/Damage"
+          },
+          "thrust": {
+            "$ref": "Common.schema.json#/$defs/Damage"
+          },
+          "magical": {
+            "type": "boolean"
+          },
+          "silver": {
+            "type": "boolean"
+          },
+          "enchantment": {
+            "anyOf": [
+              {
+                "$ref": "Common.schema.json#/$defs/Enchantment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "gameDataVersion",
+          "weight",
+          "value",
+          "enchantp",
+          "health",
+          "type",
+          "speed",
+          "reach",
+          "chop",
+          "slash",
+          "thrust",
+          "magical",
+          "silver",
+          "enchantment"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "recordType",
+    "items"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weapons"
+}

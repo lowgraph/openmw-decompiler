@@ -1,0 +1,18 @@
+{
+  "id": "templar belt",
+  "name": "Imperial Templar Belt",
+  "gameDataVersion": {
+    "world": "vanilla",
+    "version": "OpenMW 0.51.0"
+  },
+  "sourcePlugin": "Morrowind.esm",
+  "model": "c\\C_belt_Common_1.NIF",
+  "icon": "c\\TX_C_belt_leather00.tga",
+  "script": null,
+  "type": "belt",
+  "enchantp": 100,
+  "enchantment": null,
+  "bodyParts": [],
+  "weight": 2.0,
+  "value": 4
+}

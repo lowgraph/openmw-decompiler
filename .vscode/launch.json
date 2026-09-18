@@ -1,0 +1,110 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Build app bundle",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/build_app_bundle.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Query unified item sources (Goldbrand)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/query_item_sources.py",
+      "args": [
+        "--item",
+        "katana_goldbrand_unique"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Build script acquisition evidence",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/build_script_evidence.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Build item acquisition index",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/build_acquisition_index.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Build quest, dialogue and script catalog",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/build_journal_catalog.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Build services and travel catalog",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/build_services_catalog.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Build normalized world catalog",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/build_world_catalog.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Build typed catalogs",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/build_catalogs.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Build extraction foundation (recommended)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/extract_foundation.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Export item locations",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/export_locations.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
+    },
+    {
+      "name": "Export all inventory JSONs",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/export_items.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
+    },
+    {
+      "name": "Preview approved plugins (no export)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/export_items.py",
+      "args": [
+        "--list-plugins"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

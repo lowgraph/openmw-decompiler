@@ -1,0 +1,11 @@
+PRAGMA foreign_keys=ON;
+CREATE TABLE metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+CREATE TABLE profiles(id TEXT PRIMARY KEY,world TEXT NOT NULL,version TEXT NOT NULL,arce INTEGER NOT NULL);
+CREATE TABLE sources(version_id INTEGER PRIMARY KEY,kind TEXT NOT NULL,source_key TEXT NOT NULL,topic_key TEXT,plugin TEXT NOT NULL,source_text TEXT NOT NULL,dialogue_context_json TEXT);
+CREATE TABLE profile_sources(profile_id TEXT REFERENCES profiles(id),version_id INTEGER REFERENCES sources(version_id),origin_plugin TEXT NOT NULL,PRIMARY KEY(profile_id,version_id));
+CREATE TABLE events(source_version_id INTEGER REFERENCES sources(version_id),line_number INTEGER NOT NULL,command TEXT NOT NULL,kind TEXT NOT NULL,target_key TEXT,receiver_key TEXT,recipient_kind TEXT NOT NULL,count_json TEXT,arguments_json TEXT NOT NULL,context_json TEXT NOT NULL,notes_json TEXT NOT NULL,raw_line TEXT NOT NULL,PRIMARY KEY(source_version_id,line_number));
+CREATE INDEX event_target ON events(target_key,source_version_id,line_number);
+CREATE TABLE profile_events(profile_id TEXT REFERENCES profiles(id),source_version_id INTEGER,line_number INTEGER,target_status TEXT NOT NULL,target_types_json TEXT NOT NULL,PRIMARY KEY(profile_id,source_version_id,line_number),FOREIGN KEY(source_version_id,line_number) REFERENCES events(source_version_id,line_number));
+CREATE TABLE script_attachments(profile_id TEXT REFERENCES profiles(id),script_key TEXT NOT NULL,object_version_id INTEGER NOT NULL,record_type TEXT NOT NULL,object_key TEXT NOT NULL,PRIMARY KEY(profile_id,object_version_id));
+CREATE INDEX attachment_script ON script_attachments(profile_id,script_key);
+CREATE TABLE warnings(profile_id TEXT,source_version_id INTEGER,line_number INTEGER,code TEXT NOT NULL,detail TEXT NOT NULL);

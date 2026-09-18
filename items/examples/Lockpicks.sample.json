@@ -1,0 +1,16 @@
+{
+  "id": "pick_apprentice_01",
+  "name": "Apprentice's Lockpick",
+  "gameDataVersion": {
+    "world": "vanilla",
+    "version": "OpenMW 0.51.0"
+  },
+  "sourcePlugin": "Morrowind.esm",
+  "model": "m\\Pick_Apprentice_01.NIF",
+  "icon": "m\\Tx_pick_A_01.tga",
+  "script": null,
+  "quality": 1.0,
+  "uses": 25,
+  "weight": 0.25,
+  "value": 10
+}

@@ -1,0 +1,28 @@
+{
+  "id": "Light_Com_Candle_01",
+  "name": "Iron Candlestick",
+  "gameDataVersion": {
+    "world": "vanilla",
+    "version": "OpenMW 0.51.0"
+  },
+  "sourcePlugin": "Morrowind.esm",
+  "model": "l\\Light_Com_Candle_01.NIF",
+  "icon": "l\\Light_Com_Candle_01.tga",
+  "script": null,
+  "durationSeconds": -1,
+  "radius": 128,
+  "color": {
+    "r": 245,
+    "g": 140,
+    "b": 40
+  },
+  "sound": null,
+  "flags": [
+    "dynamic",
+    "carry",
+    "fire",
+    "flicker_slow"
+  ],
+  "weight": 0.0,
+  "value": 3
+}

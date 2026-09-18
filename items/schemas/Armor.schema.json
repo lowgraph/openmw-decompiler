@@ -1,0 +1,128 @@
+{
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "recordType": {
+      "const": "ARMO"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "gameDataVersion": {
+            "$ref": "Common.schema.json#/$defs/GameDataVersion"
+          },
+          "sourcePlugin": {
+            "type": "string"
+          },
+          "weight": {
+            "type": "number",
+            "minimum": 0
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "script": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "helmet",
+              "cuirass",
+              "left_pauldron",
+              "right_pauldron",
+              "greaves",
+              "boots",
+              "left_gauntlet",
+              "right_gauntlet",
+              "shield",
+              "left_bracer",
+              "right_bracer"
+            ]
+          },
+          "health": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "armorRating": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "enchantp": {
+            "type": "number",
+            "minimum": 0
+          },
+          "enchantment": {
+            "anyOf": [
+              {
+                "$ref": "Common.schema.json#/$defs/Enchantment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bodyParts": {
+            "type": "array",
+            "items": {
+              "$ref": "Common.schema.json#/$defs/BodyPart"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "gameDataVersion",
+          "weight",
+          "value",
+          "type",
+          "health",
+          "armorRating",
+          "enchantp",
+          "enchantment",
+          "bodyParts"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "recordType",
+    "items"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Armor"
+}

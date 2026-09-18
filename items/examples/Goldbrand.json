@@ -1,0 +1,52 @@
+{
+  "id": "katana_goldbrand_unique",
+  "name": "Goldbrand",
+  "gameDataVersion": {
+    "world": "vanilla",
+    "version": "OpenMW 0.51.0"
+  },
+  "sourcePlugin": "Morrowind.esm",
+  "weight": 40,
+  "value": 150000,
+  "enchantp": 700,
+  "health": 4500,
+  "type": "LB1H",
+  "speed": 1.5,
+  "reach": 1,
+  "chop": {
+    "min": 10,
+    "max": 50
+  },
+  "slash": {
+    "min": 10,
+    "max": 45
+  },
+  "thrust": {
+    "min": 10,
+    "max": 25
+  },
+  "magical": true,
+  "silver": false,
+  "enchantment": {
+    "id": "goldbrand",
+    "castType": "when_strikes",
+    "cost": 5,
+    "autoCalculate": true,
+    "charges": 50,
+    "effects": [
+      {
+        "effectId": 14,
+        "name": "Fire Damage",
+        "range": "touch",
+        "magnitude": {
+          "min": 10,
+          "max": 30
+        },
+        "durationSeconds": 1,
+        "areaFeet": 0,
+        "skill": null,
+        "attribute": null
+      }
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+"""TES3 effect index -> GMST suffix (including Bethesda's original spellings).
+
+Mapping reference: OpenMW components/esm3/loadmgef.cpp, sGmstEffectIds.
+Display names are read from the active plugins' GMST records at export time.
+"""
+
+EFFECT_GMSTS = tuple('seffect' + name.lower() for name in '''
+WaterBreathing SwiftSwim WaterWalking Shield FireShield LightningShield FrostShield
+Burden Feather Jump Levitate SlowFall Lock Open FireDamage ShockDamage FrostDamage
+DrainAttribute DrainHealth DrainSpellpoints DrainFatigue DrainSkill DamageAttribute
+DamageHealth DamageMagicka DamageFatigue DamageSkill Poison WeaknesstoFire WeaknesstoFrost
+WeaknesstoShock WeaknesstoMagicka WeaknesstoCommonDisease WeaknesstoBlightDisease
+WeaknesstoCorprusDisease WeaknesstoPoison WeaknesstoNormalWeapons DisintegrateWeapon
+DisintegrateArmor Invisibility Chameleon Light Sanctuary NightEye Charm Paralyze Silence
+Blind Sound CalmHumanoid CalmCreature FrenzyHumanoid FrenzyCreature DemoralizeHumanoid
+DemoralizeCreature RallyHumanoid RallyCreature Dispel Soultrap Telekinesis Mark Recall
+DivineIntervention AlmsiviIntervention DetectAnimal DetectEnchantment DetectKey SpellAbsorption
+Reflect CureCommonDisease CureBlightDisease CureCorprusDisease CurePoison CureParalyzation
+RestoreAttribute RestoreHealth RestoreSpellPoints RestoreFatigue RestoreSkill FortifyAttribute
+FortifyHealth FortifySpellpoints FortifyFatigue FortifySkill FortifyMagickaMultiplier
+AbsorbAttribute AbsorbHealth AbsorbSpellPoints AbsorbFatigue AbsorbSkill ResistFire ResistFrost
+ResistShock ResistMagicka ResistCommonDisease ResistBlightDisease ResistCorprusDisease
+ResistPoison ResistNormalWeapons ResistParalysis RemoveCurse TurnUndead SummonScamp
+SummonClannfear SummonDaedroth SummonDremora SummonAncestralGhost SummonSkeletalMinion
+SummonLeastBonewalker SummonGreaterBonewalker SummonBonelord SummonWingedTwilight SummonHunger
+SummonGoldenSaint SummonFlameAtronach SummonFrostAtronach SummonStormAtronach FortifyAttackBonus
+CommandCreatures CommandHumanoids BoundDagger BoundLongsword BoundMace BoundBattleAxe
+BoundSpear BoundLongbow ExtraSpell BoundCuirass BoundHelm BoundBoots BoundShield BoundGloves
+Corpus Vampirism SummonCenturionSphere SunDamage StuntedMagicka SummonFabricant
+SummonCreature01 SummonCreature02 SummonCreature03 SummonCreature04 SummonCreature05
+'''.split())
+assert len(EFFECT_GMSTS) == 143

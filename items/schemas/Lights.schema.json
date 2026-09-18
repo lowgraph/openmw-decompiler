@@ -1,0 +1,144 @@
+{
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "recordType": {
+      "const": "LIGH"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "gameDataVersion": {
+            "$ref": "Common.schema.json#/$defs/GameDataVersion"
+          },
+          "sourcePlugin": {
+            "type": "string"
+          },
+          "weight": {
+            "type": "number",
+            "minimum": 0
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "script": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "minimum": -1
+          },
+          "radius": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "color": {
+            "type": "object",
+            "properties": {
+              "r": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              },
+              "g": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              },
+              "b": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              }
+            },
+            "required": [
+              "r",
+              "g",
+              "b"
+            ],
+            "additionalProperties": false
+          },
+          "sound": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "flags": {
+            "type": "array",
+            "uniqueItems": true,
+            "contains": {
+              "const": "carry"
+            },
+            "items": {
+              "type": "string",
+              "enum": [
+                "dynamic",
+                "carry",
+                "negative",
+                "flicker",
+                "fire",
+                "off_default",
+                "flicker_slow",
+                "pulse",
+                "pulse_slow"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "gameDataVersion",
+          "weight",
+          "value",
+          "durationSeconds",
+          "radius",
+          "color",
+          "sound",
+          "flags"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "recordType",
+    "items"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Lights"
+}

@@ -1,0 +1,16 @@
+{
+  "id": "hammer_repair",
+  "name": "Apprentice's Armorer's Hammer",
+  "gameDataVersion": {
+    "world": "vanilla",
+    "version": "OpenMW 0.51.0"
+  },
+  "sourcePlugin": "Morrowind.esm",
+  "model": "m\\misc_hammer10.nif",
+  "icon": "m\\Tx_repair_A_01.tga",
+  "script": null,
+  "quality": 0.800000011920929,
+  "uses": 20,
+  "weight": 4.0,
+  "value": 10
+}

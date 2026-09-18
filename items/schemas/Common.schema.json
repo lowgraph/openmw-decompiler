@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "GameDataVersion": {
+      "type": "object",
+      "properties": {
+        "world": {
+          "type": "string",
+          "enum": [
+            "vanilla",
+            "tamriel_rebuilt"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "world",
+        "version"
+      ],
+      "additionalProperties": false
+    },
+    "Damage": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "additionalProperties": false
+    },
+    "Effect": {
+      "type": "object",
+      "properties": {
+        "effectId": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "range": {
+          "type": "string",
+          "enum": [
+            "self",
+            "touch",
+            "target"
+          ]
+        },
+        "magnitude": {
+          "type": "object",
+          "properties": {
+            "min": {
+              "type": "number",
+              "minimum": 0
+            },
+            "max": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "min",
+            "max"
+          ],
+          "additionalProperties": false
+        },
+        "durationSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "areaFeet": {
+          "type": "number",
+          "minimum": 0
+        },
+        "skill": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attribute": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "effectId",
+        "name",
+        "range",
+        "magnitude"
+      ],
+      "additionalProperties": false
+    },
+    "Enchantment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "castType": {
+          "type": "string",
+          "enum": [
+            "cast_once",
+            "when_strikes",
+            "when_used",
+            "constant_effect"
+          ]
+        },
+        "cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "charges": {
+          "type": "number",
+          "minimum": 0
+        },
+        "autoCalculate": {
+          "type": "boolean"
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "$ref": "Common.schema.json#/$defs/Effect"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "castType",
+        "cost",
+        "charges",
+        "effects"
+      ],
+      "additionalProperties": false
+    },
+    "BodyPart": {
+      "type": "object",
+      "properties": {
+        "slot": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 26
+        },
+        "male": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "female": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "slot",
+        "male",
+        "female"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

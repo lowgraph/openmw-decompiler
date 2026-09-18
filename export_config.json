@@ -1,0 +1,19 @@
+{
+  "openmwConfig": "C:/Users/tiago/OneDrive/Documents/My Games/OpenMW/openmw.cfg",
+  "baseDataDirectory": "A:/SteamLibrary/steamapps/common/Morrowind/Data Files",
+  "modsDirectory": "A:/Modlists/Morrowind",
+  "allowedModPrefixes": ["ARCE", "Cyr_Main", "Sky_Main", "Tamriel Data", "Tamriel Rebuilt"],
+  "allowedPlugins": [
+    "Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm", "Tamriel_Data.esm",
+    "Cyr_Main.ESM", "TR_Mainland.esm", "TR_Factions.esp",
+    "TR_Firemoth_Vanilla_patch.esp", "Sky_Main.ESM",
+    "ARCE - All Races and Classes Enabled (Vanilla and Tamriel_Data).ESP"
+  ],
+  "versions": {
+    "vanilla": "OpenMW 0.51.0",
+    "tamriel_rebuilt": "Tamriel Rebuilt 26.08.23"
+  },
+  "outputDirectory": "items",
+  "locationCacheDirectory": "A:/Cache",
+  "locationOutputDirectory": "A:/Cache"
+}

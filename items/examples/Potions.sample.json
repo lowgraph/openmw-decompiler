@@ -1,0 +1,69 @@
+{
+  "id": "potion_skooma_01",
+  "name": "Skooma",
+  "gameDataVersion": {
+    "world": "vanilla",
+    "version": "OpenMW 0.51.0"
+  },
+  "sourcePlugin": "Morrowind.esm",
+  "model": "n\\Potion_Skooma_01.NIF",
+  "icon": "n\\Tx_skooma_01.tga",
+  "script": null,
+  "autoCalculate": false,
+  "effects": [
+    {
+      "effectId": 79,
+      "name": "Fortify Attribute",
+      "range": "self",
+      "magnitude": {
+        "min": 20,
+        "max": 20
+      },
+      "durationSeconds": 60,
+      "areaFeet": 0,
+      "skill": null,
+      "attribute": "speed"
+    },
+    {
+      "effectId": 79,
+      "name": "Fortify Attribute",
+      "range": "self",
+      "magnitude": {
+        "min": 20,
+        "max": 20
+      },
+      "durationSeconds": 60,
+      "areaFeet": 0,
+      "skill": null,
+      "attribute": "strength"
+    },
+    {
+      "effectId": 17,
+      "name": "Drain Attribute",
+      "range": "self",
+      "magnitude": {
+        "min": 20,
+        "max": 20
+      },
+      "durationSeconds": 60,
+      "areaFeet": 0,
+      "skill": null,
+      "attribute": "agility"
+    },
+    {
+      "effectId": 17,
+      "name": "Drain Attribute",
+      "range": "self",
+      "magnitude": {
+        "min": 20,
+        "max": 20
+      },
+      "durationSeconds": 60,
+      "areaFeet": 0,
+      "skill": null,
+      "attribute": "intelligence"
+    }
+  ],
+  "weight": 1.0,
+  "value": 500
+}

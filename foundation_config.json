@@ -1,0 +1,18 @@
+{
+  "sourceConfig": "export_config.json",
+  "outputDirectory": "A:/Cache/OpenMWFoundation",
+  "profiles": [
+    {
+      "id": "vanilla", "world": "vanilla", "arce": false,
+      "plugins": ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm"]
+    },
+    {
+      "id": "tr", "world": "tamriel_rebuilt", "arce": false,
+      "plugins": ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm", "Tamriel_Data.esm", "Cyr_Main.ESM", "TR_Mainland.esm", "TR_Factions.esp", "TR_Firemoth_Vanilla_patch.esp", "Sky_Main.ESM"]
+    },
+    {
+      "id": "tr_arce", "world": "tamriel_rebuilt", "arce": true,
+      "plugins": ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm", "Tamriel_Data.esm", "Cyr_Main.ESM", "TR_Mainland.esm", "TR_Factions.esp", "TR_Firemoth_Vanilla_patch.esp", "Sky_Main.ESM", "ARCE - All Races and Classes Enabled (Vanilla and Tamriel_Data).ESP"]
+    }
+  ]
+}

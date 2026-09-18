@@ -1,0 +1,230 @@
+import contextlib
+import hashlib
+import io
+import json
+from pathlib import Path
+import struct
+import tempfile
+import unittest
+
+from build_app_bundle import build as build_bundle, delta, pick_base
+from build_catalogs import build as build_catalogs
+from extract_foundation import build as build_foundation
+from export_items import ExportError
+from test_export_items import pack_record, plugin_file, VERSIONS, NAMES
+from effect_names import EFFECT_GMSTS
+
+
+def race(flags):
+    """ARCE's real effect: the same race record with its playable flag set."""
+    values = [-1, 0]*7 + list(range(16)) + [1.0, 1.0, 1.0, 1.0, flags]
+    return pack_record('RACE', [('NAME', b'testrace'), ('FNAM', b'Test Race'),
+                                ('RADT', struct.pack('<30i4fI', *values))])
+
+
+def apply_delta(base_records, payload):
+    """The client rule the manifest documents, implemented once for verification."""
+    rows = {record.get('key', record.get('id')): record for record in base_records}
+    for key in payload['removed']:
+        rows.pop(key, None)
+    for record in payload['changed']:
+        rows[record.get('key', record.get('id'))] = record
+    return list(rows.values())
+
+
+class BundleTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        root = Path(cls.tmp.name)
+        raw = json.loads((Path(__file__).parent/'items/examples/sample-records.raw.json').read_text())
+        body = b''
+        for tag, sample in raw.items():
+            body += pack_record(tag, [(f['tag'], bytes.fromhex(f['hex'])) for f in sample['fields']])
+        for ident, name in NAMES.items():
+            body += pack_record('GMST', [('NAME', EFFECT_GMSTS[ident].encode()), ('STRV', name.encode())])
+        body += race(0)
+        base, mod, arce = root/'Morrowind.esm', root/'mod.esp', root/'arce.esp'
+        plugin_file(base, body)
+        plugin_file(mod, pack_record('MISC', [(f['tag'], b'tr_coin' if f['tag'] == 'NAME' else bytes.fromhex(f['hex']))
+                                              for f in raw['MISC']['fields']]), ('Morrowind.esm',))
+        plugin_file(arce, race(1), ('Morrowind.esm',))
+        config = {'profiles': [
+            {'id': 'vanilla', 'world': 'vanilla', 'version': VERSIONS['vanilla'], 'arce': False,
+             'plugins': [base.name]},
+            {'id': 'tr', 'world': 'tamriel_rebuilt', 'version': VERSIONS['tamriel_rebuilt'], 'arce': False,
+             'plugins': [base.name, mod.name]},
+            {'id': 'tr_arce', 'world': 'tamriel_rebuilt', 'version': VERSIONS['tamriel_rebuilt'], 'arce': True,
+             'plugins': [base.name, mod.name, arce.name]}]}
+        with contextlib.redirect_stdout(io.StringIO()):
+            build_foundation(config, [base, mod, arce], 'cp1252', root/'foundation.sqlite')
+            cls.release = build_catalogs(root/'foundation.sqlite', root/'catalogs')
+            cls.bundle = build_bundle(root/'catalogs', root/'bundle')
+        cls.manifest = json.loads((cls.bundle/'manifest.json').read_text(encoding='utf-8'))
+        cls.profiles = {p['id']: p for p in cls.manifest['profiles']}
+        cls.root = root
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def catalog(self, profile_id, name):
+        return json.loads((self.release/profile_id/(name+'.json')).read_text(encoding='utf-8'))['records']
+
+    def bundled(self, profile_id, name):
+        entry = self.profiles[profile_id]['files'][name]
+        return json.loads((self.bundle/entry['path']).read_text(encoding='utf-8'))
+
+    def test_book_prose_leaves_the_catalog_and_the_bundle(self):
+        books = self.catalog('vanilla', 'Books')
+        self.assertTrue(books)
+        for book in books:
+            self.assertNotIn('text', book)
+        texts = {row['key']: row['text'] for row in self.catalog('vanilla', 'BookText')}
+        self.assertEqual(sorted(texts), sorted(book['key'] for book in books))
+        self.assertTrue(any(texts.values()))
+        self.assertNotIn('BookText', self.manifest['catalogs'])
+        self.assertNotIn('BookText', self.profiles['vanilla']['files'])
+        for book in self.bundled('vanilla', 'Books')['records']:
+            self.assertNotIn('text', book)
+
+    def test_skill_book_metadata_survives_the_split(self):
+        book = next(b for b in self.bundled('vanilla', 'Books')['records'] if b['skill'])
+        self.assertEqual(book['skill'], 'enchant')
+
+    def test_full_profiles_carry_no_base(self):
+        for profile_id in ('vanilla', 'tr'):
+            self.assertIsNone(self.profiles[profile_id]['base'])
+            self.assertEqual(self.profiles[profile_id]['inherits'], [])
+            self.assertEqual(self.bundled(profile_id, 'Races')['kind'], 'full')
+
+    def test_arce_ships_only_what_it_changes(self):
+        arce = self.profiles['tr_arce']
+        self.assertEqual(arce['base'], 'tr')
+        self.assertEqual(list(arce['files']), ['Races'])
+        self.assertIn('Weapons', arce['inherits'])
+        self.assertIn('Books', arce['inherits'])
+        payload = self.bundled('tr_arce', 'Races')
+        self.assertEqual((payload['kind'], payload['base']), ('delta', 'tr'))
+        self.assertEqual(payload['removed'], [])
+        self.assertEqual([row['key'] for row in payload['changed']], ['testrace'])
+        self.assertTrue(payload['changed'][0]['playable'])
+        self.assertFalse(self.catalog('tr', 'Races')[0]['playable'])
+
+    def test_delta_reconstructs_the_full_profile(self):
+        rebuilt = apply_delta(self.catalog('tr', 'Races'), self.bundled('tr_arce', 'Races'))
+        self.assertEqual(sorted(rebuilt, key=lambda r: r['key']),
+                         sorted(self.catalog('tr_arce', 'Races'), key=lambda r: r['key']))
+        for name in self.profiles['tr_arce']['inherits']:
+            self.assertEqual(self.catalog('tr_arce', name), self.catalog('tr', name))
+
+    def test_arce_costs_a_fraction_of_a_full_profile(self):
+        arce = sum(f['bytes'] for f in self.profiles['tr_arce']['files'].values())
+        full = sum(f['bytes'] for f in self.profiles['tr']['files'].values())
+        self.assertLess(arce, full/10)
+
+    def test_manifest_sizes_and_hashes_match_the_files(self):
+        self.assertEqual(self.manifest['totals']['files'],
+                         sum(len(p['files']) for p in self.manifest['profiles']))
+        total = 0
+        for profile in self.manifest['profiles']:
+            for entry in profile['files'].values():
+                body = (self.bundle/entry['path']).read_bytes()
+                self.assertEqual(entry['bytes'], len(body))
+                self.assertEqual(entry['sha256'], hashlib.sha256(body).hexdigest())
+                self.assertLess(entry['gzipBytes'], entry['bytes'])
+                total += entry['bytes']
+        self.assertEqual(self.manifest['totals']['bytes'], total)
+
+    def test_pointer_selects_the_release(self):
+        pointer = json.loads((self.root/'bundle/current.json').read_text(encoding='utf-8'))
+        self.assertEqual(pointer['bundleId'], self.bundle.name)
+        self.assertEqual(pointer['snapshotId'], self.manifest['snapshotId'])
+        self.assertEqual(self.manifest['catalogSchemaVersion'], '1.1.0')
+
+    def test_single_profile_selection_emits_it_in_full(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            alone = build_bundle(self.root/'catalogs', self.root/'bundle-arce', ['tr_arce'])
+        manifest = json.loads((alone/'manifest.json').read_text(encoding='utf-8'))
+        profile = manifest['profiles'][0]
+        self.assertIsNone(profile['base'])
+        self.assertEqual(profile['inherits'], [])
+        self.assertEqual(json.loads((alone/profile['files']['Races']['path']).read_text(encoding='utf-8'))['kind'], 'full')
+
+    def test_rebuild_refuses_and_preserves_the_active_pointer(self):
+        before = (self.root/'bundle/current.json').read_bytes()
+        with self.assertRaises(ExportError):
+            build_bundle(self.root/'catalogs', self.root/'bundle')
+        self.assertEqual(before, (self.root/'bundle/current.json').read_bytes())
+        self.assertFalse((self.root/'bundle/build.lock').exists())
+
+    def test_output_may_not_contain_the_release(self):
+        with self.assertRaises(ExportError):
+            build_bundle(self.root/'catalogs', self.root/'catalogs')
+
+
+class LegacyReleaseTests(unittest.TestCase):
+    """A schema 1.0.0 release still has prose inside Books; the bundle must strip it."""
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        release = self.root/'catalogs/abc123'
+        (release/'vanilla').mkdir(parents=True)
+        profile = {'id': 'vanilla', 'world': 'vanilla', 'version': VERSIONS['vanilla'], 'arce': False}
+        (release/'vanilla/Books.json').write_text(json.dumps({
+            'schemaVersion': '1.0.0', 'snapshotId': 'snap', 'profile': profile, 'recordType': 'BOOK',
+            'records': [{'key': 'b1', 'id': 'b1', 'name': 'A Book', 'skill': 'enchant', 'text': 'x'*5000}]}),
+            encoding='utf-8')
+        (release/'manifest.json').write_text(json.dumps({
+            'schemaVersion': '1.0.0', 'snapshotId': 'snap', 'releaseId': 'abc123',
+            'profiles': [profile | {'counts': {'Books': 1}}]}), encoding='utf-8')
+        self.release = release
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_prose_is_stripped_without_rebuilding_catalogs(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            bundle = build_bundle(self.release, self.root/'bundle')
+        record = json.loads((bundle/'vanilla/Books.json').read_text(encoding='utf-8'))['records'][0]
+        self.assertNotIn('text', record)
+        self.assertEqual(record['skill'], 'enchant')
+
+    def test_book_text_request_names_the_rebuild(self):
+        with self.assertRaises(ExportError) as caught:
+            build_bundle(self.release, self.root/'bundle', include_book_text=True)
+        self.assertIn('1.1.0', str(caught.exception))
+
+
+class DeltaUnitTests(unittest.TestCase):
+    def test_changed_added_and_removed(self):
+        base = [{'key': 'a', 'v': 1}, {'key': 'b', 'v': 2}]
+        target = [{'key': 'a', 'v': 1}, {'key': 'b', 'v': 9}, {'key': 'c', 'v': 3}]
+        changed, removed = delta(base, target, 'test')
+        self.assertEqual(changed, [{'key': 'b', 'v': 9}, {'key': 'c', 'v': 3}])
+        self.assertEqual(removed, [])
+        changed, removed = delta(target, base, 'test')
+        self.assertEqual(changed, [{'key': 'b', 'v': 2}])
+        self.assertEqual(removed, ['c'])
+
+    def test_duplicate_keys_fail(self):
+        with self.assertRaises(ExportError):
+            delta([], [{'key': 'a'}, {'key': 'a'}], 'test')
+
+    def test_derived_rows_join_on_id(self):
+        changed, removed = delta([{'id': 'strength', 'index': 0}], [{'id': 'strength', 'index': 1}], 'test')
+        self.assertEqual(changed, [{'id': 'strength', 'index': 1}])
+        self.assertEqual(removed, [])
+
+    def test_base_is_only_chosen_for_a_matching_world(self):
+        tr = {'id': 'tr', 'world': 'tamriel_rebuilt', 'version': '26.08', 'arce': False}
+        vanilla = {'id': 'vanilla', 'world': 'vanilla', 'version': '0.51', 'arce': False}
+        arce = {'id': 'tr_arce', 'world': 'tamriel_rebuilt', 'version': '26.08', 'arce': True}
+        self.assertEqual(pick_base(arce, [vanilla, tr, arce]), 'tr')
+        self.assertIsNone(pick_base(tr, [vanilla, tr, arce]))
+        self.assertIsNone(pick_base(arce, [vanilla, arce]))
+        self.assertIsNone(pick_base(arce | {'version': '26.09'}, [vanilla, tr, arce]))
+
+
+if __name__ == '__main__':
+    unittest.main()

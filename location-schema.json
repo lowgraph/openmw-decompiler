@@ -1,0 +1,576 @@
+{
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "const": "static_plugin_analysis"
+        },
+        "plugins": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "excludedContent": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scriptsWithoutSource": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "mode",
+        "plugins",
+        "excludedContent",
+        "warnings",
+        "scriptsWithoutSource",
+        "limitations"
+      ],
+      "additionalProperties": false
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string"
+          },
+          "gameDataVersion": {
+            "$ref": "#/$defs/GameDataVersion"
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "referenceId": {
+                  "type": "string"
+                },
+                "sourcePlugin": {
+                  "type": "string"
+                },
+                "gameDataVersion": {
+                  "$ref": "#/$defs/GameDataVersion"
+                },
+                "cell": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "interior": {
+                      "type": "boolean"
+                    },
+                    "grid": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "integer"
+                            },
+                            "y": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "regionId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "interior",
+                    "grid",
+                    "regionId"
+                  ],
+                  "additionalProperties": false
+                },
+                "position": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        },
+                        "z": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y",
+                        "z"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "rotation": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        },
+                        "z": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y",
+                        "z"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sourceType": {
+                  "enum": [
+                    "placed",
+                    "container",
+                    "npc_inventory",
+                    "creature_inventory"
+                  ]
+                },
+                "rootObjectId": {
+                  "type": "string"
+                },
+                "containerId": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "actorId": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "restocking": {
+                  "type": "boolean"
+                },
+                "availability": {
+                  "enum": [
+                    "leveled_chance",
+                    "static_definition"
+                  ]
+                },
+                "path": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "CONT",
+                          "NPC_",
+                          "CREA",
+                          "LEVI",
+                          "LEVC"
+                        ]
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "sourcePlugin": {
+                        "type": "string"
+                      },
+                      "entryIndex": {
+                        "type": "integer"
+                      },
+                      "entryId": {
+                        "type": "string"
+                      },
+                      "count": {
+                        "type": "integer"
+                      },
+                      "minimumLevel": {
+                        "anyOf": [
+                          {
+                            "type": "integer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "chanceNone": {
+                        "anyOf": [
+                          {
+                            "type": "integer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "flags": {
+                        "anyOf": [
+                          {
+                            "type": "integer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "scriptId": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "name",
+                      "sourcePlugin",
+                      "entryIndex",
+                      "entryId",
+                      "count",
+                      "minimumLevel",
+                      "chanceNone",
+                      "flags",
+                      "scriptId"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "scriptIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "soulId": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "access": {
+                  "type": "object",
+                  "properties": {
+                    "ownerId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "factionId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "requiredFactionRank": {
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ownershipGlobal": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "takingIsTheft": {
+                      "enum": [
+                        "conditional",
+                        "not_marked_owned"
+                      ]
+                    },
+                    "lockLevel": {
+                      "type": "integer"
+                    },
+                    "keyId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "trapId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "saleStatus": {
+                      "enum": [
+                        "not_determined"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ownerId",
+                    "factionId",
+                    "requiredFactionRank",
+                    "ownershipGlobal",
+                    "takingIsTheft",
+                    "lockLevel",
+                    "keyId",
+                    "trapId",
+                    "saleStatus"
+                  ],
+                  "additionalProperties": false
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "referenceId",
+                "sourcePlugin",
+                "gameDataVersion",
+                "cell",
+                "position",
+                "rotation",
+                "sourceType",
+                "rootObjectId",
+                "containerId",
+                "actorId",
+                "count",
+                "restocking",
+                "availability",
+                "path",
+                "scriptIds",
+                "soulId",
+                "access",
+                "label"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "scriptReferences": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "script",
+                    "dialogue_result"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "sourcePlugin": {
+                  "type": "string"
+                },
+                "topic": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "actorId": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "line": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "line",
+                      "text"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "interpretation": {
+                  "enum": [
+                    "unverified_text_reference"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "sourcePlugin",
+                "topic",
+                "actorId",
+                "evidence",
+                "interpretation"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "itemId",
+          "gameDataVersion",
+          "locations",
+          "scriptReferences"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "coverage",
+    "items"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "GameDataVersion": {
+      "type": "object",
+      "properties": {
+        "world": {
+          "enum": [
+            "vanilla",
+            "tamriel_rebuilt"
+          ]
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "world",
+        "version"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

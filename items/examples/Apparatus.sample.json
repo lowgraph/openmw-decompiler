@@ -1,0 +1,16 @@
+{
+  "id": "apparatus_a_calcinator_01",
+  "name": "Apprentice's Calcinator",
+  "gameDataVersion": {
+    "world": "vanilla",
+    "version": "OpenMW 0.51.0"
+  },
+  "sourcePlugin": "Morrowind.esm",
+  "model": "m\\Apparatus_A_Calcinator_01.NIF",
+  "icon": "m\\Tx_calcinator_01.tga",
+  "script": null,
+  "type": "calcinator",
+  "quality": 0.5,
+  "weight": 25.0,
+  "value": 10
+}
