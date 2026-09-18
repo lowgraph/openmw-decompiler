@@ -12,6 +12,7 @@ from pathlib import Path
 from export_items import ExportError
 
 VERSION = '1.0.0'
+_CATEGORIES = {}
 # Trade service bits a provider must hold to sell an item of that record type.
 SERVICE_BITS = {'WEAP': 1, 'ARMO': 2, 'CLOT': 4, 'BOOK': 8, 'INGR': 16, 'LOCK': 32,
                 'PROB': 64, 'LIGH': 128, 'APPA': 256, 'REPA': 512, 'MISC': 1024, 'ALCH': 8192}
@@ -237,20 +238,27 @@ def sells(services, profile, actor_key, record_type, enchanted):
     return bool(row[0] & wanted) if wanted else False
 
 
-def catalog_record(catalogs, profile, record_type, key):
-    """Value and enchantment live in the typed catalogs; world databases lack both."""
+def load_category(catalogs, profile, record_type):
+    """One catalog file, indexed by key. Cached so a batch reads each file once."""
     if catalogs is None or record_type not in CATEGORY_FILES:
-        return None
+        return {}
     path = Path(catalogs)/profile/(CATEGORY_FILES[record_type]+'.json')
     if not path.is_file():
-        return None
-    for record in json.loads(path.read_text(encoding='utf-8'))['records']:
-        if record.get('key') == key:
-            return record
-    return None
+        return {}
+    key = (str(path),)
+    if key not in _CATEGORIES:
+        _CATEGORIES[key] = {r['key']: r for r in json.loads(path.read_text(encoding='utf-8'))['records']
+                            if r.get('key')}
+    return _CATEGORIES[key]
 
 
-def assess(world, services, catalogs, profile, static, script, policy, limits=None, truncated=False):
+def catalog_record(catalogs, profile, record_type, key):
+    """Value and enchantment live in the typed catalogs; world databases lack both."""
+    return load_category(catalogs, profile, record_type).get(key)
+
+
+def assess(world, services, catalogs, profile, static, script, policy, limits=None, truncated=False,
+           cache=None):
     early = policy['earlyGame']
     threshold, level = policy['hostileFightThreshold'], early['characterLevel']
     if limits is None:
@@ -266,7 +274,9 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
     enchanted = bool(record.get('enchantmentId'))
     value = record.get('value')
     maximum = record.get(CONDITION_MAX.get(root['recordType'], ''))
-    cache, routes = {}, []
+    # A shared cache lets a caller evaluate many toggle variants over one graph walk.
+    cache = {} if cache is None else cache
+    routes = []
     for placement in static['placements']:
         holder = nodes[placement['nodeVersionId']]
         quality = rank.get(holder['versionId'], RANDOM)

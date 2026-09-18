@@ -9,6 +9,11 @@ The JSON exporters documented below are earlier prototypes, not prerequisites.
 profile catalogs. See [CATALOGS.md](CATALOGS.md) for the output layout and
 `catalog-types.ts` for the application contract.
 
+**Gear rows:** run `python build_gear_rows.py --profile vanilla` after the policy is
+settled. It writes one row per equipment slot per toggle combination, with the closest
+source first and a stronger "or" from farther away. See [ROWS.md](ROWS.md) and
+`gear-rows-types.ts`.
+
 **Ship to the site:** run `python build_app_bundle.py` after the catalogs to write
 the browser-facing bundle. See [BUNDLE.md](BUNDLE.md) and `bundle-types.ts`. It excludes
 book prose and publishes ARCE as a delta over TR, and reads no extraction databases.

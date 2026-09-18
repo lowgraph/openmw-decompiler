@@ -2,6 +2,18 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Build gear rows (vanilla)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/build_gear_rows.py",
+      "args": [
+        "--profile",
+        "vanilla"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
       "name": "Query item sources with policy (Mentor\u2019s Ring)",
       "type": "debugpy",
       "request": "launch",
