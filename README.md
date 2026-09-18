@@ -12,6 +12,10 @@ The JSON exporters documented below are earlier prototypes, not prerequisites.
 profile catalogs. See [CATALOGS.md](CATALOGS.md) for the output layout and
 `catalog-types.ts` for the application contract.
 
+**Effect flags from the engine:** install [openmw_effect_dump](openmw_effect_dump/README.md),
+run OpenMW once, then `python import_effect_flags.py`. This turns the inferences below
+into facts and adds `harmful` and definitive targeting, which content cannot reveal.
+
 **Effect rules:** run `python build_rules_library.py` to derive the per-effect behaviour
 the plugin files omit — targeting, no-magnitude and no-duration — from how the game's own
 content uses each effect. The spell cost formula branches on the last two. See

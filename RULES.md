@@ -26,6 +26,34 @@ engine-side. That matters because the spell cost formula branches on the last tw
 `noMagnitude` effect is priced at magnitude 1 whatever the spell says, and a
 `noDuration` effect at duration 0. Guess them and dozens of effects are mispriced.
 
+## The engine's own table, when you have it
+
+OpenMW publishes every one of these flags through `core.magic.effects.records`, and
+documents them in your install at `resources/lua_api/openmw/core.lua`:
+
+```
+harmful   hasDuration   hasMagnitude   hasSkill   hasAttribute
+onSelf    onTouch       onTarget       isAppliedOnce   casterLinked
+nonRecastable   unreflectable   continuousVfx   negativeLight
+```
+
+[openmw_effect_dump](openmw_effect_dump/README.md) is a small mod that prints that
+table to `openmw.log`; the Lua sandbox has no `io` and `openmw.vfs` is read-only, so
+the log is the only way out. `import_effect_flags.py` reads it back, and
+`build_rules_library.py` picks the result up automatically.
+
+That turns three things around. `harmful` becomes available, which content cannot
+reveal at all. `onSelf`/`onTouch`/`onTarget` become definitive, where
+`rangesObserved` can only ever prove a range allowed. And the inferences below get
+**graded**: each carries `agreement` of `confirmed`, `corrected` or `decided`, with
+the original inference kept in `inferred`, so the method is checked rather than
+trusted. A range the content uses but the engine forbids is reported in
+`rangesUnexplained`, because one of the two readings would then be wrong and silence
+would hide it.
+
+Without the dump nothing claims engine provenance: `source` is `derived`, `harmful`
+and the targeting fields are null, and the rules are the inferences below.
+
 ## How the rules are derived
 
 Bethesda and the Tamriel Rebuilt authors wrote every spell, enchantment and potion
@@ -73,6 +101,8 @@ do not.
 ## Options and verification
 
 ```powershell
+python import_effect_flags.py
+python build_rules_library.py --no-flags
 python build_rules_library.py --profile vanilla
 python build_rules_library.py --catalogs A:\Cache\OpenMWFoundation\catalogs\<releaseId>
 python build_app_bundle.py --no-rules
@@ -86,14 +116,17 @@ Skill case is exactly that. Build all profiles unless you have a reason not to.
 Tests cover a field fixed at its sentinel, a field that varies, a counter-example in
 one profile refuting another, thin and absent evidence, skill and attribute targeting,
 potions proving no range, pooling, keyed records, extracted fields surviving, the
-authored formula, content addressing, and a missing catalog failing loudly.
+authored formula, content addressing, a missing catalog failing loudly, and the merge:
+engine facts replacing inferences, confirmed and corrected and newly decided labels,
+an unexplained range surfacing, an effect absent from the dump falling back, and an
+unreadable flag schema being refused.
 
 ## What this layer does not do
 
 It does not decide display units — whether a magnitude reads as points, a percentage,
 levels or feet is engine-side and not inferable from content, so no field claims it.
-It does not mark effects harmful, which governs crime and aggression rather than any
-calculation here. It does not implement alchemy, enchanting or spellmaking: it supplies
+It marks effects harmful only when the dump supplies it; harmful is not inferable
+from content. It does not implement alchemy, enchanting or spellmaking: it supplies
 the per-effect rules and the formula constants those calculators need, and
 `effectCost` in `rules-types.ts` is a reference implementation of the spell cost step,
 not a full calculator.

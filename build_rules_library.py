@@ -88,36 +88,75 @@ def fixed_at(values, sentinel):
     return len(values) == 1 and next(iter(values)) == sentinel
 
 
-def rule(effect, seen):
-    """One effect's rules: extracted, then derived, each with the evidence behind it."""
+def load_flags(path):
+    """Engine facts from import_effect_flags.py, keyed by effect index."""
+    if path is None or not Path(path).is_file():
+        return {}
+    payload = json.loads(Path(path).read_text(encoding='utf-8'))
+    if payload.get('schemaVersion') != VERSION:
+        raise ExportError(f'Unsupported effect flag schema {payload.get("schemaVersion")!r}')
+    return {record['index']: record for record in payload['records']}
+
+
+def agreement(inferred, fact):
+    """How the content-derived answer fared against the engine's own."""
+    if inferred is None:
+        return 'decided'
+    return 'confirmed' if inferred == fact else 'corrected'
+
+
+def rule(effect, seen, engine=None):
+    """One effect's rules: extracted, then the engine's facts or content's evidence."""
     row = {'key': str(effect['effectId']), 'effectId': effect['effectId'], 'name': effect['name'],
            'school': effect['school'], 'baseCost': effect['baseCost'],
            'allowSpellmaking': effect['allowSpellmaking'],
            'allowEnchanting': effect['allowEnchanting']}
     best = max(seen['uses'].values(), default=0) if seen else 0
     enough = best >= MINIMUM_USES
-    row.update(
-        targetsSkill=bool(seen and seen['skill']),
-        targetsAttribute=bool(seen and seen['attribute']),
-        noMagnitude=fixed_at(seen['magnitudes'], (UNUSED, UNUSED)) if enough else None,
-        noDuration=fixed_at(seen['durations'], UNUSED) if enough else None,
-        rangesObserved=sorted(seen['ranges']) if seen else [],
-        evidence={'uses': sum(seen['uses'].values()) if seen else 0,
-                  'bestProfileUses': best, 'byProfile': dict(seen['uses']) if seen else {},
-                  'distinctMagnitudes': len(seen['magnitudes']) if seen else 0,
-                  'distinctDurations': len(seen['durations']) if seen else 0,
-                  'sufficient': enough})
+    observed = sorted(seen['ranges']) if seen else []
+    inferred = {
+        'targetsSkill': bool(seen and seen['skill']),
+        'targetsAttribute': bool(seen and seen['attribute']),
+        'noMagnitude': fixed_at(seen['magnitudes'], (UNUSED, UNUSED)) if enough else None,
+        'noDuration': fixed_at(seen['durations'], UNUSED) if enough else None}
+    if engine:
+        facts = {'targetsSkill': engine['hasSkill'], 'targetsAttribute': engine['hasAttribute'],
+                 'noMagnitude': not engine['hasMagnitude'], 'noDuration': not engine['hasDuration']}
+        allowed = {'self': engine['onSelf'], 'touch': engine['onTouch'], 'target': engine['onTarget']}
+        row.update(facts, source='engine', harmful=engine['harmful'],
+                   castSelf=engine['onSelf'], castTouch=engine['onTouch'],
+                   castTarget=engine['onTarget'], appliedOnce=engine['isAppliedOnce'],
+                   casterLinked=engine['casterLinked'], nonRecastable=engine['nonRecastable'],
+                   unreflectable=engine['unreflectable'],
+                   inferred=inferred,
+                   agreement={k: agreement(inferred[k], facts[k]) for k in facts},
+                   # Content should never use a range the engine forbids; if it does,
+                   # one of the two readings is wrong and silence would hide it.
+                   rangesUnexplained=[r for r in observed if not allowed.get(r, False)])
+    else:
+        row.update(inferred, source='derived', harmful=None, castSelf=None, castTouch=None,
+                   castTarget=None, appliedOnce=None, casterLinked=None, nonRecastable=None,
+                   unreflectable=None, inferred=None, agreement=None, rangesUnexplained=[])
+    row['rangesObserved'] = observed
+    row['evidence'] = {'uses': sum(seen['uses'].values()) if seen else 0,
+                       'bestProfileUses': best, 'byProfile': dict(seen['uses']) if seen else {},
+                       'distinctMagnitudes': len(seen['magnitudes']) if seen else 0,
+                       'distinctDurations': len(seen['durations']) if seen else 0,
+                       'sufficient': enough}
     return row
 
 
-def build(release, output, profiles):
+def build(release, output, profiles, flags=None):
     pooled = observe(release, profiles)
+    engine = load_flags(flags)
     published = []
     for profile in profiles:
         effects = catalog(release, profile, 'MagicEffects')
-        records = [rule(effect, pooled.get(effect['effectId'])) for effect in
-                   sorted(effects, key=lambda e: e['effectId'])]
+        records = [rule(effect, pooled.get(effect['effectId']), engine.get(effect['effectId']))
+                   for effect in sorted(effects, key=lambda e: e['effectId'])]
         derived = sum(1 for r in records if r['noMagnitude'] is not None)
+        verdicts = Counter(v for r in records if r['agreement'] for v in r['agreement'].values())
+        unexplained = [r['name'] for r in records if r['rangesUnexplained']]
         payload = {
             'schemaVersion': VERSION, 'profile': profile,
             'snapshotId': json.loads((Path(release)/'manifest.json').read_text(encoding='utf-8'))['snapshotId'],
@@ -126,6 +165,11 @@ def build(release, output, profiles):
                            'minimumUses': MINIMUM_USES, 'effects': len(records),
                            'decided': derived, 'unknown': len(records)-derived},
             'costFormula': COST_FORMULA,
+            'verification': {'source': 'engine' if engine else 'content only',
+                             'effectsFromEngine': sum(1 for r in records if r['source'] == 'engine'),
+                             'confirmed': verdicts['confirmed'], 'corrected': verdicts['corrected'],
+                             'decided': verdicts['decided'],
+                             'rangesUnexplained': unexplained},
             'coverage': 'Targeting, magnitude and duration rules are inferred from how the '
                         'game\'s own content uses each effect, not read from the plugin files, '
                         'which do not carry them. rangesObserved proves a range is allowed; it '
@@ -147,9 +191,18 @@ def build(release, output, profiles):
         Path(staging).write_bytes(body)
         os.replace(staging, destination)
         written.append(destination)
-        decided = payload['derivation']['decided']
-        print(f"{profile}: {payload['derivation']['effects']} effects, {decided} decided, "
-              f"{payload['derivation']['unknown']} unknown, {len(body)/1024:.0f} KB", flush=True)
+        check = payload['verification']
+        if check['source'] == 'engine':
+            detail = (f"{check['effectsFromEngine']} from the engine, "
+                      f"{check['confirmed']} inferences confirmed, {check['corrected']} corrected, "
+                      f"{check['decided']} previously unknown")
+            if check['rangesUnexplained']:
+                detail += f", RANGES UNEXPLAINED: {', '.join(check['rangesUnexplained'])}"
+        else:
+            detail = (f"{payload['derivation']['decided']} decided, "
+                      f"{payload['derivation']['unknown']} unknown, content only")
+        print(f"{profile}: {payload['derivation']['effects']} effects, {detail}, "
+              f"{len(body)/1024:.0f} KB", flush=True)
     return written
 
 
@@ -158,6 +211,8 @@ def main(argv=None):
     parser.add_argument('--catalogs', type=Path)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--profile', action='append', choices=['vanilla', 'tr', 'tr_arce'])
+    parser.add_argument('--flags', type=Path, help='effect-flags.json; defaults to the output root')
+    parser.add_argument('--no-flags', action='store_true', help='Infer from content only')
     args = parser.parse_args(argv)
     try:
         root = load_config(ROOT/'foundation_config.json')[2]
@@ -174,7 +229,8 @@ def main(argv=None):
         profiles = args.profile or available
         if set(profiles) - set(available):
             raise ExportError('Unknown profile for this release')
-        written = build(release, args.output or root/'rules', profiles)
+        flags = None if args.no_flags else (args.flags or root/'effect-flags.json')
+        written = build(release, args.output or root/'rules', profiles, flags)
         print('Rules library complete:\n  ' + '\n  '.join(str(p) for p in written), flush=True)
         return 0
     except KeyboardInterrupt:

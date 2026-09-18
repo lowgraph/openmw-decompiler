@@ -5,7 +5,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from build_rules_library import MINIMUM_USES, build, fixed_at, observe, rule
+from build_rules_library import (MINIMUM_USES, agreement, build, fixed_at, load_flags,
+                                 observe, rule)
 from export_items import ExportError
 
 SNAPSHOT = 'snapshot-for-tests'
@@ -55,6 +56,26 @@ class RulesFixture(unittest.TestCase):
         published = self.rules(profiles, effects)
         records = next(iter(published.values()))['records']
         return next(r for r in records if r['effectId'] == ident)
+
+    def flags(self, *records):
+        """An effect-flags.json as import_effect_flags.py writes it."""
+        base = {'harmful': False, 'continuousVfx': False, 'hasDuration': True,
+                'hasMagnitude': True, 'isAppliedOnce': False, 'casterLinked': False,
+                'nonRecastable': False, 'hasAttribute': False, 'hasSkill': False,
+                'onSelf': True, 'onTouch': True, 'onTarget': True, 'unreflectable': False,
+                'allowsSpellmaking': True, 'allowsEnchanting': True, 'negativeLight': False}
+        path = Path(tempfile.mkdtemp())/'effect-flags.json'
+        path.write_text(json.dumps({'schemaVersion': '1.0.0', 'effects': len(records),
+                                    'source': {'tool': 'test'},
+                                    'records': [base | r for r in records]}), encoding='utf-8')
+        return path
+
+    def merged(self, profiles, flags, effects=None, ident=1):
+        source = self.release(profiles, effects)
+        with contextlib.redirect_stdout(io.StringIO()):
+            written = build(source, Path(tempfile.mkdtemp()), list(profiles), flags)
+        payload = json.loads(written[0].read_text(encoding='utf-8'))
+        return payload, next(r for r in payload['records'] if r['effectId'] == ident)
 
 
 class DerivationTests(RulesFixture):
@@ -161,6 +182,82 @@ class PublicationTests(RulesFixture):
         with self.assertRaises(ExportError):
             with contextlib.redirect_stdout(io.StringIO()):
                 build(source, Path(tempfile.mkdtemp()), ['vanilla'])
+
+
+class EngineFlagTests(RulesFixture):
+    """When the engine's own table is available it outranks the inference."""
+
+    def test_engine_facts_replace_the_inference_and_add_what_it_could_not_reach(self):
+        quiet = [spell(use(1, magnitude=(1, 1), duration=1)) for _ in range(5)]
+        flags = self.flags({'index': 1, 'id': 'one', 'name': 'One', 'school': 'destruction',
+                            'baseCost': 1.0, 'harmful': True, 'hasMagnitude': False,
+                            'hasDuration': False, 'onTouch': False, 'onTarget': False})
+        payload, row = self.merged({'vanilla': {'Spells': quiet}}, flags)
+        self.assertEqual(row['source'], 'engine')
+        self.assertTrue(row['noMagnitude'])
+        self.assertTrue(row['noDuration'])
+        self.assertTrue(row['harmful'], 'harmful is not inferable from content at all')
+        self.assertEqual((row['castSelf'], row['castTouch'], row['castTarget']),
+                         (True, False, False))
+        self.assertEqual(payload['verification']['source'], 'engine')
+
+    def test_a_confirmed_inference_is_labelled_as_such(self):
+        quiet = [spell(use(1, magnitude=(1, 1), duration=1)) for _ in range(5)]
+        flags = self.flags({'index': 1, 'hasMagnitude': False, 'hasDuration': False})
+        payload, row = self.merged({'vanilla': {'Spells': quiet}}, flags)
+        self.assertEqual(row['agreement']['noMagnitude'], 'confirmed')
+        self.assertEqual(row['agreement']['noDuration'], 'confirmed')
+        self.assertEqual(payload['verification']['confirmed'], 4)
+        self.assertEqual(payload['verification']['corrected'], 0)
+
+    def test_a_wrong_inference_is_corrected_and_counted(self):
+        # The Restore Skill shape: content says no duration, the engine says otherwise.
+        quiet = [spell(use(1, magnitude=(4, 9), duration=1)) for _ in range(5)]
+        flags = self.flags({'index': 1, 'hasDuration': True})
+        payload, row = self.merged({'vanilla': {'Spells': quiet}}, flags)
+        self.assertFalse(row['noDuration'])
+        self.assertEqual(row['agreement']['noDuration'], 'corrected')
+        self.assertEqual(row['inferred']['noDuration'], True, 'the inference is kept on record')
+        self.assertEqual(payload['verification']['corrected'], 1)
+
+    def test_what_the_content_could_not_decide_is_marked_decided(self):
+        flags = self.flags({'index': 1, 'hasMagnitude': False})
+        payload, row = self.merged({'vanilla': {}}, flags)
+        self.assertTrue(row['noMagnitude'])
+        self.assertEqual(row['agreement']['noMagnitude'], 'decided')
+        self.assertEqual(payload['verification']['decided'], 2)
+
+    def test_a_range_the_engine_forbids_but_content_uses_is_surfaced(self):
+        used = [spell(use(1, kind='target')) for _ in range(3)]
+        flags = self.flags({'index': 1, 'onTarget': False})
+        payload, row = self.merged({'vanilla': {'Spells': used}}, flags)
+        self.assertEqual(row['rangesUnexplained'], ['target'])
+        self.assertEqual(payload['verification']['rangesUnexplained'], [row['name']])
+
+    def test_an_effect_absent_from_the_dump_falls_back_to_inference(self):
+        flags = self.flags({'index': 999})
+        payload, row = self.merged({'vanilla': {'Spells': [spell(use(1))]*3}}, flags)
+        self.assertEqual(row['source'], 'derived')
+        self.assertIsNone(row['harmful'])
+        self.assertIsNone(row['agreement'])
+        self.assertEqual(payload['verification']['effectsFromEngine'], 0)
+
+    def test_without_a_dump_nothing_claims_engine_provenance(self):
+        payload, row = self.merged({'vanilla': {'Spells': [spell(use(1))]*3}}, None)
+        self.assertEqual(row['source'], 'derived')
+        self.assertIsNone(row['harmful'])
+        self.assertEqual(payload['verification']['source'], 'content only')
+
+    def test_an_unreadable_flag_schema_is_refused(self):
+        path = Path(tempfile.mkdtemp())/'effect-flags.json'
+        path.write_text(json.dumps({'schemaVersion': '9.9.9', 'records': []}), encoding='utf-8')
+        with self.assertRaises(ExportError):
+            load_flags(path)
+
+    def test_agreement_labels(self):
+        self.assertEqual(agreement(None, True), 'decided')
+        self.assertEqual(agreement(True, True), 'confirmed')
+        self.assertEqual(agreement(False, True), 'corrected')
 
 
 if __name__ == '__main__':

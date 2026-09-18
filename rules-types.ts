@@ -25,6 +25,9 @@ export type EffectEvidence = {
   sufficient: boolean;
 };
 
+/** Where a rule's behavioural fields came from. */
+export type RuleSource = "engine" | "derived";
+
 export type EffectRule = {
   /** The effect id as a decimal string, matching MagicEffects' own key. */
   key: string;
@@ -41,9 +44,32 @@ export type EffectRule = {
   /** null when the content gave too little evidence to decide. */
   noMagnitude: boolean | null;
   noDuration: boolean | null;
-  /** Ranges proven allowed. An absent range is unproven, not forbidden. */
+  /** Ranges the content is seen using. With source "derived" an absent range is
+   *  unproven rather than forbidden; prefer castSelf/castTouch/castTarget when present. */
   rangesObserved: Range[];
   evidence: EffectEvidence;
+
+  /** "engine" when an OpenMW dump supplied the behaviour, "derived" when inferred. */
+  source: RuleSource;
+  /** Engine-only fields. All null when source is "derived". */
+  harmful: boolean | null;
+  castSelf: boolean | null;
+  castTouch: boolean | null;
+  castTarget: boolean | null;
+  appliedOnce: boolean | null;
+  casterLinked: boolean | null;
+  nonRecastable: boolean | null;
+  unreflectable: boolean | null;
+  /** What the content-only inference said, kept so the method can be checked. */
+  inferred: {
+    targetsSkill: boolean; targetsAttribute: boolean;
+    noMagnitude: boolean | null; noDuration: boolean | null;
+  } | null;
+  /** How each inference fared against the engine. Null when there was no dump. */
+  agreement: Record<"targetsSkill" | "targetsAttribute" | "noMagnitude" | "noDuration",
+                    "confirmed" | "corrected" | "decided"> | null;
+  /** Ranges the content uses that the engine says are forbidden. Should be empty. */
+  rangesUnexplained: Range[];
 };
 
 /** Engine literals, not game settings and not derivable from content. */
@@ -75,6 +101,15 @@ export type EffectRules = {
     unknown: number;
   };
   costFormula: CostFormula;
+  verification: {
+    source: "engine" | "content only";
+    effectsFromEngine: number;
+    confirmed: number;
+    corrected: number;
+    decided: number;
+    /** Effect names whose observed ranges contradict the engine. Should be empty. */
+    rangesUnexplained: string[];
+  };
   coverage: string;
   builtAtUnix: number;
   records: EffectRule[];
