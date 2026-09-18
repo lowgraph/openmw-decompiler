@@ -108,6 +108,8 @@ class PolicyDocumentTests(unittest.TestCase):
         policy = load_policy(Path(__file__).parent/'policy/early-game.json')
         self.assertEqual(policy['earlyGame']['maxGoldPerItem'], 500)
         self.assertFalse(policy['earlyGame']['allowTheft'])
+        self.assertTrue(policy['earlyGame']['allowBrokenItems'], 'broken gear is free and repairable')
+        self.assertTrue(policy['earlyGame']['vendorOwnedPlacementsArePurchasable'])
 
     def test_schema_and_field_validation(self):
         for broken, message in [
@@ -414,6 +416,14 @@ class AssessmentTests(unittest.TestCase):
         self.assertEqual(route['acquisition'], 'theft')
         self.assertTrue(route['theftRequired'])
         self.assertIsNone(route['price'])
+
+    def test_a_broken_route_is_flagged_for_repair(self):
+        permissive = copy.deepcopy(POLICY)
+        permissive['earlyGame']['allowBrokenItems'] = True
+        route = self.shop(5000, 900, 0, policy=permissive)['routes'][0]
+        self.assertTrue(route['needsRepair'])
+        self.assertTrue(route['earlyGameEligible'])
+        self.assertFalse(self.shop(5000, 900, 400, policy=permissive)['routes'][0]['needsRepair'])
 
     def test_a_broken_item_is_refused_until_the_policy_allows_it(self):
         result = self.shop(4000, 300, 0)

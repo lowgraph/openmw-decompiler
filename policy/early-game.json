@@ -6,7 +6,8 @@
     "Authored rules, versioned independently of any extraction snapshot.",
     "Changing a rule here never requires re-extracting the game data.",
     "Thresholds are stated once; the evaluator derives numbers from the game.",
-    "Worn gear is priced pro rata: a CellRef condition of 2 of 300 is worth 27 gold."
+    "Worn gear is priced pro rata: a CellRef condition of 2 of 300 is worth 27 gold.",
+    "Broken gear counts: condition 0 is free and repairable, so it is a route, not protection. The optimizer must repair before it is armour."
   ],
   "hostileFightThreshold": 70,
   "earlyGame": {
@@ -25,6 +26,6 @@
       "limits": null
     },
     "vendorOwnedPlacementsArePurchasable": true,
-    "allowBrokenItems": false
+    "allowBrokenItems": true
   }
 }

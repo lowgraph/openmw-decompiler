@@ -42,6 +42,8 @@ export type Route = {
   condition: { raw: number; maximum: number; ratio: number; worn: boolean } | null;
   /** Catalog value scaled by this placement's condition. */
   value: number | null;
+  /** Condition 0: free and repairable, but no armour rating until it is repaired. */
+  needsRepair: boolean;
   /** The actor this route must be taken from, when the item is carried. */
   heldBy: ActorThreat | null;
   theftRequired: boolean;

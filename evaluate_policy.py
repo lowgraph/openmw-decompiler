@@ -276,6 +276,8 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
             'ownerKey': placement.get('ownerKey'), 'factionKey': placement.get('factionKey'),
             'lockLevel': extra.get('lockLevelRaw') or 0, 'trapId': extra.get('trapId'),
             'condition': condition, 'value': worth,
+            # Accepted as a route when the policy allows it, but it is salvage until repaired.
+            'needsRepair': bool(condition and not condition['ratio']),
             'theftRequired': theft, 'price': worth if purchasable else None,
             'danger': danger, 'dangerWithinBenchmark': within_limits(danger, limits),
             'earlyGameEligible': not reasons, 'reasons': reasons})

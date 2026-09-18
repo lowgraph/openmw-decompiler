@@ -20,6 +20,7 @@ costs one re-evaluation and never a re-extraction.
 | --- | --- | --- |
 | Danger | "no harder than the Mentor's Ring" | measured from the benchmark cell |
 | Spending | at most 500 gold per item | authored, against condition-scaled worth |
+| Broken gear | counts, flagged `needsRepair` | authored |
 | Theft | a toggle, off by default | authored |
 | Faction access | assumed, so faction-owned is not theft | authored |
 | Source | guaranteed only; restocking merchants count | authored |
@@ -68,9 +69,11 @@ Each route is then checked against the policy, and fails with stated reasons:
   300 condition is worth 27 gold, not 4000 — which is the whole reason worn shop
   stock is an early-game route at all. 1,697 of vanilla's 2,552 equipment placements
   carry an explicit condition, and 40 cross the 500 gold line once it is applied.
-- **A fully worn item is refused**, because it does nothing until repaired, and it
-  sets no headline price. `allowBrokenItems` lets them through if you would rather
-  carry a hammer.
+- **A fully worn item is a route, not protection.** Condition 0 is free and
+  repairable, so it counts, and the route is flagged `needsRepair` — an optimizer
+  must repair it before treating it as armour. Set `allowBrokenItems` to false to
+  refuse them instead. TR places these liberally: 6 of the Adamantium Helm's 17
+  routes are condition 0, including a free unowned one in Narsis Measurehall.
 - **Danger** is the cell's worst-case hostile population at the policy's character
   level, plus any holder, compared against the budget on all three dimensions.
 
@@ -97,7 +100,9 @@ python -m unittest test_policy -v
 `--services-database` and `--catalogs` override the inputs the policy needs; both
 default to the configured output root, with catalogs resolved through `current.json`.
 Prices require a catalog release, and are reported as `null` when none is available
-rather than guessed.
+rather than guessed. `price` is the cheapest purchase route whether or not it passes
+the policy: the market price is a fact, eligibility is the verdict. Old Ebonheart's
+worn Adamantium Helm reports `price: 2222` and stays ineligible under the 500 cap.
 
 Tests use synthetic worlds built in memory: level gating, worst-candidate selection,
 benchmark derivation and override, route quality and leveled absorption, carried
