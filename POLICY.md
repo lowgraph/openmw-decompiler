@@ -14,17 +14,46 @@ This layer is authored judgement, not extracted fact. It is versioned by
 `policyVersion`, independently of any extraction `snapshotId`, so changing a rule
 costs one re-evaluation and never a re-extraction.
 
-## The rules, and where the numbers come from
+## The criterion
+
+> Gear a new level 1 character can get with no more trouble than Mentor's Ring, a
+> ring lying in Samarys Ancestral Tomb near Seyda Neen past two weak undead.
 
 | Rule | Stated as | Number |
 | --- | --- | --- |
-| Danger | "no harder than the Mentor's Ring" | measured from the benchmark cell |
-| Spending | at most 500 gold per item | authored, against condition-scaled worth |
+| Danger | at most two enemies, none above level 4 | measured from the benchmark cell |
+| Locks | nothing locked | `requireUnlocked`; traps are fine, the benchmark urn has one |
+| Spending | 500 gold or less to buy, or buy worn and repair | authored, against condition-scaled worth |
+| Theft | no price limit when the theft is that easy | the cap applies to purchases only |
 | Broken gear | counts, flagged `needsRepair` | authored |
-| Theft | a toggle, off by default | authored |
+| Quests and farming | do not count | script-only and leveled routes are never eligible |
 | Faction access | assumed, so faction-owned is not theft | authored |
-| Source | guaranteed only; restocking merchants count | authored |
 | Hostility | an actor attacks on sight at `ai.fight` 70+ | authored threshold, checked against the data |
+
+### The three site toggles
+
+| Toggle | Policy field | Off (default) |
+| --- | --- | --- |
+| Steal early gear | `allowTheft` | owned routes are refused |
+| Endgame gear early | `allowEndgameEarly` | endgame pieces are refused |
+| Near starting areas | `nearStart.required` | anywhere qualifies |
+
+`--allow-theft`, `--endgame-early` and `--near-start` set them for one query without
+editing the policy document.
+
+An **endgame piece** is armour rated 50 or more *and* worth 2,000 gold or more, or
+anything worth 10,000 gold or more. Tier is judged on undamaged worth, so a worn
+Glass Cuirass is still endgame. 106 of vanilla's 408 armour records qualify.
+
+**Near starting areas** means Seyda Neen, Samarys, Pelagiad, Balmora, Moonmoth,
+Caldera, Ald'ruhn, Buckmoth, Vivec, Suran, Ebonheart or Old Ebonheart. Exterior cells
+are keyed by grid, so the cell's *name* is matched too: `exterior:8,-52` is
+Old Dren Plantation. `recommended` points at the closest eligible route and then the
+cheapest of those — "the closest source, even if it costs more". Routes carry
+`nearStart` so the optimizer can add an "or" row from farther away.
+
+**Developer cells are excluded** by exact key, never by pattern: a substring match on
+"test" would wrongly drop Nchuleftingth's Test of Pattern and Atestas' Pawn & Loan.
 
 The danger benchmark is a **cell reference, not a number**. The policy names
 Samarys Ancestral Tomb at character level 1, and the evaluator measures that
@@ -76,6 +105,11 @@ Each route is then checked against the policy, and fails with stated reasons:
   routes are condition 0, including a free unowned one in Narsis Measurehall.
 - **Danger** is the cell's worst-case hostile population at the policy's character
   level, plus any holder, compared against the budget on all three dimensions.
+- **Locked means refused.** The benchmark urn is trapped but not locked, so traps
+  pass and any lock level does not.
+- **The gold cap is for purchases.** A theft route that clears the danger and lock
+  rules has no price limit, because nothing is being paid. A stolen Glass Cuirass
+  worth 22,400 is eligible with both toggles on; buying one is not.
 
 ## Verdicts are refusable
 

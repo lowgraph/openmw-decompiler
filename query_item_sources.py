@@ -123,6 +123,9 @@ def main(argv=None):
     parser.add_argument('--policy',type=Path,nargs='?',const=ROOT/'policy/early-game.json',
         help='Evaluate this authored policy; defaults to policy/early-game.json when given without a path')
     parser.add_argument('--services-database',type=Path);parser.add_argument('--catalogs',type=Path)
+    # The site's three toggles, overriding the policy document for one query.
+    parser.add_argument('--allow-theft',action='store_true');parser.add_argument('--endgame-early',action='store_true')
+    parser.add_argument('--near-start',action='store_true')
     for name,default in [('nodes',2000),('edges',5000),('depth',12),('placements',100),('events',100),('script-targets',200),('anchors',100),('anchor-placements',100)]:
         parser.add_argument('--max-'+name,type=int,default=default)
     args=parser.parse_args(argv)
@@ -133,6 +136,9 @@ def main(argv=None):
         paths=(args.acquisition_database or root/'acquisition/acquisition.sqlite',args.world_database or root/'world/world.sqlite',args.evidence_database or root/'script-evidence/script-evidence.sqlite')
         policy=load_policy(args.policy) if args.policy else None
         if policy:
+            if args.allow_theft:policy['earlyGame']['allowTheft']=True
+            if args.endgame_early:policy['earlyGame']['allowEndgameEarly']=True
+            if args.near_start:policy['earlyGame']['nearStart']['required']=True
             paths+=(args.services_database or root/'services/services.sqlite',)
         with ExitStack() as stack:
             dbs=[]

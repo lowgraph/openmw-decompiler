@@ -8,6 +8,12 @@
  */
 export type RouteQuality = "direct" | "inventory" | "restocking" | "random";
 export type Acquisition = "direct" | "take" | "purchase" | "theft" | "pickpocket";
+/** The three site toggles, as policy fields. */
+export type Toggles = {
+  allowTheft: boolean;
+  allowEndgameEarly: boolean;
+  nearStart: { required: boolean; places: string[] };
+};
 export type Obtainable = "guaranteed" | "random" | "script_conditional" | "none" | "unknown";
 export type SaleStatus = "restocking" | "stocked" | "not_sold";
 
@@ -44,6 +50,8 @@ export type Route = {
   value: number | null;
   /** Condition 0: free and repairable, but no armour rating until it is repaired. */
   needsRepair: boolean;
+  /** In or around one of the policy's starting areas. */
+  nearStart: boolean;
   /** The actor this route must be taken from, when the item is carried. */
   heldBy: ActorThreat | null;
   theftRequired: boolean;
@@ -59,6 +67,8 @@ export type Assessment = {
   policy: { version: string; name: string | null; schemaVersion: string; evaluatorVersion: string };
   limits: Limits;
   obtainable: Obtainable;
+  /** Armour rated 50+ worth 2,000+, or anything worth 10,000+. Judged undamaged. */
+  endgame: boolean;
   theftRequired: boolean | null;
   evidenceTruncated: boolean;
   saleStatus: SaleStatus;
@@ -69,7 +79,12 @@ export type Assessment = {
   earlyGameEligible: boolean | null;
   /** Undamaged catalog value, for comparison against a worn route's price. */
   basisValue: number | null;
-  counts: { routes: number; guaranteed: number; earlyGameEligible: number; scriptGrants: number };
+  counts: {
+    routes: number; guaranteed: number; earlyGameEligible: number;
+    scriptGrants: number; nearStart: number;
+  };
+  /** Index into routes: the closest eligible source, then the cheapest. Null if none. */
+  recommended: number | null;
   coverage: string;
   routes: Route[];
 };

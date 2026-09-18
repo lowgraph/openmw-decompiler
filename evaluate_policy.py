@@ -39,7 +39,8 @@ def load_policy(path):
                        ('assumeFactionAccess', bool), ('requireGuaranteedSource', bool),
                        ('countRestockingMerchantsAsGuaranteed', bool),
                        ('vendorOwnedPlacementsArePurchasable', bool),
-                       ('allowBrokenItems', bool)]:
+                       ('allowBrokenItems', bool), ('requireUnlocked', bool),
+                       ('allowEndgameEarly', bool)]:
         if not isinstance(early.get(name), kind) or isinstance(early.get(name), bool) != (kind is bool):
             raise ExportError(f'Policy earlyGame.{name} is missing or the wrong type')
     if early['characterLevel'] < 1 or early['maxGoldPerItem'] < 0:
@@ -49,7 +50,41 @@ def load_policy(path):
     danger = early.get('danger') or {}
     if not (danger.get('limits') or danger.get('benchmark')):
         raise ExportError('Policy earlyGame.danger needs either limits or a benchmark cell')
+    endgame = early.get('endgame') or {}
+    if not all(isinstance(endgame.get(k), (int, float)) for k in ('armorRating', 'armorValue', 'anyValue')):
+        raise ExportError('Policy earlyGame.endgame needs armorRating, armorValue and anyValue')
+    near = early.get('nearStart') or {}
+    if not isinstance(near.get('required'), bool) or not isinstance(near.get('places'), list) or not near['places']:
+        raise ExportError('Policy earlyGame.nearStart needs required and a non-empty places list')
+    if not isinstance(early.get('excludedCells'), list):
+        raise ExportError('Policy earlyGame.excludedCells must be a list, possibly empty')
     return policy
+
+
+def is_endgame(record, rules):
+    """Item tier, judged on undamaged worth: a worn Glass Cuirass is still endgame."""
+    value = record.get('value')
+    if value is None:
+        return False
+    rating = record.get('armorRating') or 0
+    return bool(value >= rules['anyValue']
+                or (rating >= rules['armorRating'] and value >= rules['armorValue']))
+
+
+def cell_label(world, profile, cell_key, cache=None):
+    """Exteriors are keyed by grid, so their name is the only thing worth matching."""
+    if cache is not None and ('label', profile, cell_key) in cache:
+        return cache['label', profile, cell_key]
+    row = world.execute('SELECT name FROM cells WHERE profile_id=? AND cell_key=?',
+                        (profile, cell_key)).fetchone()
+    label = f'{cell_key} {row[0]}'.casefold() if row and row[0] else cell_key.casefold()
+    if cache is not None:
+        cache['label', profile, cell_key] = label
+    return label
+
+
+def near_start(label, places):
+    return any(place.casefold() in label for place in places)
 
 
 def details(value):
@@ -223,7 +258,11 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
     root = static['nodes'][0]
     nodes = {node['versionId']: node for node in static['nodes']}
     rank = reachability(static)
+    near = early['nearStart']
+    # Exact keys, never a pattern: "Nchuleftingth, Test of Pattern" is a real dungeon.
+    excluded = {key.casefold() for key in early['excludedCells']}
     record = catalog_record(catalogs, profile, root['recordType'], root['key']) or {}
+    endgame = is_endgame(record, early['endgame'])
     enchanted = bool(record.get('enchantmentId'))
     value = record.get('value')
     maximum = record.get(CONDITION_MAX.get(root['recordType'], ''))
@@ -246,7 +285,17 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
         theft = not purchasable and (bool(carrier) or
                                      (owned and not (faction_only and early['assumeFactionAccess'])))
         danger = with_obstacle(cell_danger(world, profile, placement['cellKey'], level, threshold, cache), carrier)
+        lock = extra.get('lockLevelRaw') or 0
+        close = near_start(cell_label(world, profile, placement['cellKey'], cache), near['places'])
         reasons = []
+        if placement['cellKey'].casefold() in excluded:
+            reasons.append('developer test cell, not reachable in normal play')
+        if lock and early['requireUnlocked']:
+            reasons.append(f'locked (level {lock})')
+        if endgame and not early['allowEndgameEarly']:
+            reasons.append('endgame piece; enable endgame gear early to include it')
+        if near['required'] and not close:
+            reasons.append('not in or around a starting area')
         if quality == RANDOM:
             reasons.append('random: only reachable through a leveled list')
         elif early['requireGuaranteedSource'] and quality == RESTOCKING and not early['countRestockingMerchantsAsGuaranteed']:
@@ -274,7 +323,7 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
             'heldBy': carrier,
             'cellKey': placement['cellKey'], 'referenceKey': placement['referenceKey'],
             'ownerKey': placement.get('ownerKey'), 'factionKey': placement.get('factionKey'),
-            'lockLevel': extra.get('lockLevelRaw') or 0, 'trapId': extra.get('trapId'),
+            'lockLevel': lock, 'trapId': extra.get('trapId'), 'nearStart': close,
             'condition': condition, 'value': worth,
             # Accepted as a route when the policy allows it, but it is salvage until repaired.
             'needsRepair': bool(condition and not condition['ratio']),
@@ -304,6 +353,7 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
                    'schemaVersion': policy['schemaVersion'], 'evaluatorVersion': VERSION},
         'limits': limits,
         'obtainable': obtainable,
+        'endgame': endgame,
         'theftRequired': None if not routes else all(r['theftRequired'] for r in routes),
         'evidenceTruncated': bool(truncated),
         'saleStatus': 'restocking' if restocks else 'stocked' if purchases else 'not_sold',
@@ -311,7 +361,11 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
         'earlyGameEligible': True if eligible else None if truncated else False,
         'basisValue': value,
         'counts': {'routes': len(routes), 'guaranteed': len(guaranteed),
-                   'earlyGameEligible': len(eligible), 'scriptGrants': len(grants)},
+                   'earlyGameEligible': len(eligible), 'scriptGrants': len(grants),
+                   'nearStart': sum(1 for r in eligible if r['nearStart'])},
+        # "Closest source first, even if it costs more", then the cheapest of those.
+        'recommended': next((routes.index(r) for r in sorted(
+            eligible, key=lambda r: (not r['nearStart'], r['price'] if r['price'] is not None else 0))), None),
         'coverage': 'Verdicts follow the cited policy over the cited evidence. Script grants are '
                     'lexical evidence, not proof of execution, and never make a route eligible. '
                     'Prices are catalog base values; merchant markup is not simulated.',

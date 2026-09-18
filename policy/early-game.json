@@ -7,7 +7,11 @@
     "Changing a rule here never requires re-extracting the game data.",
     "Thresholds are stated once; the evaluator derives numbers from the game.",
     "Worn gear is priced pro rata: a CellRef condition of 2 of 300 is worth 27 gold.",
-    "Broken gear counts: condition 0 is free and repairable, so it is a route, not protection. The optimizer must repair before it is armour."
+    "Broken gear counts: condition 0 is free and repairable, so it is a route, not protection. The optimizer must repair before it is armour.",
+    "The gold cap applies to purchases only. Theft that clears the danger and lock rules has no price limit, because nothing is being paid.",
+    "Site toggles: allowTheft, allowEndgameEarly, nearStart.required.",
+    "Samarys is a starting-area place: the benchmark item must pass its own benchmark.",
+    "excludedCells lists exact keys: a substring match on 'test' would wrongly drop Nchuleftingth's Test of Pattern and Atestas' Pawn & Loan."
   ],
   "hostileFightThreshold": 70,
   "earlyGame": {
@@ -26,6 +30,43 @@
       "limits": null
     },
     "vendorOwnedPlacementsArePurchasable": true,
-    "allowBrokenItems": true
+    "allowBrokenItems": true,
+    "requireUnlocked": true,
+    "allowEndgameEarly": false,
+    "endgame": {
+      "armorRating": 50,
+      "armorValue": 2000,
+      "anyValue": 10000
+    },
+    "nearStart": {
+      "required": false,
+      "places": [
+        "seyda neen",
+        "samarys",
+        "pelagiad",
+        "balmora",
+        "moonmoth",
+        "caldera",
+        "ald'ruhn",
+        "ald-ruhn",
+        "buckmoth",
+        "vivec",
+        "suran",
+        "ebonheart",
+        "old ebonheart"
+      ]
+    },
+    "excludedCells": [
+      "interior:character stuff wonderland",
+      "interior:toddtest",
+      "interior:draugr test",
+      "interior:ken's test hole",
+      "interior:mark's script testing cell",
+      "interior:mark's vampire test cell",
+      "interior:t_test_hf",
+      "interior:t_test_hr",
+      "interior:t_test_pc",
+      "interior:t_test_pi"
+    ]
   }
 }

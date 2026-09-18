@@ -17,6 +17,10 @@ POLICY = {
                   'assumeFactionAccess': True, 'requireGuaranteedSource': True,
                   'countRestockingMerchantsAsGuaranteed': True,
                   'vendorOwnedPlacementsArePurchasable': True, 'allowBrokenItems': False,
+                  'requireUnlocked': True, 'allowEndgameEarly': False,
+                  'excludedCells': ['interior:toddtest'],
+                  'endgame': {'armorRating': 50, 'armorValue': 2000, 'anyValue': 10000},
+                  'nearStart': {'required': False, 'places': ['balmora', 'samarys']},
                   'danger': {'benchmark': {'profile': 'p', 'cellKey': 'tomb'}, 'limits': None}}}
 
 WORLD_SQL = '''
@@ -27,6 +31,7 @@ CREATE TABLE leveled_lists(version_id INTEGER PRIMARY KEY,chance_none INTEGER);
 CREATE TABLE leveled_entries(list_version_id INTEGER,object_key TEXT,minimum_level INTEGER);
 CREATE TABLE placements(version_id INTEGER PRIMARY KEY,reference_key TEXT,object_key TEXT,cell_key TEXT);
 CREATE TABLE profile_placements(profile_id TEXT,reference_key TEXT,version_id INTEGER);
+CREATE TABLE cells(profile_id TEXT,cell_key TEXT,name TEXT);
 CREATE INDEX placement_cell ON placements(cell_key,version_id);
 CREATE INDEX object_lookup ON profile_objects(profile_id,object_key);
 '''
@@ -63,6 +68,9 @@ class World:
                 self.db.execute('INSERT INTO leveled_entries VALUES(?,?,?)', (version, target, minimum))
         return version
 
+    def cell(self, cell_key, name):
+        self.db.execute('INSERT INTO cells VALUES(?,?,?)', ('p', cell_key, name))
+
     def place(self, key, cell):
         version = self.next
         self.next += 1
@@ -92,7 +100,7 @@ def edge(parent, target, kind='inventory', **details):
 def placement(node_version, cell, **extra):
     return {'nodeVersionId': node_version, 'placementVersionId': 1, 'referenceKey': 'r',
             'cellKey': cell, 'ownerKey': extra.get('owner'), 'factionKey': extra.get('faction'),
-            'details': {'lockLevelRaw': 0, 'trapId': None,
+            'details': {'lockLevelRaw': extra.get('lock', 0), 'trapId': None,
                         'itemChargeOrConditionRaw': extra.get('condition', -1)}}
 
 
@@ -443,6 +451,96 @@ class AssessmentTests(unittest.TestCase):
         result = self.assess(static([node(1, 'ring', 'CLOT'), node(2, 'urn', 'CONT')],
                                     [edge(2, 1)], [placement(2, 'tomb', condition=5)]))
         self.assertIsNone(result['routes'][0]['condition'])
+
+    def free(self, cell, policy=None, **extra):
+        self.world.object('sword', 'WEAP')
+        self.world.object('urn', 'CONT')
+        return self.assess(static([node(1, 'sword', 'WEAP'), node(2, 'urn', 'CONT')],
+                                  [edge(2, 1)], [placement(2, cell, **extra)]), policy=policy)
+
+    def armour(self, value, rating, policy=None):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        catalogs = Path(directory.name)
+        (catalogs/'p').mkdir()
+        (catalogs/'p/Armor.json').write_text(json.dumps(
+            {'records': [{'key': 'helm', 'value': value, 'armorRating': rating, 'health': 100}]}),
+            encoding='utf-8')
+        world = World()
+        self.addCleanup(world.close)
+        world.object('helm', 'ARMO')
+        world.object('urn', 'CONT')
+        graph = static([node(1, 'helm', 'ARMO'), node(2, 'urn', 'CONT')],
+                       [edge(2, 1)], [placement(2, 'tomb')])
+        return assess(world.db, world.services, catalogs, 'p', graph, {'events': []},
+                      policy or POLICY, self.limits, False)
+
+    def test_a_locked_container_is_refused(self):
+        locked = self.free('tomb', lock=25)
+        self.assertFalse(locked['earlyGameEligible'])
+        self.assertIn('locked (level 25)', ' '.join(locked['routes'][0]['reasons']))
+        self.assertTrue(self.free('tomb')['earlyGameEligible'],
+                        'the benchmark urn is trapped, not locked')
+
+    def test_developer_test_cells_are_excluded_by_exact_key(self):
+        self.assertFalse(self.free('interior:toddtest')['earlyGameEligible'])
+        self.assertTrue(self.free('interior:nchuleftingth, test of pattern')['earlyGameEligible'],
+                        'a real dungeon whose name contains test must survive')
+
+    def test_near_start_matches_an_exterior_by_its_name(self):
+        self.world.cell('exterior:-3,-2', 'Balmora')
+        self.assertTrue(self.free('exterior:-3,-2')['routes'][0]['nearStart'])
+        self.world.cell('exterior:9,9', 'Dagon Fel')
+        self.assertFalse(self.free('exterior:9,9')['routes'][0]['nearStart'])
+
+    def test_near_start_can_be_required(self):
+        strict = copy.deepcopy(POLICY)
+        strict['earlyGame']['nearStart']['required'] = True
+        far = self.free('interior:vos, varo tradehouse', policy=strict)
+        self.assertFalse(far['earlyGameEligible'])
+        self.assertIn('not in or around a starting area', ' '.join(far['routes'][0]['reasons']))
+        self.assertTrue(self.free('interior:balmora, south wall', policy=strict)['earlyGameEligible'])
+
+    def test_endgame_pieces_wait_for_their_toggle(self):
+        permissive = copy.deepcopy(POLICY)
+        permissive['earlyGame']['allowEndgameEarly'] = True
+        for value, rating, endgame in [(28000, 50, True), (12000, 0, True), (3000, 50, True),
+                                       (5000, 40, False), (1000, 50, False)]:
+            strict = self.armour(value, rating)
+            self.assertEqual(strict['endgame'], endgame, f'value {value} rating {rating}')
+            self.assertEqual(strict['earlyGameEligible'], not endgame)
+            self.assertTrue(self.armour(value, rating, permissive)['earlyGameEligible'])
+
+    def test_theft_has_no_price_limit_when_it_is_easy(self):
+        permissive = copy.deepcopy(POLICY)
+        permissive['earlyGame']['allowTheft'] = True
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        catalogs = Path(directory.name)
+        (catalogs/'p').mkdir()
+        (catalogs/'p/Weapons.json').write_text(json.dumps(
+            {'records': [{'key': 'sword', 'value': 9000, 'health': 100}]}), encoding='utf-8')
+        self.world.object('sword', 'WEAP')
+        self.world.object('urn', 'CONT')
+        graph = static([node(1, 'sword', 'WEAP'), node(2, 'urn', 'CONT')],
+                       [edge(2, 1)], [placement(2, 'tomb', owner='someone')])
+        result = assess(self.world.db, self.world.services, catalogs, 'p', graph,
+                        {'events': []}, permissive, self.limits, False)
+        route = result['routes'][0]
+        self.assertEqual(route['acquisition'], 'theft')
+        self.assertIsNone(route['price'], 'nothing is paid, so no cap applies')
+        self.assertTrue(result['earlyGameEligible'])
+
+    def test_the_closest_source_is_recommended_even_when_dearer(self):
+        self.world.object('sword', 'WEAP')
+        self.world.object('urn', 'CONT')
+        self.world.cell('exterior:9,9', 'Dagon Fel')
+        result = self.assess(static(
+            [node(1, 'sword', 'WEAP'), node(2, 'urn', 'CONT')], [edge(2, 1)],
+            [placement(2, 'exterior:9,9'), placement(2, 'interior:balmora, south wall')]))
+        self.assertEqual(result['counts']['nearStart'], 1)
+        self.assertEqual(result['routes'][result['recommended']]['cellKey'],
+                         'interior:balmora, south wall')
 
     def test_the_verdict_cites_its_policy(self):
         self.world.object('sword', 'WEAP')
