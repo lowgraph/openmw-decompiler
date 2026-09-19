@@ -432,14 +432,13 @@ Phase 3 introduces **Cross-Tool State Reactivity**:
 The existing Challenge Run tool in `#panel-challenge` presents a functional randomizer but suffers from a single-column stacked layout where the generated run summary, controls, hidden character inputs, and expandable restriction pools are buried vertically.
 
 Phase 4 transforms Challenge Runs into a responsive **two-pane CRPG dashboard**, directly mirroring the ergonomics and high-contrast styling of the Character Builder:
-- **Pragmatic, SEO-Friendly Labeling:** Clear, unambiguous naming across all controls ("Run Configuration", "Run Summary", "Generate Run", "Active Restrictions", "Major Objective", "Early Game Strategy") while retaining authentic Elder Scrolls aesthetic touches (Pelagiad display fonts, 3-tier frame hierarchy, parchment sheet backgrounds).
+- **Pragmatic, SEO-Friendly Labeling:** Clear, unambiguous naming across all controls ("Run Configuration", "Run Summary", "Generate Run", "Active Restrictions", "Major Objective") while retaining authentic Elder Scrolls aesthetic touches (Pelagiad display fonts, 3-tier frame hierarchy, parchment sheet backgrounds).
 - **Tactile Run Generation & Pinning:** A prominent `[ Generate Run ]` primary action, customizable modifier count selectors, difficulty preset buttons (`Standard`, `Hardcore`, `Cursed`, `Custom`), and slot-pinning toggles (lock icons) allowing players to freeze specific rolls (e.g. keep rolled race/class while re-rolling restrictions).
 - **Parchment Run Summary Sheet:** The right pane serves as the complete, legible character run dossier:
   - **Character Overview:** Race, Class, Gender, Birthsign, starting Vitals, and Favored Attributes.
   - **Major Objective Plaque:** High-contrast beveled banner detailing the primary victory condition.
   - **Active Restrictions List:** Distinct list items with clear difficulty badges (`[Easy]`, `[Medium]`, `[Hard]`, `[Grind]`), plain-English mechanics explanations, and conflict-free guarantees.
-  - **Minor Objectives:** Optional checklist of secondary world milestones.
-  - **Early Game Strategy & Survival Kit:** Starter tips, recommended early equipment, and key vendor/trainer restrictions based on active rules.
+  - **Minor Objectives Checklist:** Optional checklist of secondary world milestones.
   - **Export & Action Bar:** `[ Send to Build Optimizer ]` (populates the Character Builder with the rolled build), `[ Copy Summary (Markdown) ]`, `[ Copy Permalink ]`, and `[ Print / Save Sheet ]`.
 
 ---
@@ -473,9 +472,9 @@ Phase 4 transforms Challenge Runs into a responsive **two-pane CRPG dashboard**,
 |                                                    | |    Join no guilds until level 5.               | |
 | [ Advanced Pool Search (<details>) ]              | +------------------------------------------------+ |
 |                                                    |                                                    |
-|                                                    | +-- EARLY GAME STRATEGY & SURVIVAL KIT ----------+ |
-|                                                    | | Recommended Starter Weapon: Spark Dagger       | |
-|                                                    | | Survival Warning: Stock up on Restore Fatigue  | |
+|                                                    | +-- MINOR OBJECTIVES (2) ------------------------+ |
+|                                                    | | [ ] Slay the Umbra Orc in single combat        | |
+|                                                    | | [ ] Clear the smuggler cave of Addamasartus    | |
 |                                                    | +------------------------------------------------+ |
 |                                                    |                                                    |
 |                                                    | [ Send to Build Optimizer ]  [ Copy Summary ]    |
@@ -503,7 +502,6 @@ components/challenge-runs/
 ├── major-objective-plaque.jsx       # Beveled plaque for primary victory condition
 ├── restrictions-tablet.jsx          # List of active restrictions with difficulty badges and rules notes
 ├── minor-objectives-checklist.jsx   # Interactive secondary world goals checklist
-├── early-strategy-card.jsx          # Dynamic starter tips, early gear hints, and rule warnings
 ├── seed-bar.jsx                     # Deterministic seed display, input, and 1-click URL sharing
 └── pool-browser-modal.jsx           # Full searchable reference of all objectives and restrictions
 ```
