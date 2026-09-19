@@ -673,23 +673,34 @@ components/calculators/
 
 ---
 
-## 12. Phase 6 Blueprint: Character Level Simulator (Leveling Planner & Progression Engine)
+## 12. Phase 6 Blueprint: Character Level Simulator & Build Progression Optimizer
 
-### 12.1 Objective & Design Strategy
-In Morrowind, characters start at Level 1, but character power, Health, Magicka, and Fatigue evolve dynamically as the player levels up:
-- **The Leveling Problem:** Health gains on level up equal $\lfloor \text{Endurance} / 10 \rfloor$. Unlike modern RPGs, this gain is **not retroactive** in Morrowind; raising Endurance early yields significantly more endgame Health than raising it late.
-- **Attribute Multipliers:** Advancing a level requires 10 Major or Minor skill increases. The player selects 3 attributes to raise; each can gain a $+1$ to $+5$ multiplier based on skill points gained in skills governed by that attribute (from Major, Minor, or Misc skills) during that level. Luck has no governing skills and is limited to $+1$ per level.
-- **The Solution:** A dedicated **Character Level Simulator** page (`#panel-leveler`) that ingests the active character's Level 1 build and enables players to map out their progression to Level 50+ (or max level capped by 100 in all Major/Minor skills).
-- **Pragmatic, SEO-Friendly Labeling:** Clear, unambiguous terminology ("Character Level Simulator", "Level Progression", "Attribute Multipliers", "Health Projection", "Skill Training Requirements") avoiding fantasy fluff.
-- **Enabling Proper Saves:** By implementing the progression engine and data model first, character records saved in Phase 7 (Cloud Character Vault) and Local Storage store the character's exact level, level-up choices, and leveled attribute/skill values instead of only Level 1 presets.
+### 12.1 Objective & True "Build Optimizer" Strategy
+In Morrowind, a character build cannot be truly evaluated or optimized solely at Level 1. Character vitality, survivability, and power evolve dynamically based on player leveling decisions:
+- **The Non-Retroactive Health Dilemma:** Health gains on level up equal $\lfloor \text{Endurance} / 10 \rfloor$. Unlike modern RPGs, this gain is **not retroactive** in Morrowind; raising Endurance early yields hundreds of additional endgame Hit Points compared to raising it late.
+- **Attribute Multipliers & The Misc Skill Role:** Advancing 1 level requires 10 Major or Minor skill increases. The player selects 3 attributes to raise, each gaining a $+1$ to $+5$ multiplier based on skill points gained in skills governed by that attribute during that level. However, relying solely on Major/Minor skills severely restricts multiplier potential and prematurely caps the character. **Training Miscellaneous skills (non-major/minor)** is the canonical method to secure $+5$ multipliers without burning Major/Minor level headroom.
+- **The Solution:** A comprehensive **Character Level Simulator & Build Progression Optimizer** (`#panel-leveler`) that ingests the active character's starting build, simulates manual or automated leveling to any target level (up to theoretical level cap), and prescribes the exact level-by-level training regimen—including which Miscellaneous skills must be trained to hit $+5$ multipliers.
+- **Pragmatic, SEO-Friendly Labeling:** High-intent terminology ("Character Level Simulator", "Build Progression Optimizer", "Attribute Multipliers", "Health Projection", "Skill Training Requirements") avoiding fantasy fluff.
+- **Enabling Deep Character Vault Saves:** Establishes the canonical progression data model used in Phase 7 (Cloud Character Vault), ensuring saved builds retain full progression history, level choices, and leveled stats rather than only Level 1 presets.
 
 ---
 
-### 12.2 Canonical Leveling Math & Data Model
+### 12.2 Canonical Leveling Math & Progression Engine
 
 $$\text{Level-Up Threshold} = 10 \text{ Major or Minor skill increases}$$
 
-$$\text{Health Gain per Level} = \lfloor \frac{\text{Current Endurance}}{10} \rfloor$$
+$$\text{Theoretical Max Level} = 1 + \left\lfloor \frac{\sum_{s \in \text{Major/Minor}} (100 - \text{BaseSkill}_s)}{10} \right\rfloor$$
+
+$$\text{Attribute Multiplier } M = \begin{cases} 
++1 & \text{if increases} = 0 \\
++2 & \text{if } 1 \le \text{increases} \le 4 \\
++3 & \text{if } 5 \le \text{increases} \le 7 \\
++4 & \text{if } 8 \le \text{increases} \le 9 \\
++5 & \text{if increases} \ge 10
+\end{cases}$$
+*(Note: Luck has no governing skills and is fixed at $+1$ per level. Attributes cap strictly at 100).*
+
+$$\text{Health Gain per Level} = \lfloor \frac{\text{New Endurance}}{10} \rfloor$$
 
 $$\text{Total Health at Level } N = \text{Base Health} + \sum_{i=1}^{N-1} \lfloor \frac{\text{Endurance}_i}{10} \rfloor$$
 
@@ -705,76 +716,142 @@ interface LevelUpChoice {
     { name: AttributeName; multiplier: 1 | 2 | 3 | 4 | 5 },
     { name: AttributeName; multiplier: 1 | 2 | 3 | 4 | 5 }
   ];
-  skillIncreasesRequired: Record<string, number>; // Major/Minor/Misc skills trained
-  enduranceBeforeLevel: number;
+  majorMinorIncreases: Record<string, number>; // Exactly 10 points triggering the level up
+  miscSkillsToTrain: Record<string, number>;   // Off-class skills trained to complete 10/10 points for +5 multipliers
+  enduranceAfterLevel: number;
   healthGained: number;
 }
 
 interface LeveledCharacterData {
   version: 1;
-  baseCharacter: CharacterState; // Starting Level 1 build
+  baseCharacter: CharacterState; // Starting Level 1 build from Character Builder
   currentLevel: number;          // e.g. 15
-  targetLevel: number;           // e.g. 50
+  targetLevel: number;           // e.g. 50 (or max theoretical)
+  maxTheoreticalLevel: number;   // Calculated from starting Major/Minor skills
   history: LevelUpChoice[];      // Record of all level-ups
   attributes: Record<AttributeName, number>;
-  skills: Record<string, number>;
+  skills: Record<string, number>; // Full 27 skills tracked up to 100
   vitals: { health: number; magicka: number; fatigue: number };
 }
 ```
 
 ---
 
-### 12.3 Desktop Wireframe ($\ge 1024\text{px}$)
+### 12.3 Core Functional Modules
+
+#### 1. Dual-Mode Progression Toggle ("Stats Only" vs. "Stats & Skills")
+- **"Stats Only" Mode:** Focuses on the primary character profile:
+  - 8 Primary Attributes (Strength, Intelligence, Willpower, Agility, Speed, Endurance, Personality, Luck) with base, bonus, and final values.
+  - Vitals gauges: Health, Magicka, Fatigue.
+  - Health Growth Comparison Chart: visual curve comparing the optimized leveling path against a delayed Endurance path.
+- **"Stats & Skills" Mode:** Expands into a full 27-skill progression matrix:
+  - Categorized by Specialization (Combat, Magic, Stealth) and Tier (Major, Minor, Misc).
+  - Displays starting skill rating, accumulated points gained across level-ups, and final rating (strictly capped at 100).
+  - Highlights governing attribute linkage tags (`[END] Heavy Armor`, `[STR] Long Blade`, `[AGI] Sneak`).
+
+#### 2. Manual Leveling Stepper
+- Step-by-step level browser: navigate between Level 1 and Target Level (`[ < Prev Level ]`, `[ Level 14 -> 15 ]`, `[ Next Level > ]`).
+- For each level:
+  - 3 Attribute Bonus pickers with multiplier selectors (`+1` to `+5`).
+  - Major/Minor skill point allocator (must total exactly 10 points to advance level).
+  - Miscellaneous skill allocator.
+  - Interactive validation alerts: warns if an attribute would exceed 100, if Major/Minor points do not equal 10, or if skill increases are insufficient for the chosen multiplier.
+
+#### 3. 1-Click "Optimize Character" Buttons
+- **`[ Auto-Calculate Optimal Build ]`:** Greedy solver that rushes Endurance to 100 first for maximum HP, then selects attributes according to user priority, automatically distributing skill increases.
+- **`[ Rush Endurance (+5) ]`:** Dedicated +5 Endurance rush every level until 100, then balances secondary attributes.
+- **`[ Triple +5 (+5/+5/+5) ]`:** Optimizes for raw attribute efficiency with three +5 bonuses per level.
+- **`[ Efficient (+5/+5/+1 Luck) ]`:** Maximizes two core attributes with +5 while raising Luck by +1 every level (since Luck cannot gain multipliers).
+- **`[ Reset / Clear Plan ]`:** Reverts to base Level 1 state.
+
+#### 4. Attribute Priority Options
+- Drag-and-drop or rank-ordered selector allowing the player to set priority order (1st to 8th) for attribute leveling.
+- "Auto-Calculate Best Build" mode evaluates class specialization, weapon/magic focus, and initial stat distributions to automatically determine optimal prioritization.
+
+#### 5. Level-by-Level Miscellaneous Skill Training Itinerary
+- For every level in the optimized progression, the engine generates an explicit training card:
+  - **Level-Up Trigger:** Major/Minor skill points allocated (totaling 10).
+  - **Miscellaneous Skills to Train:** Identifies the exact off-class skills that must be trained to hit the 10-point threshold for each chosen attribute's +5 multiplier.
+  - **Specific Skill Suggestions:** Recommends candidate Misc skills available to the player (e.g., *"Train Misc: Spear +6 (for +5 Endurance), Armorer +4 (for +5 Strength), Sneak or Block +10 (for +5 Agility)"*).
+  - Estimated gold training cost based on trainer formulas.
+
+#### 6. Bidirectional Character Builder Integration
+- **Direct Load:** Automatically ingests active character state from `CharacterContext` (`useActiveCharacter()`).
+- **Bridge Actions:**
+  - `[ Load from Character Builder ]`: Syncs the active Level 1 build into the level simulator.
+  - `[ Apply Leveled Build to Character Sheet ]`: Updates the active Character Builder session with the leveled attribute and skill values.
+  - `[ Export Leveled Build JSON ]`: Generates portable JSON build dossier.
+
+---
+
+### 12.4 Desktop Wireframe ($\ge 1024\text{px}$)
 
 ```
 +---------------------------------------------------------------------------------------------------------+
-| Silt Strider: Character Level Simulator                                                                 |
-| Active Character: Jiub · Dark Elf Assassin · Level [ 15 v ] (Max Theoretical: 62)                       |
+| Silt Strider: Character Level Simulator & Build Progression Optimizer                                   |
+| Active Character: Jiub · Dark Elf Assassin · Level [ 15 v ] of 62 (Theoretical Cap)                     |
+| [ View Mode: (o) Stats Only  ( ) Stats & Skills ]        [ Load Active Build ] [ Apply to Builder ]     |
 +----------------------------------------------------+----------------------------------------------------+
-| LEFT PANE: Level Progression Step Editor           | RIGHT PANE: Leveled Character Sheet                |
+| LEFT PANE: Leveling Optimizer & Step Itinerary     | RIGHT PANE: Leveled Character Sheet                |
 | (components/level-simulator/level-step-editor.jsx) | (components/level-simulator/progression-sheet.jsx) |
 |                                                    |                                                    |
-| Level Step: [ Level 14 -> 15 v ]   [ + Next Level ]| +-- LEVELED VITALS (Level 15) -------------------+ |
-| Strategy Preset: [ Efficient (+5/+5/+1 Luck) v ]   | | Health:  [======= 182/182 =======] (+10)       | |
-|                                                    | | Magicka: [======= 80/80 =========]             | |
-| +-- 3 Attribute Level-Up Bonuses ----------------+ | | Fatigue: [======= 290/290 =======]             | |
-| | 1. [ Endurance      v ] [ +5 Multiplier v ]    | +------------------------------------------------+ |
-| |    Requires: 10 Heavy/Medium/Spear increases   |                                                    |
-| | 2. [ Agility        v ] [ +5 Multiplier v ]    | +-- PRIMARY ATTRIBUTES --------------------------+ |
-| |    Requires: 10 Block/Sneak/Light increases    | | Strength: 65 (+25)     Agility: 85 (+35)         | |
-| | 3. [ Luck           v ] [ +1 (Fixed)    v ]    | | Intelligence: 40       Speed: 70 (+20)           | |
-| +------------------------------------------------+ | | Willpower: 30          Endurance: 100 (MAX)     | |
-|                                                    | | Personality: 55        Luck: 55 (+15)           | |
-| +-- Skill Training Requirements for this Level --+ | +------------------------------------------------+ |
-| | Major/Minor: 10 points (Advances level)        |                                                    |
-| | Miscellaneous: 10 points (Bonus multipliers)   | +-- HEALTH PROJECTION CHART ---------------------+ |
-| +------------------------------------------------+ | | Lvl 1: 45hp -> Lvl 5: 75hp -> Lvl 15: 182hp    | |
-|                                                    | | Max Possible Endgame Health: 485 HP            | |
-| [ Apply to Active Character ] [ Save Leveled Build]| +------------------------------------------------+ |
+| OPTIMIZATION CONTROLS:                             | +-- LEVELED VITALS (Level 15) -------------------+ |
+| [ Auto-Calculate Best Build ] [ Rush Endurance +5] | | Health:  [======= 182/182 =======] (+10 HP)    | |
+| [ Triple +5 (+5/+5/+5) ]      [ Reset Plan ]       | | Magicka: [======= 80/80 =========]             | |
+|                                                    | | Fatigue: [======= 290/290 =======]             | |
+| Attribute Priority Order:                          | +------------------------------------------------+ |
+| 1. [Endurance v] 2. [Strength v] 3. [Agility v]... |                                                    |
+| Target Level Slider: [=========== 15/62 =========] | +-- PRIMARY ATTRIBUTES --------------------------+ |
+|                                                    | | Strength: 65 (+25)     Agility: 85 (+35)         | |
+| LEVEL 15 ITINERARY CARD:                           | | Intelligence: 40       Speed: 70 (+20)           | |
+| +-- Attribute Level-Up Bonuses (3/3) ------------+ | | Willpower: 30          Endurance: 100 (MAX)     | |
+| | 1. Endurance: +5 (Current: 95 -> 100 MAX)      | | Personality: 55        Luck: 55 (+15)           | |
+| | 2. Strength:  +5 (Current: 60 -> 65)           | +------------------------------------------------+ |
+| | 3. Agility:   +5 (Current: 80 -> 85)           |                                                    |
+| +------------------------------------------------+ | +-- [STATS & SKILLS MODE] 27-SKILL PROGRESSION --+ |
+|                                                    | | Heavy Armor (Maj): 45 -> 55 (Endurance)        | |
+| +-- Skills to Raise This Level ------------------+ | | Long Blade  (Maj): 40 -> 46 (Strength)         | |
+| | Major/Minor (10 pts -> Level Up):              | | Sneak       (Min): 35 -> 40 (Agility)          | |
+| |   • Heavy Armor +4 | Long Blade +6             | | Spear       (Misc): 15 -> 21 (+6 trained)      | |
+| |                                                | | Armorer     (Misc): 10 -> 14 (+4 trained)      | |
+| | MISCELLANEOUS SKILLS TO TRAIN (FOR 5x BONUS):  | | Block       (Misc): 15 -> 25 (+10 trained)     | |
+| |   • Spear (Misc): Train +6 pts (Endurance 5x)  | +------------------------------------------------+ |
+| |   • Armorer (Misc): Train +4 pts (Strength 5x) |                                                    |
+| |   • Block/Sneak (Misc): Train +10 (Agility 5x) | +-- HEALTH PROJECTION CHART ---------------------+ |
+| +------------------------------------------------+ | | Max Health: 485 HP (Optimal) vs 290 HP (Delayed)| |
+| [ < Previous Level ]          [ Next Level > ]     | +------------------------------------------------+ |
 +----------------------------------------------------+----------------------------------------------------+
 ```
 
 ---
 
-### 12.4 Component Hierarchy & File Layout (Phase 6)
+### 12.5 Component Hierarchy & File Layout (Phase 6)
 
 ```
 components/level-simulator/
-├── level-simulator-root.jsx         # Coordinator, target level slider, and preset switcher
-├── level-step-editor.jsx            # Left pane: attribute bonus pickers & multiplier selectors
-├── progression-sheet.jsx            # Right pane: live leveled character sheet and vitals
+├── level-simulator-root.jsx         # Coordinator, target level slider, mode switch, and preset actions
+├── level-mode-toggle.jsx            # "Stats Only" vs. "Stats & Skills" toggle bar
+├── attribute-priority-ranker.jsx    # Attribute priority order selector
+├── level-step-editor.jsx            # Left pane: manual stepper and optimizer controls
+├── level-itinerary-card.jsx         # Explicit training card with Major/Minor points & Misc training needed
+├── progression-sheet.jsx            # Right pane: live leveled character sheet, vitals, attributes
 ├── health-growth-chart.jsx          # Visual comparison chart of efficient vs delayed Endurance
-└── skill-training-table.jsx         # Detailed Major, Minor, and Misc training requirements
+└── skill-progression-matrix.jsx     # Full 27-skill progression table (Stats & Skills mode)
+
+lib/
+└── level-math.mjs                   # Canonical formulas: level cap, HP growth, multiplier rules, solver
 ```
 
 ---
 
-### 12.5 Execution Checklist for Codex (Phase 6)
-- [ ] **Step 1:** Scaffold `components/level-simulator/` and the 5 subcomponents.
-- [ ] **Step 2:** Implement `lib/level-math.mjs` calculating level caps, attribute multipliers, and Health progression.
-- [ ] **Step 3:** Mount `#panel-leveler` into `index.html` and register `leveler` view in `migration/shell-bridge.js`.
-- [ ] **Step 4:** Add `[ Simulate Leveling → ]` quick-link button into `CharacterSheet`.
-- [ ] **Step 5:** Run `npm test` to verify calculations match OpenMW canonical level-up outputs.
+### 12.6 Execution Checklist for Codex (Phase 6)
+- [ ] **Step 1:** Implement `lib/level-math.mjs` with level cap calculation, Health formulas, multiplier thresholds, and the optimization solver prescribing level-by-level Major/Minor and Misc skill training.
+- [ ] **Step 2:** Scaffold `components/level-simulator/` with all 8 subcomponents.
+- [ ] **Step 3:** Implement the Dual-Mode toggle ("Stats Only" vs "Stats & Skills") and manual level stepper.
+- [ ] **Step 4:** Integrate 1-click optimization buttons and attribute priority ranker.
+- [ ] **Step 5:** Connect `level-simulator-root.jsx` to `CharacterContext` (`useActiveCharacter()`) and add `[ Level Progression Optimizer → ]` quick launch in `CharacterSheet`.
+- [ ] **Step 6:** Mount `#panel-leveler` into `index.html` and register `leveler` view in `migration/shell-bridge.js`.
+- [ ] **Step 7:** Run `npm test` and verify that all calculations match canonical OpenMW level-up logic.
 
 ---
 
