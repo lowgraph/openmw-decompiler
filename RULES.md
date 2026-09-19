@@ -7,8 +7,9 @@ python dump_profiles.py
 python build_rules_library.py
 ```
 
-The first launches OpenMW once per profile to read the engine's own effect table; skip
-it and the rules are inferred from content alone. Output goes to `A:\Cache\OpenMWFoundation\rules\<profile>-<hash>.json`, and
+The first launches OpenMW once per profile to read the engine's own effect table.
+Nothing needs installing; skip it and the rules are inferred from content alone.
+Output goes to `A:\Cache\OpenMWFoundation\rules\<profile>-<hash>.json`, and
 `build_app_bundle.py` publishes it as the `EffectRules` catalog. See `rules-types.ts`
 for the app contract and a reference `effectCost`. This reads catalog JSON only; it
 opens no database and runs no extractor.
@@ -41,8 +42,10 @@ nonRecastable   unreflectable   continuousVfx   negativeLight
 
 [openmw_effect_dump](openmw_effect_dump/README.md) is a small mod that prints that
 table to `openmw.log`; the Lua sandbox has no `io` and `openmw.vfs` is read-only, so
-the log is the only way out. `dump_profiles.py` launches the game once per profile and
-imports each result, and `build_rules_library.py` picks them up automatically.
+the log is the only way out. `dump_profiles.py` launches the game once per profile,
+passing the mod folder as `--data` so nothing has to be installed, watches the log, and
+closes the game as soon as the dump lands — around five seconds a profile.
+`build_rules_library.py` picks the results up automatically.
 
 That turns three things around. `harmful` becomes available, which content cannot
 reveal at all. `onSelf`/`onTouch`/`onTarget` become definitive, where
@@ -156,13 +159,20 @@ are already in the `GameSettings` catalog rather than duplicated here.
 
 ## Cost in the bundle
 
-With the engine's flags merged, 145 KB raw per profile and **8 KB gzipped**; 58 KB
-and 5 KB from content alone, before the flags and the 45 extra records. ARCE inherits
-the catalog unchanged.
+Measured on the current release, with the engine's flags merged:
+
+```
+vanilla   141 effects   118 KB raw   6.7 KB gzipped
+tr        186 effects   145 KB raw   7.8 KB gzipped
+tr_arce   186 effects   145 KB raw   7.8 KB gzipped
+```
+
+58 KB and 5 KB from content alone, before the flags and the extra records. ARCE
+inherits TR's catalog unchanged.
 
 Vanilla and TR now differ, which they did not before: TR's rules carry the 45 effects
-it registers and vanilla's do not. The extracted 141 remain identical across profiles —
-the engine's rules are the same for all three, and TR adds no MGEF records — so the
+it registers and vanilla's do not. The extracted 141 are identical across all three —
+the engine's rules are the same everywhere, and TR adds no MGEF records — so the
 difference is exactly the Lua-registered set.
 
 ## Options and verification
@@ -188,9 +198,15 @@ potions proving no range, pooling, keyed records, extracted fields surviving, th
 authored formula, content addressing, a missing catalog failing loudly, and the merge:
 engine facts replacing inferences, confirmed and corrected and newly decided labels,
 an unexplained range surfacing, a dump that does not cover the catalogs being refused,
-and an unreadable flag schema being refused. `test_dump_profiles.py` covers the content
-order a profile is launched with, finding the executable, a log that did not move, a
-timeout, and that every TR profile declares the Lua content its effects come from.
+an unreadable flag schema being refused, an engine-only effect reaching the output, a
+repeated name still reaching it by id, and each profile reading its own dump.
+
+`test_dump_profiles.py` covers the content order and the replaced content list a
+profile is launched with, finding the executable, when a log counts as this run's, the
+game being closed once the dump lands, a game that exits without dumping, a timeout,
+that the game is given a file rather than a pipe, that every profile needing Lua
+content declares it, that the shipped `.omwscripts` point at scripts that exist, and
+that nothing in the mod quits the game.
 
 ## What this layer does not do
 

@@ -13,17 +13,16 @@ install at `resources/lua_api/openmw/core.lua`.
 The Lua sandbox has no `io`, and `openmw.vfs` is read-only, so there is no way to write
 a file from inside the game. `print` goes to `openmw.log`, and that is the way out.
 
-## Install
+## There is nothing to install
 
-Copy the contents of this folder — both `.omwscripts` files and `scripts/` — into
-OpenMW's local data directory, which already exists and is already on the data path:
+Leave this folder where it is. `dump_profiles.py` passes it to the game as
+`--data=<this folder>`, so the scripts are on the data path for that one run only and
+nothing is copied into `My Games\OpenMW\data`, nothing is ticked in the launcher, and
+`openmw.cfg` is not touched.
 
-```
-C:\Users\<you>\OneDrive\Documents\My Games\OpenMW\data\
-```
-
-No `openmw.cfg` edit is needed, and nothing needs ticking in the launcher: the driver
-below passes the content file on the command line.
+Copying the `.omwscripts` files on their own does not work, and is the obvious mistake:
+they are two-line pointers at `scripts/silt_effect_dump/*.lua`, so without the
+`scripts/` folder beside them OpenMW finds nothing to run.
 
 ## Run
 
@@ -34,29 +33,37 @@ python dump_profiles.py
 python build_rules_library.py
 ```
 
-`dump_profiles.py` launches OpenMW once per profile, with `--replace=content` so
+`dump_profiles.py` launches OpenMW once per profile with `--replace=content`, so
 nothing from `openmw.cfg` leaks in and only that profile's own load order is present.
-The auto variant quits the game as soon as it has printed, so each window opens and
-closes on its own. Each run is imported to `<root>/effect-flags/<profile>.json`, and
+It watches `openmw.log`, and closes the game as soon as the dump lands — about five
+seconds per profile. Each run is imported to `<root>/effect-flags/<profile>.json`, and
 the rules build reads each profile's own file:
 
 ```
-vanilla: 141 effects, 141 from the engine, N inferences confirmed, N corrected,
-         N previously unknown
-tr: 186 effects, 186 from the engine, ..., 45 registered by Lua and in no plugin file
+vanilla: 141 effects in 6s -> vanilla.json
+tr:      186 effects in 4s -> tr.json
+         names used more than once: Corruption, Wabbajack
 ```
 
-Use `--dry-run` to see the commands without launching anything, and `--profile tr` to
-do one.
+Use `--dry-run` to see the commands without launching anything, `--profile tr` to do
+one, and `--mod` if this folder is somewhere else.
+
+**Nothing in the mod quits the game**, deliberately. An earlier version called
+`core.quit()` while the menu script was still loading; the window vanished a second
+after launch, which is indistinguishable from a crash. Deciding when to stop is the
+driver's job, and it decides from the log.
 
 ### By hand instead
 
-Tick `silt_effect_dump.omwscripts` in the launcher's **Data Files** and play normally.
-The menu script fires at the main menu, so quitting from there is usually enough; if
-the log has no dump, load any save and quit, which runs the global script. Let OpenMW
-exit normally so the log is flushed, then `python import_effect_flags.py --profile tr`.
-Use this when you want to keep the window open, not for a routine rebuild: what gets
-dumped is then whatever the launcher had ticked, which is easy to get wrong.
+Tick `silt_effect_dump.omwscripts` in the launcher's **Data Files** — after adding this
+folder as a data directory, so the scripts come with it — and play normally. The menu
+script fires at the main menu, so quitting from there is usually enough; if the log has
+no dump, load any save and quit, which runs the global script. Let OpenMW exit normally
+so the log is flushed, then `python import_effect_flags.py --profile tr`.
+
+Use this when you want to keep the window open. It is not the routine path: what gets
+dumped is then whatever the launcher had ticked, which is easy to get wrong, and the
+`--profile` you pass is a claim about that rather than something the tool arranged.
 
 ## Effects that exist only at runtime
 
@@ -82,16 +89,16 @@ them, and the rules library leaves them absent rather than guessing.
 ## Safety
 
 The scripts only read and print. They register no event handlers that change anything,
-touch no game state, and are wrapped so a failure prints a marked error line rather than
-disturbing the game. Untick the content file when you are done; nothing persists in a
-save.
+touch no game state, quit nothing, and are wrapped so a failure prints a marked error
+line rather than disturbing the game. A driven run loads them for that run alone, so
+there is nothing to undo afterwards.
 
 ## Reading the output by hand
 
 Each line is one JSON object:
 
 ```
-SILTDUMP BEGIN 3 menu-auto 186
+SILTDUMP BEGIN 3 menu 186
 SILTDUMP {"id":"firedamage","name":"Fire Damage","school":"destruction",...}
 SILTDUMP END 186
 ```
