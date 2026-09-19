@@ -396,3 +396,10 @@ Phase 3 introduces **Cross-Tool State Reactivity**:
 - [x] **Dropdown & Button Face Unification:** Configured `.mw-select` and `.mw-btn` to enforce `var(--font-serif) !important;` on their closed faces for authentic Elder Scrolls styling, while ensuring `.mw-select option, .mw-select optgroup` explicitly render in `var(--font-sans) !important;` (`Segoe UI` / `system-ui`) for crisp, legible rendering inside native OS menu popups.
 - [x] **Global Heading & Button Parity:** Updated `index.html` heading and button selectors to prioritize `Pelagiad` across `h1, h2, h3, h4, .brand h1, .kicker, .btn`, `select`, and `.cat-btn`, creating 1:1 thematic parity between the Challenge Runs interface and the Character Builder.
 - [x] **CRPG Table & Monospace Stat Tokens:** Consolidated all stat tags, Armor Rating badges (`.gear-ar-tag`), item metadata tags (`.gear-tag`, `.region-tag`), and saved character status messages to standard `var(--font-mono)`.
+
+### 9.9 Responsive Navigation Bedrock & Hamburger Menu Polish (Round 7)
+- [x] **Unified Responsive Breakpoint Architecture (<900px vs >=900px):** Unified the tablet and mobile navigation threshold to 899px across `index.html` and `app/globals.css`, eliminating the previous 768px-899px dead zone where the hamburger button was suppressed while header elements stacked awkwardly.
+- [x] **Persistent Top Navigation:** Removed legacy view-based suppression (`body:not(.view-challenge):not(.view-builder) .nav-primary { display: none; }`), ensuring primary tool navigation links remain accessible across all views, including Home, About, and standalone calculators.
+- [x] **Interactive Hamburger Toggle States:** Updated the trigger button in `components/site-header.jsx` to dynamically switch glyphs from `☰` (closed) to `✕` (open) with corresponding accessible `aria-label` updates (`Open menu` / `Close menu`) and tactile bevel styling.
+- [x] **CRPG Mobile Navigation Drawer:** Styled `#react-menu-drawer.open` with an authentic 4px bevel frame, dark backdrop, gold focus outlines, full-width touch targets (>=44px), structured section dividers, and a dedicated `Game World Profile` section header.
+
