@@ -36,7 +36,7 @@ export type RuleSource = "engine" | "derived";
 
 export type EffectRule = {
   /** An extracted effect's id as a decimal string, matching MagicEffects' own key;
-   *  a Lua-registered effect's own engine id, such as "t_conjuration_devourer". */
+   *  a Lua-registered effect's own engine id, such as "t_summon_devourer". */
   key: string;
   /** Null for a Lua-registered effect: no plugin record, so no numeric id. */
   effectId: number | null;

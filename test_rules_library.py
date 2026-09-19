@@ -283,13 +283,13 @@ class EngineFlagTests(RulesFixture):
     def test_an_effect_only_the_engine_knows_is_published_as_a_rule(self):
         # Tamriel Rebuilt registers 45 effects through Lua. No plugin file defines them,
         # so they reach the catalogs through the dump or not at all.
-        flags = self.flags({'id': 't_conjuration_devourer', 'name': 'Summon Devourer',
+        flags = self.flags({'id': 't_summon_devourer', 'name': 'Summon Devourer',
                             'school': 'conjuration', 'baseCost': 40.0, 'hasMagnitude': False},
                            {'id': 'one', 'name': 'One'})
         payload, _ = self.merged({'vanilla': {}}, flags, [effect(1, 'One')])
         self.assertEqual(payload['derivation']['engineOnly'], 1)
         added = next(r for r in payload['records'] if r['name'] == 'Summon Devourer')
-        self.assertEqual(added['key'], 't_conjuration_devourer')
+        self.assertEqual(added['key'], 't_summon_devourer')
         self.assertIsNone(added['effectId'], 'nothing extracted can reference it')
         self.assertFalse(added['extracted'])
         self.assertEqual(added['school'], 'conjuration')

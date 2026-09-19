@@ -113,7 +113,7 @@ class ValidationTests(unittest.TestCase):
         # Tamriel Rebuilt registers summons through Lua; they are real effects with ids,
         # they simply have no counterpart in any plugin file.
         lines = block([record('waterbreathing', 'Water Breathing'),
-                       record('t_conjuration_devourer', 'Summon Devourer')])
+                       record('t_summon_devourer', 'Summon Devourer')])
         _, payload = build(log(*lines), Path(tempfile.mkdtemp()))
         self.assertEqual(payload['effects'], 2)
         self.assertIn('Summon Devourer', [r['name'] for r in payload['records']])

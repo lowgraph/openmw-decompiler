@@ -52,19 +52,23 @@ as `{changed, removed}` against that base. Base selection is by matching world a
 version with `arce: false`; a base profile is always complete, so resolution never
 recurses. Selecting `tr_arce` on its own instead publishes it in full.
 
-Measured against release `6325cee99aad127fb8abf68b`:
+Measured against bundle `05c8e35f088e181ca115d94c`:
 
 | Profile | Files | Inherited | Raw | Gzipped |
 | --- | --- | --- | --- | --- |
-| `vanilla` | 21 | 0 | 3.48 MB | 253 KB |
-| `tr` | 21 | 0 | 13.91 MB | 965 KB |
-| `tr_arce` | 3 | 18 | 0.08 MB | **13 KB** |
+| `vanilla` | 23 | 0 | 3.86 MB | 271 KB |
+| `tr` | 23 | 0 | 14.35 MB | 988 KB |
+| `tr_arce` | 3 | 20 | 0.08 MB | **13 KB** |
 
-Gear rows add about 10 KB gzipped to vanilla and 15 KB to TR; effect rules add 5 KB to
-each. Both cost ARCE nothing, because it inherits them unchanged.
+Gear rows cost 12 KB gzipped on vanilla and 16 KB on TR, effect rules 7 KB and 8 KB.
+Both cost ARCE nothing: its rows and rules are byte-identical to TR's, so it inherits
+them. Effect rules are the one catalog where vanilla and TR genuinely differ in record
+count — 141 against 186 — because Tamriel Rebuilt registers 45 effects through Lua
+that no plugin file defines.
 
-A visitor loads one profile: 253 KB gzipped for Vanilla, 965 KB for TR, and 978 KB
-for TR + ARCE. Book prose alone would have added 2.7 MB per profile.
+A visitor loads one profile: 271 KB gzipped for Vanilla, 988 KB for TR, 883 KB for
+TR + ARCE. ARCE comes out lighter than TR because its own Spells, Races and Classes
+deltas replace TR's full copies. Book prose alone would have added 2.7 MB per profile.
 
 ## Outputs
 

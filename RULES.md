@@ -92,7 +92,7 @@ only extracted effects is missing entries the game itself offers.
 
 They are published as ordinary rules, with `extracted: false` and a null `effectId`
 because no plugin record exists to carry one. Their `key` is the engine's own string
-id, such as `t_conjuration_devourer`. **Key rules by `key`, never by `effectId`.**
+id, such as `t_summon_devourer`. **Key rules by `key`, never by `effectId`.**
 `derivation.engineOnly` counts them, and their flags are the engine's own facts with
 empty evidence — there is no content to infer from, and none is claimed.
 
