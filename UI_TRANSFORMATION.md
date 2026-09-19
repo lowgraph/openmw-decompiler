@@ -764,9 +764,15 @@ interface LeveledCharacterData {
 - **`[ Efficient (+5/+5/+1 Luck) ]`:** Maximizes two core attributes with +5 while raising Luck by +1 every level (since Luck cannot gain multipliers).
 - **`[ Reset / Clear Plan ]`:** Reverts to base Level 1 state.
 
-#### 4. Attribute Priority Options
-- Drag-and-drop or rank-ordered selector allowing the player to set priority order (1st to 8th) for attribute leveling.
-- "Auto-Calculate Best Build" mode evaluates class specialization, weapon/magic focus, and initial stat distributions to automatically determine optimal prioritization.
+#### 4. Attribute Priority Options & Archetype Detection
+- Drag-and-drop or rank-ordered selector allowing the player to set custom priority order (1st to 8th) for attribute leveling.
+- **"Auto-Calculate Best Build" Archetype Detection:** Inspects specialization and class skill matrix to assign optimal priority queues:
+  - **Melee Tank / Warrior:** Endurance (Rush 100) $\rightarrow$ Strength $\rightarrow$ Agility $\rightarrow$ Speed $\rightarrow$ Willpower $\rightarrow$ Personality $\rightarrow$ Intelligence $\rightarrow$ Luck.
+  - **Stealth / Assassin / Marksman:** Endurance $\rightarrow$ Agility $\rightarrow$ **Strength** (Critical sneak multiplier: $4\times$ melee, $2\times$ bow damage scales with $\text{STR}/50$) $\rightarrow$ **Speed** $\rightarrow$ Intelligence $\rightarrow$ Personality $\rightarrow$ Willpower $\rightarrow$ Luck.
+  - **Pure Mage / Caster:** Endurance $\rightarrow$ Intelligence $\rightarrow$ Willpower $\rightarrow$ Agility $\rightarrow$ Speed $\rightarrow$ Strength $\rightarrow$ Personality $\rightarrow$ Luck.
+  - **Battlemage / Spellsword:** Endurance $\rightarrow$ Strength $\rightarrow$ Intelligence $\rightarrow$ Willpower $\rightarrow$ Agility $\rightarrow$ Speed $\rightarrow$ Personality $\rightarrow$ Luck.
+  - **Nightblade / Shadowcaster:** Endurance $\rightarrow$ Agility $\rightarrow$ Intelligence $\rightarrow$ **Strength** $\rightarrow$ Willpower $\rightarrow$ **Speed** $\rightarrow$ Personality $\rightarrow$ Luck.
+  - **Diplomat / Merchant:** Endurance $\rightarrow$ Personality $\rightarrow$ Speed $\rightarrow$ Agility $\rightarrow$ Strength $\rightarrow$ Willpower $\rightarrow$ Intelligence $\rightarrow$ Luck.
 
 #### 5. Level-by-Level Miscellaneous Skill Training Itinerary
 - For every level in the optimized progression, the engine generates an explicit training card:
