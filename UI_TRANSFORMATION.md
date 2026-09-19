@@ -342,3 +342,19 @@ Phase 3 introduces **Cross-Tool State Reactivity**:
 - [x] **Step 3:** Rewire Spellmaking Calculator to calculate live cast chance for crafted spells.
 - [x] **Step 4:** Rewire Alchemy Calculator to calculate potion brew success.
 - [x] **Step 5:** Verify automated tests and production build.
+
+---
+
+## 9. Comprehensive UX/UI Audit & Art Direction Polish
+
+### 9.1 The 3-Tier CRPG Frame Hierarchy
+- **Tier 1 (Outer Window Frame):** `--mw-border` (6px ornate scrollwork). Used exclusively for root primary panels (`.configurator`, `.character-sheet`, `.gear-advisor`, `.panel`). Never nested inside another Tier 1 frame.
+- **Tier 2 (Structural Inset Inset):** `--mw-groove` (2px recessed etched line). Used for internal cards, panels, and plaques (Vitals, Spells, Calculator HUDs, Warning scrolls).
+- **Tier 3 (Interactive Controls):** `--mw-bevel` (4px raised button bevel). Used exclusively for clickable buttons (`.mw-btn`), dropdowns (`.mw-select`), and inputs. Never used as a structural container.
+
+### 9.2 Execution Checklist
+- [x] **Step 1:** Establish 3-Tier Frame Hierarchy across all layout containers and components.
+- [x] **Step 2:** Eliminate all line tangencies (mode bar double-bevel, skill slot border collisions, calculator HUD clashing, mobile sticky vitals elevation).
+- [x] **Step 3:** Streamline mobile responsive ergonomics (remove duplicate sheet button, enlarge `<InfoTip>` touch target $\ge 32\text{px}$).
+- [x] **Step 4:** Enhance accessibility (add `:focus-visible` gold outline `#d4b06a`, brighten muted text from `#8a7a5e` to `#9e8b6b` for WCAG AA $\ge 4.5:1$ contrast).
+- [x] **Step 5:** Clean up orphaned/dead code in `components/character-builder/skill-picker/`.
