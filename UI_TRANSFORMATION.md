@@ -337,8 +337,8 @@ Phase 3 introduces **Cross-Tool State Reactivity**:
 
 ### 8.3 Execution Checklist for Codex (Phase 3)
 
-- [ ] **Step 1:** Create `components/character-context.jsx` exposing `useActiveCharacter()`.
-- [ ] **Step 2:** Rewire Enchanting Calculator to read `Intelligence` and `Enchant` from context.
-- [ ] **Step 3:** Rewire Spellmaking Calculator to calculate live cast chance for crafted spells.
-- [ ] **Step 4:** Rewire Alchemy Calculator to calculate potion brew success.
-- [ ] **Step 5:** Verify automated tests and production build.
+- [x] **Step 1:** Create `components/character-context.jsx` exposing `useActiveCharacter()`.
+- [x] **Step 2:** Rewire Enchanting Calculator to read `Intelligence` and `Enchant` from context.
+- [x] **Step 3:** Rewire Spellmaking Calculator to calculate live cast chance for crafted spells.
+- [x] **Step 4:** Rewire Alchemy Calculator to calculate potion brew success.
+- [x] **Step 5:** Verify automated tests and production build.
