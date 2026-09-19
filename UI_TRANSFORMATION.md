@@ -368,3 +368,12 @@ Phase 3 introduces **Cross-Tool State Reactivity**:
   - Enhanced category banners (`th[colspan]`) and table headers (`thead th`) with *Pelagiad* serif typography, uppercase tracking (`0.08em`), and etched groove dividers (`--mw-groove`).
   - Elevated item names (`.gear-name`) with bold Pelagiad typography and styled Tamriel Rebuilt/region badges.
 
+### 9.4 Character Builder Workspace Polish (Round 2)
+- [x] **Controls Deep Breathing Room:** Enforced `padding: 36px 48px !important;` on `.configurator` and `.character-sheet` via dedicated CSS rules, providing a wide 48px gutter between border edges and outer controls (`Race`, `Class`, `Specialization` on left; `Female`, `Birthsign`, `Endurance` on right).
+- [x] **Early Game & Endgame Kit Visual Emphasis:** Transformed `#gear-box details` and `.gear-results-container details` from plain text disclosures into high-contrast beveled CRPG plaques with 1.3rem *Pelagiad* headings, dark gradient banners (`linear-gradient(180deg, rgba(68,48,26,0.88), rgba(22,16,11,0.95))`), gold chevrons, and active hover lighting.
+- [x] **Complete Miscellaneous Skills:** Updated `SkillDisplayGrid` to list all 17 miscellaneous skills alphabetically under the authentic heading `"Miscellaneous Skills"`.
+- [x] **Mode Bar Visual Prominence & Clearance:** Added generous top margin (`mt-2 sm:mt-4 mb-8`) and expanded `#panel-build` top padding to `32px` to prevent buttons from touching the upper master panel border. Scaled mode switcher typography to `1.05rem` (`text-base`, `px-6 py-3`) with warm gold gradient and glowing focus highlights when active.
+- [x] **Standalone Local Characters Box:** Decoupled `#local-characters` from the bottom of `Configurator` into its own dedicated container (`LocalCharactersPanel`) with an authentic 6px `--mw-border` window frame, situated with `mt-7` (28px) negative space below the Character Configuration box.
+- [x] **Decoupled Superior Box Clearance:** Enforced clear negative space margins (`mt-7` on `LocalCharactersPanel`, `mt-8` on `GearAdvisor`) preventing any overlap or contact with superior dashboard containers.
+
+
