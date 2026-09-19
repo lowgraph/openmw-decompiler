@@ -67,7 +67,7 @@ re-evaluation and never a re-extraction. Keep it that way.
 ## What exists
 
 Every stage is built and tested. `python -m unittest discover -p "test_*.py"` runs
-**147 tests** on synthetic fixtures; none touch the user's real data.
+**233 tests** on synthetic fixtures; none touch the user's real data.
 
 | Stage | Builder | Doc | Output |
 | --- | --- | --- | --- |
@@ -82,23 +82,48 @@ Every stage is built and tested. `python -m unittest discover -p "test_*.py"` ru
 | **Policy verdicts** | `evaluate_policy.py` | POLICY.md | fills `assessment` |
 | **App bundle** | `build_app_bundle.py` | BUNDLE.md | what the browser downloads |
 | **Gear rows** | `build_gear_rows.py` | ROWS.md | 424 rows per profile |
+| **Engine effect dump** | `dump_profiles.py` | openmw_effect_dump/README.md | `effect-flags/<profile>.json` |
+| **Effect rules** | `build_rules_library.py` | RULES.md | 141 vanilla / 186 TR rules |
 
-The app contract is in `catalog-types.ts`, `bundle-types.ts`, `policy-types.ts` and
-`gear-rows-types.ts`. Keep them in step with the builders.
+The app contract is in `catalog-types.ts`, `bundle-types.ts`, `policy-types.ts`,
+`gear-rows-types.ts` and `rules-types.ts`. Keep them in step with the builders.
 
 ### Numbers worth knowing
 
 ```
 placements, tr profile        2,215,031      STAT alone is 60.6% of them
 profile_placements rows       4,787,754      tr and tr_arce are identical
-app bundle, gzipped           vanilla 253 KB   tr 965 KB   tr_arce +13 KB
+app bundle, gzipped           vanilla 271 KB   tr 988 KB   tr_arce +13 KB
 gear rows                     424 per profile, vanilla 414 filled, 196s
+effect rules                  vanilla 141   tr and tr_arce 186   45 are Lua-only
+engine dump                   141 effects in 6s, 186 in 4s, one run per profile
 journal topics                tr 2,577  vanilla 758      326 have no resolvable title
 transport destinations        tr 433  vanilla 117        17k directed door links
 script events resolved        38,692 of 38,697 in tr
 ```
 
-## What the last session added
+## Where things stand, 18 September 2026
+
+Bundle `05c8e35f088e181ca115d94c` is built, verified through the site's own loader and
+staged into `morrowind-tools/public/game-data`. Both repositories are clean and pushed
+except for Antigravity's own files. Next steps 1 and 3 below are done; 2 is underway.
+
+## What the last two sessions added
+
+**The rules library and the engine dump.** `build_rules_library.py` derives the
+per-effect behaviour the plugin files omit, and `dump_profiles.py` reads the engine's
+real answers by launching OpenMW once per profile. 549 inferences confirmed, 1
+corrected, 14 newly decided. See RULES.md, which is the most useful single document in
+this repository for understanding what is evidence and what is fact.
+
+**45 effects that exist in no file.** Tamriel Rebuilt registers them through Lua, 39 of
+them available for spellmaking and enchanting. They reach the catalogs only through a
+runtime dump, carry `extracted: false` and a null `effectId`, and are keyed by the
+engine's own string id. **Key effect rules by `key`, never by `effectId`.**
+
+**A third agent.** Antigravity now leads UI architecture and authors
+`UI_TRANSFORMATION.md`; Codex implements it in `morrowind-tools`. See COORDINATION.md,
+which must stay identical in both repositories.
 
 **Packaging.** Catalog schema 1.1.0 moves book prose into its own `BookText` catalog;
 `build_app_bundle.py` publishes the browser bundle, excluding prose and expressing
@@ -150,28 +175,30 @@ Do not regress these. Each one was a wrong answer first.
 
 ## Next steps
 
-**1. Finish the profile builds.** The user runs these.
+**1. ~~Finish the profile builds.~~ Done.** All three gear row sets and all three rule
+sets are built, and ARCE's are byte-identical to TR's — checked record by record, not
+assumed — so the bundle inherits rather than duplicating them.
 
-```powershell
-python build_gear_rows.py --profile tr
-python build_gear_rows.py --profile tr_arce
-python build_app_bundle.py
-```
+**2. Wire the bundle into the site.** *Underway, Codex's.* The loader, the profile-aware
+character catalogs and a React character planner have landed. What remains: the legacy
+alchemy, enchanting and spellmaking calculators still hold vanilla and TR data as
+literal arrays inside `index.html`. Replace those with the profile-resolved bundle, and
+replace display-name references with stable keys, keeping names as labels. A
+compatibility adapter must translate existing saved names, because saved characters and
+share links are already in the wild.
 
-TR is roughly 7,000 items, so 15–20 minutes. ARCE changes only races and classes, so
-`tr_arce` rows should be identical to `tr` — confirm that rather than assuming it, and
-if it holds, publish them as a delta the way the bundle does.
+**3. ~~The rules library the calculators need.~~ Done.** Shipped as the `EffectRules`
+catalog. Targeting, no-magnitude, no-duration and harmful are now engine facts rather
+than inferences, and `costFormula` carries the engine literals the spell cost step
+needs. Display units remain absent, deliberately: they are not in the effect record at
+all, OpenMW decides them in its own interface, so nothing claims them. A calculator
+that needs them has to author them.
 
-**2. Wire the bundle into the site.** The calculators currently hold vanilla and TR
-data as literal arrays inside `index.html`, combined ad hoc per tool. Replace them with
-the profile-resolved bundle, and replace display-name references with stable keys,
-keeping names as labels. A compatibility adapter must translate existing saved names,
-because saved characters and share links are already in the wild.
-
-**3. The rules library the calculators need.** `CATALOGS.md` is explicit that
-engine-fixed targeting, no-magnitude and no-duration effect rules, harmful-effect flags
-and display units are **not** synthesized. Alchemy, enchanting and spellmaking cannot
-be accurate without them. This is the largest remaining gap for features 3 and 4.
+**3a. Build the spellmaking and enchanting calculators on it.** The rules are the input
+those features were blocked on, and nothing consumes them yet. `effectCost` in
+`rules-types.ts` is a reference implementation of the spell cost step, not a full
+calculator. Whatever consumes it must key by `key`, or it silently drops the 39
+Lua-registered effects the game itself offers.
 
 **4. Travel.** `services.sqlite` already has providers, destinations, costs and directed
 door links. The site's existing calculator optimizes for fewest connections; keep that
