@@ -2,6 +2,7 @@
   "openmwConfig": "C:/Users/tiago/OneDrive/Documents/My Games/OpenMW/openmw.cfg",
   "baseDataDirectory": "A:/SteamLibrary/steamapps/common/Morrowind/Data Files",
   "modsDirectory": "A:/Modlists/Morrowind",
+  "openmwExecutable": "A:/OpenMW 0.51.0/openmw.exe",
   "allowedModPrefixes": ["ARCE", "Cyr_Main", "Sky_Main", "Tamriel Data", "Tamriel Rebuilt"],
   "allowedPlugins": [
     "Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm", "Tamriel_Data.esm",

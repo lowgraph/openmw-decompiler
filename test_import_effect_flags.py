@@ -124,6 +124,28 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual([r['id'] for r in payload['records']], ['a', 'b', 'c'])
 
 
+class ProfileTests(unittest.TestCase):
+    def test_a_profile_gets_its_own_file_because_the_list_depends_on_load_order(self):
+        output = Path(tempfile.mkdtemp())
+        destination, payload = build(log(*block([record('one', 'One')])), output, 'tr')
+        self.assertEqual(destination, output/'tr.json')
+        self.assertEqual(payload['profile'], 'tr')
+
+    def test_profiles_do_not_overwrite_one_another(self):
+        output = Path(tempfile.mkdtemp())
+        build(log(*block([record('one', 'One')])), output, 'vanilla')
+        build(log(*block([record('one', 'One'), record('two', 'Two')])), output, 'tr')
+        counts = {p.stem: json.loads(p.read_text(encoding='utf-8'))['effects']
+                  for p in sorted(output.glob('*.json'))}
+        self.assertEqual(counts, {'vanilla': 1, 'tr': 2})
+
+    def test_without_a_profile_the_shared_name_is_kept(self):
+        output = Path(tempfile.mkdtemp())
+        destination, payload = build(log(*block([record('one', 'One')])), output)
+        self.assertEqual(destination, output/'effect-flags.json')
+        self.assertIsNone(payload['profile'])
+
+
 class LogDiscoveryTests(unittest.TestCase):
     def test_an_explicit_missing_path_is_an_error(self):
         with self.assertRaises(ExportError):

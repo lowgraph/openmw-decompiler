@@ -9,6 +9,12 @@
  * `noMagnitude` and `noDuration` are null when the content never exercised the effect
  * enough to decide. Null means unknown, not false — a calculator should say so rather
  * than price the effect as if the field were in use.
+ *
+ * A record with `extracted: false` was registered by a Lua mod at runtime — Tamriel
+ * Rebuilt adds 45 of them — so it appears in no plugin file and has no numeric
+ * `effectId`. Nothing in the extracted data can reference it, but the engine offers it
+ * for spellmaking and enchanting, so a spell maker that lists only extracted effects is
+ * missing entries the game shows. Key rules by `key`, never by `effectId`.
  */
 import type { Profile } from "./catalog-types";
 
@@ -29,11 +35,16 @@ export type EffectEvidence = {
 export type RuleSource = "engine" | "derived";
 
 export type EffectRule = {
-  /** The effect id as a decimal string, matching MagicEffects' own key. */
+  /** An extracted effect's id as a decimal string, matching MagicEffects' own key;
+   *  a Lua-registered effect's own engine id, such as "t_conjuration_devourer". */
   key: string;
-  effectId: number;
+  /** Null for a Lua-registered effect: no plugin record, so no numeric id. */
+  effectId: number | null;
   name: string;
-  // --- read from the plugin files ---
+  /** False when only the running engine knows this effect. Such a record always has
+   *  source "engine", empty evidence, and null inferred/agreement. */
+  extracted: boolean;
+  // --- read from the plugin files, or from the engine when extracted is false ---
   school: string;
   baseCost: number;
   allowSpellmaking: boolean;
@@ -97,6 +108,8 @@ export type EffectRules = {
     sources: string[];
     minimumUses: number;
     effects: number;
+    /** How many of `effects` exist only in the engine, with no plugin record. */
+    engineOnly: number;
     decided: number;
     unknown: number;
   };

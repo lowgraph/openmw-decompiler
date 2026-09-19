@@ -110,7 +110,7 @@ def validate(block):
     return by_id, sorted(n for n, count in names.items() if count > 1)
 
 
-def build(log, output):
+def build(log, output, profile=None):
     blocks, errors = parse(Path(log).read_text(encoding='utf-8', errors='replace'))
     if not blocks:
         detail = ('\n  The mod reported: ' + '; '.join(errors)) if errors else (
@@ -118,7 +118,7 @@ def build(log, output):
         raise ExportError(f'No complete effect dump in {log}.{detail}')
     block = blocks[-1]
     effects, ambiguous = validate(block)
-    payload = {'schemaVersion': VERSION, 'effects': len(effects),
+    payload = {'schemaVersion': VERSION, 'profile': profile, 'effects': len(effects),
                'ambiguousNames': ambiguous,
                'source': {'tool': 'openmw_effect_dump', 'dumpVersion': block['dumpVersion'],
                           'context': block['context'], 'log': str(Path(log).resolve()),
@@ -133,7 +133,8 @@ def build(log, output):
                'records': [effects[i] for i in sorted(effects)]}
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
-    destination = output/'effect-flags.json'
+    # One file per profile when we know which; the engine's list depends on the load order.
+    destination = output/(f'{profile}.json' if profile else 'effect-flags.json')
     handle, staging = tempfile.mkstemp(prefix='.flags-', dir=output)
     os.close(handle)
     Path(staging).write_text(json.dumps(payload, ensure_ascii=False, indent=1)+'\n',
@@ -146,11 +147,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--log', type=Path, help='openmw.log; found automatically when omitted')
     parser.add_argument('--output', type=Path, help='Defaults to the configured output root')
+    parser.add_argument('--profile', choices=['vanilla', 'tr', 'tr_arce'],
+                        help='Write <root>/effect-flags/<profile>.json for this profile')
     args = parser.parse_args(argv)
     try:
         root = load_config(ROOT/'foundation_config.json')[2]
         log = find_log(args.log)
-        destination, payload = build(log, args.output or root)
+        output = args.output or (root/'effect-flags' if args.profile else root)
+        destination, payload = build(log, output, args.profile)
         harmful = sum(1 for r in payload['records'] if r['harmful'])
         if payload['ambiguousNames']:
             print(f'{len(payload["ambiguousNames"])} effect names are used more than once and '

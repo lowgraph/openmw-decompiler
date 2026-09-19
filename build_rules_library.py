@@ -88,20 +88,59 @@ def fixed_at(values, sentinel):
     return len(values) == 1 and next(iter(values)) == sentinel
 
 
-def load_flags(path):
-    """Engine facts from import_effect_flags.py, keyed by effect name.
+def flags_for(directory, profile, fallback):
+    """A profile's own dump when one exists, otherwise a shared one."""
+    if directory is not None:
+        candidate = Path(directory)/f'{profile}.json'
+        if candidate.is_file():
+            return candidate
+    return fallback
 
-    OpenMW keys its own records by a string id that the catalogs do not carry, and two
-    of them (Call Wolf, Call Bear) do not match their name either, so the join is on
-    name. Names the dump repeats are dropped rather than resolved arbitrarily.
+
+def engine_only(record):
+    """An effect the engine knows and no plugin defines, from the dump alone.
+
+    Tamriel Rebuilt registers these through Lua. They carry no numeric effect id, so
+    nothing in the extracted data can reference them, but 39 of the 45 are available
+    for spellmaking and enchanting and a calculator that omits them is wrong.
     """
+    return {'key': record['id'], 'effectId': None, 'name': record['name'],
+            'extracted': False, 'school': record['school'], 'baseCost': record['baseCost'],
+            'allowSpellmaking': record['allowsSpellmaking'],
+            'allowEnchanting': record['allowsEnchanting'],
+            'targetsSkill': record['hasSkill'], 'targetsAttribute': record['hasAttribute'],
+            'noMagnitude': not record['hasMagnitude'], 'noDuration': not record['hasDuration'],
+            'source': 'engine', 'harmful': record['harmful'],
+            'castSelf': record['onSelf'], 'castTouch': record['onTouch'],
+            'castTarget': record['onTarget'], 'appliedOnce': record['isAppliedOnce'],
+            'casterLinked': record['casterLinked'], 'nonRecastable': record['nonRecastable'],
+            'unreflectable': record['unreflectable'],
+            'inferred': None, 'agreement': None, 'rangesUnexplained': [],
+            'rangesObserved': [],
+            'evidence': {'uses': 0, 'bestProfileUses': 0, 'byProfile': {},
+                         'distinctMagnitudes': 0, 'distinctDurations': 0, 'sufficient': False}}
+
+
+def load_dump(path):
+    """Every record in an import_effect_flags.py dump, in the id order it wrote them."""
     if path is None or not Path(path).is_file():
-        return {}
+        return [], set()
     payload = json.loads(Path(path).read_text(encoding='utf-8'))
     if payload.get('schemaVersion') != VERSION:
         raise ExportError(f'Unsupported effect flag schema {payload.get("schemaVersion")!r}')
-    ambiguous = set(payload.get('ambiguousNames') or ())
-    return {record['name']: record for record in payload['records']
+    return payload['records'], set(payload.get('ambiguousNames') or ())
+
+
+def load_flags(path):
+    """Engine facts keyed by effect name, for joining against a catalog.
+
+    OpenMW keys its own records by a string id that the catalogs do not carry, and two
+    of them (Call Wolf, Call Bear) do not match their name either, so the join is on
+    name. A name the dump repeats resolves to nothing rather than to one of them
+    arbitrarily; those records still reach the output through engine_only, keyed by id.
+    """
+    records, ambiguous = load_dump(path)
+    return {record['name']: record for record in records
             if record.get('name') and record['name'] not in ambiguous}
 
 
@@ -133,7 +172,7 @@ def agreement(inferred, fact):
 def rule(effect, seen, engine=None):
     """One effect's rules: extracted, then the engine's facts or content's evidence."""
     row = {'key': str(effect['effectId']), 'effectId': effect['effectId'], 'name': effect['name'],
-           'school': effect['school'], 'baseCost': effect['baseCost'],
+           'extracted': True, 'school': effect['school'], 'baseCost': effect['baseCost'],
            'allowSpellmaking': effect['allowSpellmaking'],
            'allowEnchanting': effect['allowEnchanting']}
     best = max(seen['uses'].values(), default=0) if seen else 0
@@ -171,16 +210,23 @@ def rule(effect, seen, engine=None):
     return row
 
 
-def build(release, output, profiles, flags=None):
+def build(release, output, profiles, flags=None, flag_directory=None):
     pooled = observe(release, profiles)
-    engine = load_flags(flags)
-    if engine:
-        check_alignment(catalog(release, profiles[0], 'MagicEffects'), engine)
     published = []
     for profile in profiles:
+        dump, ambiguous = load_dump(flags_for(flag_directory, profile, flags))
+        engine = {r['name']: r for r in dump
+                  if r.get('name') and r['name'] not in ambiguous}
         effects = catalog(release, profile, 'MagicEffects')
+        if dump:
+            check_alignment(effects, engine)
         records = [rule(effect, pooled.get(effect['effectId']), engine.get(effect['name']))
                    for effect in sorted(effects, key=lambda e: e['effectId'])]
+        # Effects the engine knows and the plugin files do not, in the dump's own order
+        # after the rest. A repeated name is no obstacle here: nothing is being joined.
+        named = {e['name'] for e in effects}
+        records += [engine_only(r) for r in dump if r['name'] not in named]
+        engine_added = sum(1 for r in records if not r['extracted'])
         derived = sum(1 for r in records if r['noMagnitude'] is not None)
         verdicts = Counter(v for r in records if r['agreement'] for v in r['agreement'].values())
         unexplained = [r['name'] for r in records if r['rangesUnexplained']]
@@ -188,13 +234,12 @@ def build(release, output, profiles, flags=None):
             'schemaVersion': VERSION, 'profile': profile,
             'snapshotId': json.loads((Path(release)/'manifest.json').read_text(encoding='utf-8'))['snapshotId'],
             'derivation': {'method': 'pooled usage across every profile in the release',
+                           'engineOnly': engine_added,
                            'profilesPooled': sorted(profiles), 'sources': list(SOURCES),
                            'minimumUses': MINIMUM_USES, 'effects': len(records),
                            'decided': derived, 'unknown': len(records)-derived},
             'costFormula': COST_FORMULA,
-            'verification': {'source': 'engine' if engine else 'content only',
-                             'engineEffectsUnmatched': sorted(
-                                 set(engine) - {e['name'] for e in effects}),
+            'verification': {'source': 'engine' if dump else 'content only',
                              'effectsFromEngine': sum(1 for r in records if r['source'] == 'engine'),
                              'confirmed': verdicts['confirmed'], 'corrected': verdicts['corrected'],
                              'decided': verdicts['decided'],
@@ -203,7 +248,11 @@ def build(release, output, profiles, flags=None):
                         'game\'s own content uses each effect, not read from the plugin files, '
                         'which do not carry them. rangesObserved proves a range is allowed; it '
                         'does not prove an unobserved one is forbidden. Effects the content '
-                        'barely uses report null rather than a guess.',
+                        'barely uses report null rather than a guess. A record with '
+                        'extracted false was registered by a Lua mod at runtime rather than '
+                        'by a plugin: it has no numeric effectId, so nothing in the extracted '
+                        'data can reference it, but the engine offers it for spellmaking and '
+                        'enchanting like any other.',
             'builtAtUnix': time.time(), 'records': records}
         published.append((profile, payload))
 
@@ -225,6 +274,9 @@ def build(release, output, profiles, flags=None):
             detail = (f"{check['effectsFromEngine']} from the engine, "
                       f"{check['confirmed']} inferences confirmed, {check['corrected']} corrected, "
                       f"{check['decided']} previously unknown")
+            if payload['derivation']['engineOnly']:
+                detail += (f", {payload['derivation']['engineOnly']} registered by Lua "
+                           "and in no plugin file")
             if check['rangesUnexplained']:
                 detail += f", RANGES UNEXPLAINED: {', '.join(check['rangesUnexplained'])}"
         else:
@@ -240,7 +292,9 @@ def main(argv=None):
     parser.add_argument('--catalogs', type=Path)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--profile', action='append', choices=['vanilla', 'tr', 'tr_arce'])
-    parser.add_argument('--flags', type=Path, help='effect-flags.json; defaults to the output root')
+    parser.add_argument('--flags', type=Path, help='A shared effect-flags.json')
+    parser.add_argument('--flag-directory', type=Path,
+                        help='Per-profile dumps; defaults to <root>/effect-flags')
     parser.add_argument('--no-flags', action='store_true', help='Infer from content only')
     args = parser.parse_args(argv)
     try:
@@ -259,7 +313,8 @@ def main(argv=None):
         if set(profiles) - set(available):
             raise ExportError('Unknown profile for this release')
         flags = None if args.no_flags else (args.flags or root/'effect-flags.json')
-        written = build(release, args.output or root/'rules', profiles, flags)
+        directory = None if args.no_flags else (args.flag_directory or root/'effect-flags')
+        written = build(release, args.output or root/'rules', profiles, flags, directory)
         print('Rules library complete:\n  ' + '\n  '.join(str(p) for p in written), flush=True)
         return 0
     except KeyboardInterrupt:

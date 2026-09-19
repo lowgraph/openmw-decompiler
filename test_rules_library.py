@@ -1,3 +1,4 @@
+from collections import Counter
 import contextlib
 import io
 import json
@@ -6,7 +7,7 @@ import tempfile
 import unittest
 
 from build_rules_library import (MINIMUM_USES, agreement, build, check_alignment, fixed_at,
-                                 load_flags, observe, rule)
+                                 flags_for, load_flags, observe, rule)
 from export_items import ExportError
 
 SNAPSHOT = 'snapshot-for-tests'
@@ -61,17 +62,21 @@ class RulesFixture(unittest.TestCase):
         """An effect-flags.json as import_effect_flags.py writes it."""
         # Name defaults to the fixture effect's, so records line up unless a test
         # deliberately shifts them.
-        base = {'name': 'Test Effect',
+        base = {'name': 'Test Effect', 'school': 'destruction', 'baseCost': 1.0,
                 'harmful': False, 'continuousVfx': False, 'hasDuration': True,
                 'hasMagnitude': True, 'isAppliedOnce': False, 'casterLinked': False,
                 'nonRecastable': False, 'hasAttribute': False, 'hasSkill': False,
                 'onSelf': True, 'onTouch': True, 'onTarget': True, 'unreflectable': False,
                 'allowsSpellmaking': True, 'allowsEnchanting': True, 'negativeLight': False}
+        written = [base | {'id': str(r.get('index', 0))} | r for r in records]
+        # The importer reports repeated names; a fixture that did not would hide the
+        # very case the name join has to handle.
+        counted = Counter(r['name'] for r in written)
         path = Path(tempfile.mkdtemp())/'effect-flags.json'
-        path.write_text(json.dumps({'schemaVersion': '1.0.0', 'effects': len(records),
-                                    'source': {'tool': 'test'}, 'ambiguousNames': [],
-                                    'records': [base | {'id': str(r.get('index', 0))} | r
-                                                for r in records]}), encoding='utf-8')
+        path.write_text(json.dumps(
+            {'schemaVersion': '1.0.0', 'effects': len(written), 'source': {'tool': 'test'},
+             'ambiguousNames': sorted(n for n, c in counted.items() if c > 1),
+             'records': written}), encoding='utf-8')
         return path
 
     def merged(self, profiles, flags, effects=None, ident=1):
@@ -275,10 +280,84 @@ class EngineFlagTests(RulesFixture):
         with self.assertRaises(ExportError):
             check_alignment([effect(1, 'One'), effect(2, 'Two')], {'One': {'name': 'One'}})
 
-    def test_engine_effects_with_no_catalog_entry_are_reported(self):
-        flags = self.flags({'index': 1, 'name': 'One'}, {'index': 99, 'name': 'Summon Devourer'})
+    def test_an_effect_only_the_engine_knows_is_published_as_a_rule(self):
+        # Tamriel Rebuilt registers 45 effects through Lua. No plugin file defines them,
+        # so they reach the catalogs through the dump or not at all.
+        flags = self.flags({'id': 't_conjuration_devourer', 'name': 'Summon Devourer',
+                            'school': 'conjuration', 'baseCost': 40.0, 'hasMagnitude': False},
+                           {'id': 'one', 'name': 'One'})
         payload, _ = self.merged({'vanilla': {}}, flags, [effect(1, 'One')])
-        self.assertEqual(payload['verification']['engineEffectsUnmatched'], ['Summon Devourer'])
+        self.assertEqual(payload['derivation']['engineOnly'], 1)
+        added = next(r for r in payload['records'] if r['name'] == 'Summon Devourer')
+        self.assertEqual(added['key'], 't_conjuration_devourer')
+        self.assertIsNone(added['effectId'], 'nothing extracted can reference it')
+        self.assertFalse(added['extracted'])
+        self.assertEqual(added['school'], 'conjuration')
+        self.assertEqual(added['baseCost'], 40.0)
+        self.assertTrue(added['noMagnitude'], 'the engine decides it, with no content to infer from')
+        self.assertEqual(added['evidence']['uses'], 0)
+
+    def test_extracted_effects_are_marked_as_such(self):
+        flags = self.flags({'id': 'one', 'name': 'One'})
+        payload, row = self.merged({'vanilla': {}}, flags, [effect(1, 'One')])
+        self.assertTrue(row['extracted'])
+        self.assertEqual(payload['derivation']['engineOnly'], 0)
+
+    def test_an_engine_effect_with_a_repeated_name_still_reaches_the_output(self):
+        # Tamriel Rebuilt ships two Wabbajack effects with distinct ids. Neither can be
+        # joined by name, but neither is being joined: nothing extracted shares the name.
+        flags = self.flags({'id': 't_alteration_wabbajack', 'name': 'Wabbajack'},
+                           {'id': 't_alteration_wabbajackhelper', 'name': 'Wabbajack'},
+                           {'id': 'one', 'name': 'One'})
+        payload, _ = self.merged({'vanilla': {}}, flags, [effect(1, 'One')])
+        self.assertEqual(payload['derivation']['engineOnly'], 2)
+        self.assertEqual(sorted(r['key'] for r in payload['records'] if not r['extracted']),
+                         ['t_alteration_wabbajack', 't_alteration_wabbajackhelper'])
+
+    def test_a_catalog_effect_whose_name_the_dump_repeats_is_refused_not_guessed(self):
+        flags = self.flags({'id': 'a', 'name': 'One'}, {'id': 'b', 'name': 'One'})
+        with self.assertRaises(ExportError) as caught:
+            self.merged({'vanilla': {}}, flags, [effect(1, 'One')])
+        self.assertIn('does not cover the catalogs', str(caught.exception))
+
+    def test_an_engine_effect_keeps_its_own_key_so_the_bundle_can_index_it(self):
+        flags = self.flags({'id': 'one', 'name': 'One'}, {'id': 'two', 'name': 'Two'})
+        payload, _ = self.merged({'vanilla': {}}, flags, [effect(1, 'One')])
+        keys = [r['key'] for r in payload['records']]
+        self.assertEqual(len(keys), len(set(keys)), 'the bundle refuses duplicate keys')
+
+
+class ProfileFlagTests(RulesFixture):
+    def test_a_profile_with_its_own_dump_uses_it(self):
+        directory = Path(tempfile.mkdtemp())
+        (directory/'tr.json').write_text('{}', encoding='utf-8')
+        self.assertEqual(flags_for(directory, 'tr', Path('shared.json')), directory/'tr.json')
+
+    def test_a_profile_without_one_falls_back_to_the_shared_dump(self):
+        directory = Path(tempfile.mkdtemp())
+        self.assertEqual(flags_for(directory, 'tr', Path('shared.json')), Path('shared.json'))
+
+    def test_no_directory_at_all_falls_back(self):
+        self.assertEqual(flags_for(None, 'tr', Path('shared.json')), Path('shared.json'))
+
+    def test_each_profile_reads_its_own_flags(self):
+        # Vanilla knows 1 effect, Tamriel Rebuilt knows that one and a Lua-registered
+        # second. A single shared dump would force one answer onto both.
+        directory = Path(tempfile.mkdtemp())
+        for name, records in (('vanilla', [{'id': 'one', 'name': 'One'}]),
+                              ('tr', [{'id': 'one', 'name': 'One'},
+                                      {'id': 'two', 'name': 'Summon Devourer'}])):
+            (directory/f'{name}.json').write_bytes(
+                self.flags(*records).read_bytes())
+        source = self.release({'vanilla': {}, 'tr': {}}, [effect(1, 'One')])
+        with contextlib.redirect_stdout(io.StringIO()):
+            written = build(source, Path(tempfile.mkdtemp()), ['vanilla', 'tr'],
+                            None, directory)
+        counts = {}
+        for path in written:
+            payload = json.loads(path.read_text(encoding='utf-8'))
+            counts[payload['profile']] = payload['derivation']['engineOnly']
+        self.assertEqual(counts, {'vanilla': 0, 'tr': 1})
 
     def test_agreement_labels(self):
         self.assertEqual(agreement(None, True), 'decided')

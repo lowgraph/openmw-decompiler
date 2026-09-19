@@ -3,10 +3,12 @@
 Run in this project's VS Code terminal, after a catalog release exists:
 
 ```powershell
+python dump_profiles.py
 python build_rules_library.py
 ```
 
-Output goes to `A:\Cache\OpenMWFoundation\rules\<profile>-<hash>.json`, and
+The first launches OpenMW once per profile to read the engine's own effect table; skip
+it and the rules are inferred from content alone. Output goes to `A:\Cache\OpenMWFoundation\rules\<profile>-<hash>.json`, and
 `build_app_bundle.py` publishes it as the `EffectRules` catalog. See `rules-types.ts`
 for the app contract and a reference `effectCost`. This reads catalog JSON only; it
 opens no database and runs no extractor.
@@ -39,8 +41,8 @@ nonRecastable   unreflectable   continuousVfx   negativeLight
 
 [openmw_effect_dump](openmw_effect_dump/README.md) is a small mod that prints that
 table to `openmw.log`; the Lua sandbox has no `io` and `openmw.vfs` is read-only, so
-the log is the only way out. `import_effect_flags.py` reads it back, and
-`build_rules_library.py` picks the result up automatically.
+the log is the only way out. `dump_profiles.py` launches the game once per profile and
+imports each result, and `build_rules_library.py` picks them up automatically.
 
 That turns three things around. `harmful` becomes available, which content cannot
 reveal at all. `onSelf`/`onTouch`/`onTarget` become definitive, where
@@ -54,29 +56,49 @@ would hide it.
 Without the dump nothing claims engine provenance: `source` is `derived`, `harmful`
 and the targeting fields are null, and the rules are the inferences below.
 
-The join is checked before anything merges. Both sides name every effect, so a dump
-that is off by even one index is refused outright rather than rewriting all 141 rules:
+The join is checked before anything merges. Every catalog effect must be in the dump,
+so a stale dump, one from another game, or one whose key has drifted is refused outright
+rather than rewriting the rules of whatever it happened to match:
 
 ```
-The effect dump does not line up with the catalogs: 140 of 140 matched indices
-name a different effect.
-  1: catalog 'Swift Swim' vs dump 'Water Breathing'
+The effect dump does not cover the catalogs: 141 of 141 effects are absent from it.
+  Water Breathing, Swift Swim, Detect Animal, ...
 ```
 
-That is not hypothetical — it is what the first version of the dumper produced, by
-keying on position in the record list rather than on the engine's effect id.
+That is not hypothetical. The first version of the dumper keyed on position in the
+record list rather than on the engine's id, which shifted every effect by one; the
+second joined on a numeric index the engine does not expose, which matched nothing at
+all. Both produced plausible-looking output.
 
 Effects join on **name**. OpenMW keys its own records by a string id the catalogs do
 not carry, and two effects — Call Wolf and Call Bear — have ids that do not match their
-names either, so name is the only key that covers all 141. A name the dump repeats is
-dropped rather than resolved arbitrarily; Tamriel Rebuilt ships two Wabbajack effects
-and two Corruption effects with distinct ids.
+names either, so name is the only key that covers all 141. A name the dump repeats
+resolves to nothing rather than to one of the two arbitrarily: Tamriel Rebuilt ships two
+Wabbajack effects and two Corruption effects with distinct ids. If a catalog effect
+carries such a name the merge is refused, because there is no honest answer. Nothing is
+lost when it does not — those records are published below, keyed by their own id, where
+no join is involved.
 
-A dump also sees effects that no plugin defines. Tamriel Rebuilt registers extra
-summons through Lua, via `content=Tamriel_Data.omwscripts`, so a TR run reports 186
-effects against 141 in the data — `Tamriel_Data.esm` contributes no MGEF records at
-all. `verification.engineEffectsUnmatched` names them; on the current release that is
-41.
+## Effects that exist only in the engine
+
+A dump also sees effects that no plugin defines. Tamriel Rebuilt registers 45 extra
+effects through Lua, via `content=Tamriel_Data.omwscripts`, so a TR run reports 186
+against the 141 in the data — `Tamriel_Data.esm` contributes no MGEF records at all.
+39 of the 45 are available for spellmaking and enchanting, so a spell maker that lists
+only extracted effects is missing entries the game itself offers.
+
+They are published as ordinary rules, with `extracted: false` and a null `effectId`
+because no plugin record exists to carry one. Their `key` is the engine's own string
+id, such as `t_conjuration_devourer`. **Key rules by `key`, never by `effectId`.**
+`derivation.engineOnly` counts them, and their flags are the engine's own facts with
+empty evidence — there is no content to infer from, and none is claimed.
+
+Because the engine's list depends on the load order, one dump describes one load order
+and not the project. `dump_profiles.py` therefore runs the game once per profile, with
+that profile's own plugins plus the Lua content that belongs with them, and writes
+`<root>/effect-flags/<profile>.json`. `build_rules_library.py` reads each profile's own
+file, falling back to a shared `effect-flags.json` for any profile without one. Merging
+a single TR dump into vanilla would hand vanilla 45 effects it does not have.
 
 ### How the inferences actually fared
 
@@ -134,15 +156,21 @@ are already in the `GameSettings` catalog rather than duplicated here.
 
 ## Cost in the bundle
 
-58 KB raw per profile, **5 KB gzipped**, and nothing for ARCE, which inherits the
-catalog unchanged. The records are identical across profiles because the engine's
-rules are; only the extracted fields could differ, and on the current release they
-do not.
+With the engine's flags merged, 145 KB raw per profile and **8 KB gzipped**; 58 KB
+and 5 KB from content alone, before the flags and the 45 extra records. ARCE inherits
+the catalog unchanged.
+
+Vanilla and TR now differ, which they did not before: TR's rules carry the 45 effects
+it registers and vanilla's do not. The extracted 141 remain identical across profiles —
+the engine's rules are the same for all three, and TR adds no MGEF records — so the
+difference is exactly the Lua-registered set.
 
 ## Options and verification
 
 ```powershell
-python import_effect_flags.py
+python dump_profiles.py --dry-run
+python dump_profiles.py --profile tr
+python import_effect_flags.py --profile tr
 python build_rules_library.py --no-flags
 python build_rules_library.py --profile vanilla
 python build_rules_library.py --catalogs A:\Cache\OpenMWFoundation\catalogs\<releaseId>
@@ -159,8 +187,10 @@ one profile refuting another, thin and absent evidence, skill and attribute targ
 potions proving no range, pooling, keyed records, extracted fields surviving, the
 authored formula, content addressing, a missing catalog failing loudly, and the merge:
 engine facts replacing inferences, confirmed and corrected and newly decided labels,
-an unexplained range surfacing, an effect absent from the dump falling back, and an
-unreadable flag schema being refused.
+an unexplained range surfacing, a dump that does not cover the catalogs being refused,
+and an unreadable flag schema being refused. `test_dump_profiles.py` covers the content
+order a profile is launched with, finding the executable, a log that did not move, a
+timeout, and that every TR profile declares the Lua content its effects come from.
 
 ## What this layer does not do
 

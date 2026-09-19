@@ -1,18 +1,22 @@
 {
   "sourceConfig": "export_config.json",
   "outputDirectory": "A:/Cache/OpenMWFoundation",
+  "_note": "runtimeContent lists the Lua content files that belong with a profile. They define no plugin records, so extraction ignores them, but Tamriel Rebuilt registers magic effects through them, so dump_profiles.py loads them to see those effects.",
   "profiles": [
     {
       "id": "vanilla", "world": "vanilla", "arce": false,
-      "plugins": ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm"]
+      "plugins": ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm"],
+      "runtimeContent": []
     },
     {
       "id": "tr", "world": "tamriel_rebuilt", "arce": false,
-      "plugins": ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm", "Tamriel_Data.esm", "Cyr_Main.ESM", "TR_Mainland.esm", "TR_Factions.esp", "TR_Firemoth_Vanilla_patch.esp", "Sky_Main.ESM"]
+      "plugins": ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm", "Tamriel_Data.esm", "Cyr_Main.ESM", "TR_Mainland.esm", "TR_Factions.esp", "TR_Firemoth_Vanilla_patch.esp", "Sky_Main.ESM"],
+      "runtimeContent": ["tamrielrebuilt.omwscripts", "Tamriel_Data.omwscripts"]
     },
     {
       "id": "tr_arce", "world": "tamriel_rebuilt", "arce": true,
-      "plugins": ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm", "Tamriel_Data.esm", "Cyr_Main.ESM", "TR_Mainland.esm", "TR_Factions.esp", "TR_Firemoth_Vanilla_patch.esp", "Sky_Main.ESM", "ARCE - All Races and Classes Enabled (Vanilla and Tamriel_Data).ESP"]
+      "plugins": ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm", "Tamriel_Data.esm", "Cyr_Main.ESM", "TR_Mainland.esm", "TR_Factions.esp", "TR_Firemoth_Vanilla_patch.esp", "Sky_Main.ESM", "ARCE - All Races and Classes Enabled (Vanilla and Tamriel_Data).ESP"],
+      "runtimeContent": ["tamrielrebuilt.omwscripts", "Tamriel_Data.omwscripts"]
     }
   ]
 }
