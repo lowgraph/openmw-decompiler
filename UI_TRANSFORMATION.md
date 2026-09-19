@@ -423,3 +423,417 @@ Phase 3 introduces **Cross-Tool State Reactivity**:
 - [x] **Factions and Settlements Restriction Conversion:** Moved "Join no factions until you have visited five settlements" from `OBJECTIVES` (where it didn't belong as a goal) into `POOL` as an active restriction.
 - [x] **Clarified Fast Travel Ban Wording:** Updated "No Intervention spells, Mark, Recall, or Guild Guides" to "No guild guides, recall or intervention" in `POOL`.
 - [x] **Enforced Level Cap vs Reach Level 50 Conflict Logic:** Tagged "Reach level 50" with `["level"]` in `tagsOf` and configured `restrictionBans` for "Level 20 cap", "Level 10 cap", and "Never sleep to level up — stay level 1" to return `["level"]`. This permanently prevents "Reach level 50" from generating alongside impossible level cap restrictions.
+
+---
+
+## 10. Phase 4 Blueprint: Challenge Runs Overhaul (Two-Pane Layout & Parchment Sheet)
+
+### 10.1 Objective & Design Strategy
+The existing Challenge Run tool in `#panel-challenge` presents a functional randomizer but suffers from a single-column stacked layout where the generated run summary, controls, hidden character inputs, and expandable restriction pools are buried vertically.
+
+Phase 4 transforms Challenge Runs into a responsive **two-pane CRPG dashboard**, directly mirroring the ergonomics and high-contrast styling of the Character Builder:
+- **Pragmatic, SEO-Friendly Labeling:** Clear, unambiguous naming across all controls ("Run Configuration", "Run Summary", "Generate Run", "Active Restrictions", "Major Objective", "Early Game Strategy") while retaining authentic Elder Scrolls aesthetic touches (Pelagiad display fonts, 3-tier frame hierarchy, parchment sheet backgrounds).
+- **Tactile Run Generation & Pinning:** A prominent `[ Generate Run ]` primary action, customizable modifier count selectors, difficulty preset buttons (`Standard`, `Hardcore`, `Cursed`, `Custom`), and slot-pinning toggles (lock icons) allowing players to freeze specific rolls (e.g. keep rolled race/class while re-rolling restrictions).
+- **Parchment Run Summary Sheet:** The right pane serves as the complete, legible character run dossier:
+  - **Character Overview:** Race, Class, Gender, Birthsign, starting Vitals, and Favored Attributes.
+  - **Major Objective Plaque:** High-contrast beveled banner detailing the primary victory condition.
+  - **Active Restrictions List:** Distinct list items with clear difficulty badges (`[Easy]`, `[Medium]`, `[Hard]`, `[Grind]`), plain-English mechanics explanations, and conflict-free guarantees.
+  - **Minor Objectives:** Optional checklist of secondary world milestones.
+  - **Early Game Strategy & Survival Kit:** Starter tips, recommended early equipment, and key vendor/trainer restrictions based on active rules.
+  - **Export & Action Bar:** `[ Send to Build Optimizer ]` (populates the Character Builder with the rolled build), `[ Copy Summary (Markdown) ]`, `[ Copy Permalink ]`, and `[ Print / Save Sheet ]`.
+
+---
+
+### 10.2 Desktop Wireframe ($\ge 1024\text{px}$)
+
+```
++---------------------------------------------------------------------------------------------------------+
+| Mode: [ Standard ] [ Hardcore ] [ Cursed ] [ Custom ]    |    Seed: [ SEED-7482-TR ]  [ Copy Link ]     |
++----------------------------------------------------+----------------------------------------------------+
+| LEFT PANE: Run Configuration                       | RIGHT PANE: Run Summary Sheet                      |
+| (components/challenge-runs/run-configurator.jsx)   | (components/challenge-runs/run-summary-sheet.jsx)  |
+|                                                    |                                                    |
+| [ === Generate Run === ] (Primary Action)          | +-- CHARACTER OVERVIEW --------------------------+ |
+|                                                    | | Dark Elf Male · Assassin · The Lady            | |
+| +-- Modifier Settings ---------------------------+ | | Health: 45 · Magicka: 40 · Fatigue: 195        | |
+| | Restrictions Count: [ 3 v ]                    | | Favored: Agility (+10), Endurance (+10)         | |
+| | Objectives Count:   [ 2 v ]                    | +------------------------------------------------+ |
+| |                                                |                                                    |
+| | Difficulty Filters:                            | +-- MAJOR OBJECTIVE -----------------------------+ |
+| | [x] Easy (18)   [x] Medium (24)                | | Defeat Dagoth Ur without donning Wraithguard   | |
+| | [x] Hard (14)   [ ] Grind (6)                  | | Complete the main quest without the artifact.  | |
+| +------------------------------------------------+ | +------------------------------------------------+ |
+|                                                    |                                                    |
+| +-- Pinned Slots (Lock to Keep on Roll) ---------+ | +-- ACTIVE RESTRICTIONS (3) ---------------------+ |
+| | [🔓] Race: [ Dark Elf        v ]               | | 1. [HARD] No Magicka                           | |
+| | [🔓] Class: [ Assassin       v ]               | |    No spells or cast-on-strike items.          | |
+| | [🔓] Sign: [ The Lady        v ]               | | 2. [MED]  No Fast Travel                       | |
+| | [🔒] Major Objective (Locked)                  | |    No silt striders, boats, or guild guides.   | |
+| +------------------------------------------------+ | | 3. [EASY] Faction Devotion                     | |
+|                                                    | |    Join no guilds until level 5.               | |
+| [ Advanced Pool Search (<details>) ]              | +------------------------------------------------+ |
+|                                                    |                                                    |
+|                                                    | +-- EARLY GAME STRATEGY & SURVIVAL KIT ----------+ |
+|                                                    | | Recommended Starter Weapon: Spark Dagger       | |
+|                                                    | | Survival Warning: Stock up on Restore Fatigue  | |
+|                                                    | +------------------------------------------------+ |
+|                                                    |                                                    |
+|                                                    | [ Send to Build Optimizer ]  [ Copy Summary ]    |
++----------------------------------------------------+----------------------------------------------------+
+```
+
+---
+
+### 10.3 Mobile Layout (< 1024px)
+- **Single-Column Flow:** Run Configuration sits on top with a full-width `[ Generate Run ]` button and collapsible filter accordion, followed immediately by the complete Run Summary Sheet below.
+- **Sticky Roll Trigger:** When scrolling down the long Run Summary Sheet, a compact bottom bar offers quick `[ 🎲 Re-roll ]` and `[ Share ]` actions without forcing the user to scroll back to the top.
+
+---
+
+### 10.4 Component Hierarchy & File Layout (Phase 4)
+
+Codex should implement the new Challenge Runs components under `components/challenge-runs/`:
+
+```
+components/challenge-runs/
+├── challenge-runs-root.jsx          # Top coordinator: layout grid, seed state, and optimizer bridge
+├── run-configurator.jsx             # Left pane: generation controls, difficulty presets, count selectors, lock pins
+├── run-summary-sheet.jsx            # Right pane: parchment card container for full run sheet
+├── character-overview-card.jsx      # Race, class, sign, vitals, and favored attributes summary
+├── major-objective-plaque.jsx       # Beveled plaque for primary victory condition
+├── restrictions-tablet.jsx          # List of active restrictions with difficulty badges and rules notes
+├── minor-objectives-checklist.jsx   # Interactive secondary world goals checklist
+├── early-strategy-card.jsx          # Dynamic starter tips, early gear hints, and rule warnings
+├── seed-bar.jsx                     # Deterministic seed display, input, and 1-click URL sharing
+└── pool-browser-modal.jsx           # Full searchable reference of all objectives and restrictions
+```
+
+---
+
+### 10.5 State & Data Flow Specification (Challenge Runs)
+- **Deterministic Seed Engine (`lib/challenge-seed.mjs`):**
+  - Seed encodes game profile (`vanilla`, `tr`, `arce`), locked slots, active difficulty filters, rolled character attributes, major objective, and restriction IDs.
+  - Permalinks format: `#challenge:seed=V1-TR-49182A`.
+  - Re-rolling with pinned slots preserves locked values while pseudo-randomly deriving replacements for unlocked slots.
+- **Build Optimizer Bridge:**
+  - Clicking `[ Send to Build Optimizer ]` serializes the rolled character state (Race, Gender, Class, Sign, Spec, Favored Attributes, Major/Minor Skills) directly into `siltShell.navigate('builder')` and writes the hash, seamlessly switching tabs with zero data re-entry.
+
+---
+
+### 10.6 Execution Checklist for Codex (Phase 4)
+- [ ] **Step 1:** Create `components/challenge-runs/` and scaffold the 10 components.
+- [ ] **Step 2:** Extract challenge randomization and constraint validation into `lib/challenge-math.mjs` (conflict detection, tag exclusion, level cap rules).
+- [ ] **Step 3:** Implement slot-pinning logic allowing users to lock specific rolled attributes across re-rolls.
+- [ ] **Step 4:** Implement two-pane desktop layout with authentic 3-tier frame styling and high-contrast parchment text.
+- [ ] **Step 5:** Connect `[ Send to Build Optimizer ]` bridge to pass character state into `CharacterBuilderRoot`.
+- [ ] **Step 6:** Run `npm test` and `npm run build` to verify 100% test passing and zero regressions.
+
+---
+
+## 11. Phase 5 Blueprint: The 4 Specialized Calculators (Interactive Workstations)
+
+### 11.1 Architectural Overview
+The four specialized calculators (Enchanting, Spellmaking, Alchemy, Travel) provide critical CRPG math for Morrowind theorycrafting. Currently, they exist as plain HTML input lists. 
+
+Phase 5 transforms them into **tactile, responsive workstations** with:
+1. **Direct Game File Math:** Real formulas derived from OpenMW and original Morrowind mechanics.
+2. **Character Context Reactivity:** Live reading of character attributes, skills, and race powers via `useActiveCharacter()`.
+3. **Barter & Economics Modules:** Accurate gold pricing and vendor ranking factoring player Personality, Mercantile, and Disposition.
+4. **Authentic 3-Tier Frame Styling:** Clear visual panels with Pelagiad headings, groove dividers, and beveled controls.
+
+---
+
+### 11.2 Enchanting Calculator (`components/calculators/enchanting/`)
+
+#### 1. UX & Functional Architecture
+- **Item & Soul Gem Selection:**
+  - Base Item Selector (Weapons, Shields, Armor, Clothing, Rings, Amulets) displaying live **Enchantment Capacity** gauge (`0 / 120` points).
+  - Soul Gem Selector (Petty to Grand, Azura's Star) with creature soul sizes (`Golden Saint: 400`, `Winged Twilight: 300`, `Grand: 180`, etc.).
+  - Cast Type Selector:
+    - `Cast When Used`
+    - `Cast When Strikes` (weapons only)
+    - `Constant Effect` (automatically locked with tooltip explanation unless Soul Size $\ge 400$).
+- **Effect Stack Weaver:**
+  - Multi-effect rows with dynamic add/remove actions.
+  - Sliders for **Magnitude (Min/Max: 1–100)**, **Duration (1–120s)**, **Area (0–50ft)**, and **Range** (`Self`, `Touch`, `Target`).
+  - Total Enchantment Point calculation with multi-effect penalty:
+    $$\text{Total Points} = \text{Primary Effect Points} + \sum_{i=2}^{N} (i \times \text{Effect}_i \text{ Points})$$
+  - Real-time Capacity Meter with warning states: Green (within capacity), Red (exceeds capacity).
+- **Crafting Success vs Enchanter Barter HUD:**
+  - **Self-Enchant Chance %:**
+    $$\text{Chance} = (\text{Enchant} \times 0.75 + \text{INT} \times 0.25 + \text{LUK} \times 0.1) - \text{Points} \times (7.5 - \text{Fatigue Ratio} \times 2.5)$$
+  - **Enchanter NPC Barter Table:**
+    - Live ranking of game enchanters across Vvardenfell and Tamriel Rebuilt.
+    - Displays NPC name, settlement location, and exact bartered gold cost adjusted for player Mercantile, Personality, and Disposition.
+
+---
+
+### 11.3 Spellmaking Calculator (`components/calculators/spellmaking/`)
+
+#### 1. UX & Functional Architecture
+- **Grimoire & Effect Browser:**
+  - Filter tabs by Magic School: `Alteration`, `Conjuration`, `Destruction`, `Illusion`, `Mysticism`, `Restoration`.
+  - Search filter supporting both base game and Tamriel Rebuilt spell effects.
+- **Spell Inscription Slate:**
+  - Multi-effect configuration with sliders:
+    - Magnitude Min and Max ($1\text{--}100$)
+    - Duration ($1\text{--}120\text{ seconds}$)
+    - Area of Effect ($0\text{--}50\text{ feet}$)
+    - Range (`On Self`, `On Touch`, `On Target`)
+  - **Magicka Cost Formula (OpenMW / Morrowind canonical):**
+    $$\text{Base Cost} = \frac{(\text{Min Mag} + \text{Max Mag}) \times (\text{Duration} + 1) + \text{Area} \times 0.1}{20} \times \text{Base Effect Cost} \times \text{Range Mult}$$
+- **Live Reliability & Integration HUD:**
+  - **Casting Chance %:**
+    $$\text{Cast %} = \left(2 \times \text{School Skill} - \text{Spell Cost} + \frac{\text{Willpower}}{5} + \frac{\text{Luck}}{10}\right) \times \left(0.75 + \frac{0.5 \times \text{Current Fatigue}}{\text{Max Fatigue}}\right)$$
+  - Reliability status badge: `Guaranteed (100%)`, `Reliable (75–99%)`, `Risky (40–74%)`, `Unusable (<40%)`.
+  - Action: `[ Add to Active Character Spells ]` (saves custom spell into character session).
+  - Spellmaker NPC Barter Table: lists Guild spellmakers sorted by bartered gold fee.
+
+---
+
+### 11.4 Alchemy Calculator (`components/calculators/alchemy/`)
+
+#### 1. UX & Functional Architecture
+- **Apparatus Rack:**
+  - 4 apparatus slots:
+    - **Mortar and Pestle** (Required — determines base brew success and potency)
+    - **Alembic** (Reduces magnitude and duration of negative/harmful effects)
+    - **Retort** (Magnifies magnitude and duration of positive/beneficial effects)
+    - **Calcinator** (Magnifies magnitude and duration of all effects)
+  - Quality selector per slot: `Apprentice`, `Journeyman`, `Master`, `Grandmaster`, `Secret Master`.
+- **4-Slot Ingredient Mixer:**
+  - Ingests ingredient catalog from data bridge (`useGameData('alchemy')`).
+  - Active slot cards showing ingredient name, weight, and 4 magical effects.
+  - Automatic shared effect matching: matching effects between selected ingredients highlight in bright gold.
+  - "Smart Filter": checkbox to show only ingredients sharing at least one effect with currently slotted items.
+- **Potion Outcome Summary:**
+  - Live preview of crafted potion name (customizable), icon/vial, weight, and gold value.
+  - Calculated list of active effects with exact magnitude and duration based on apparatus quality and Alchemy skill.
+  - **Brew Success %:**
+    $$\text{Brew %} = \text{Alchemy} + \frac{\text{Intelligence}}{10} + \frac{\text{Luck}}{10}$$
+- **Reverse Effect Recipe Search:**
+  - Dropdown to select a desired outcome (e.g. `Restore Magicka`, `Levitate`, `Cure Blight Disease`).
+  - Instantly filters ingredient combinations into optimal 2-ingredient, 3-ingredient, and 4-ingredient recipes sorted by weight and availability.
+
+---
+
+### 11.5 Travel Optimizer (`components/calculators/travel/`)
+
+#### 1. UX & Functional Architecture
+- **Transit Network Graph:**
+  - Encapsulates all fast travel routes: Silt Striders, Ferries & Boats, Mages Guild Guides, Dunmer Propylon Chambers, and Almsivi / Divine Intervention temple teleports.
+  - World profile toggle: Vvardenfell-only network vs Tamriel Rebuilt Mainland expanded network.
+- **Route Query Interface:**
+  - Starting Location and Destination selectors (with autocomplete search and quick-select buttons for common hubs: Seyda Neen, Balmora, Vivec, Ald'ruhn, Sadrith Mora, Old Ebonheart).
+  - Optimization Criteria:
+    - `Fewest Hops` (fastest transit with least transfers)
+    - `Lowest Cost` (minimum Septims spent)
+    - `Overland Only` (excludes magical Guild Guides and Interventions)
+    - `Include Propylons` (factors Propylon Index teleport ring)
+- **Turn-by-Turn Travel Itinerary:**
+  - Step-by-step connection card displaying transport type icons (Silt Strider, Ship, Guild Guide, Propylon, Walking connection), operator NPC name, fare in Septims, and total trip cost/time.
+
+---
+
+### 11.6 Component Hierarchy & File Layout (Phase 5)
+
+```
+components/calculators/
+├── enchanting/
+│   ├── enchanting-calculator-root.jsx
+│   ├── item-capacity-meter.jsx
+│   ├── soul-gem-picker.jsx
+│   ├── effect-weaver-slate.jsx
+│   └── enchanter-barter-table.jsx
+├── spellmaking/
+│   ├── spellmaking-calculator-root.jsx
+│   ├── grimoire-school-tabs.jsx
+│   ├── spell-composer-slate.jsx
+│   ├── cast-reliability-hud.jsx
+│   └── spellmaker-barter-table.jsx
+├── alchemy/
+│   ├── alchemy-calculator-root.jsx
+│   ├── apparatus-rack.jsx
+│   ├── ingredient-crucible.jsx
+│   ├── potion-outcome-card.jsx
+│   └── reverse-recipe-search.jsx
+└── travel/
+    ├── travel-optimizer-root.jsx
+    ├── transit-route-finder.jsx
+    ├── transit-mode-toggles.jsx
+    └── travel-itinerary-card.jsx
+```
+
+---
+
+### 11.7 Execution Checklist for Codex (Phase 5)
+- [ ] **Step 1:** Scaffold `components/calculators/` and subdirectories for the 4 tools.
+- [ ] **Step 2:** Port formulas for Enchanting capacity, Spellmaking Magicka/cast chance, and Alchemy potency into pure utility libraries (`lib/enchant-math.mjs`, `lib/spell-math.mjs`, `lib/alchemy-math.mjs`, `lib/travel-graph.mjs`).
+- [ ] **Step 3:** Connect calculators to `useActiveCharacter()` so player stats automatically populate without manual re-entry.
+- [ ] **Step 4:** Build interactive UI controls (tactile sliders, apparatus quality pickers, route cards) using authentic 3-tier frame styling.
+- [ ] **Step 5:** Run automated tests (`npm test`) and verify calculations match OpenMW game outputs.
+
+---
+
+## 12. Phase 6 Blueprint: Cloud Character Vault (Clerk + Cloudflare D1)
+
+### 12.1 Objective & Architecture
+Currently, character builds are stored solely in the user's browser `localStorage`. While fast, this limits users to a single device and risks data loss upon clearing browser cache.
+
+Phase 6 introduces the **Cloud Character Vault**:
+- **Seamless Authentication:** Clerk user authentication for secure sign-in via Google, Discord, or Email.
+- **Serverless Cloud Persistence:** Cloudflare D1 (serverless SQLite at the edge) for storing character dossiers.
+- **Offline-First Hybrid Sync:** Immediate local writes for zero UI latency, followed by asynchronous cloud sync.
+- **Public Build Permalinks:** 1-click generation of public showcase URLs (`siltstrider.tools/c/<slug>`).
+
+---
+
+### 12.2 Cloudflare D1 Database Schema
+
+```sql
+-- Users table: maps Clerk authentication identity
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,               -- Clerk User ID (e.g. 'user_2b...')
+    email TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_active DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Characters table: stores character build dossiers
+CREATE TABLE IF NOT EXISTS characters (
+    id TEXT PRIMARY KEY,               -- UUID v4
+    user_id TEXT NOT NULL,             -- Foreign key to users(id)
+    name TEXT NOT NULL,                -- Character name (1-100 chars)
+    race TEXT NOT NULL,
+    class_name TEXT NOT NULL,
+    gender TEXT NOT NULL,
+    birthsign TEXT NOT NULL,
+    world TEXT NOT NULL,               -- 'vanilla' | 'tr'
+    arce INTEGER NOT NULL DEFAULT 0,   -- 0 | 1
+    level INTEGER NOT NULL DEFAULT 1,
+    sheet_data TEXT NOT NULL,          -- JSON payload (attributes, skills, spells, gear)
+    is_public INTEGER NOT NULL DEFAULT 0,
+    share_slug TEXT UNIQUE,            -- Short URL slug for public sharing
+    created_at TEXT NOT NULL,          -- ISO timestamp
+    updated_at TEXT NOT NULL,          -- ISO timestamp
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_characters_user ON characters(user_id);
+CREATE INDEX IF NOT EXISTS idx_characters_slug ON characters(share_slug);
+```
+
+---
+
+### 12.3 API Gateway & Security Specifications (Cloudflare Worker)
+- **Endpoint Routing:**
+  - `GET /api/characters`: List all characters belonging to the authenticated user.
+  - `POST /api/characters`: Save or update a character dossier.
+  - `DELETE /api/characters/:id`: Delete a character.
+  - `POST /api/characters/:id/share`: Toggle public visibility and generate a shareable slug.
+  - `GET /api/characters/public/:slug`: Public read-only fetch of a shared character build (unauthenticated).
+- **Authentication:**
+  - Worker validates incoming `Authorization: Bearer <token>` using `@clerk/backend` verifyToken against Clerk's JSON Web Key Set (JWKS).
+  - Rejects unauthenticated requests with HTTP 401; isolates users strictly to their own rows via `WHERE user_id = ?`.
+
+---
+
+### 12.4 UI / UX: Saved Characters Vault Drawer
+- **Drawer Trigger:** Accessible from the top navigation `.account-bar` (`[ Cloud Saves ]`) and Character Builder (`[ Saved Characters ]`).
+- **Character Dossier Cards:**
+  - Card displays Character Name, Level, Race, Class, Birthsign, World Profile badge (`Vanilla` / `TR` / `ARCE`), and last modified date.
+  - Visual Cloud Sync status indicator:
+    - `[ ☁ Synced ]` (green): Stored safely in Cloudflare D1.
+    - `[ ⏳ Syncing... ]` (yellow): Local changes uploading.
+    - `[ 💾 Local ]` (neutral): Stored in browser offline cache (signed out or offline).
+- **Management Actions:**
+  - `[ Load Character ]`: Loads sheet into the active Character Builder session.
+  - `[ Duplicate Build ]`: Creates an independent copy for branching theorycraft builds.
+  - `[ Share Build Link ]`: Generates a public showcase URL.
+  - `[ Export JSON / Import JSON ]`: Full data portability without platform lock-in.
+  - `[ Delete ]`: Confirmed deletion with modal safeguard.
+- **Conflict Resolution Modal:** If a character was edited on another device, a side-by-side diff prompt allows the user to choose "Keep Cloud Version" or "Overwrite with This Device".
+
+---
+
+### 12.5 Execution Checklist for Codex (Phase 6)
+- [ ] **Step 1:** Create Cloudflare D1 database migrations under `migrations/0001_character_vault.sql`.
+- [ ] **Step 2:** Implement Worker API route handlers in `app/api/characters/route.js` with Clerk JWT validation.
+- [ ] **Step 3:** Implement hybrid sync engine in `lib/character-vault.mjs` bridging localStorage and D1 API.
+- [ ] **Step 4:** Build `SavedCharactersDrawer` component (`components/character-vault/saved-characters-drawer.jsx`) with dossier cards and sync pills.
+- [ ] **Step 5:** Test online/offline transitions and multi-device sync conflict resolution.
+
+---
+
+## 13. Phase 7 Blueprint: Home Hub & Tool Launcher Cards
+
+### 13.1 Objective & SEO Strategy
+The current Home view (`#panel-home`) consists of a basic list of six buttons with brief text snippets. 
+
+Phase 7 modernizes Home into an **informative, SEO-rich tool directory and hub**:
+- **Clear Information Architecture:** High-contrast headings, semantic metadata, and structured feature descriptions optimized for search discovery (targeting keywords like *"Morrowind build optimizer"*, *"Morrowind challenge run generator"*, *"Morrowind alchemy calculator"*).
+- **Active Character Quick-Resume:** Prominently displays the player's active or most recently edited build, enabling 1-click continuation without navigating dropdowns.
+- **Responsive 2-Column Card Grid:** 6 tactile CRPG cards with procedural 9-slice borders, gold accents, feature tags, and direct launch buttons.
+- **Game World Profiles Guide:** Explanatory callout detailing Vanilla Vvardenfell, Tamriel Rebuilt Mainland, and ARCE balance rules.
+
+---
+
+### 13.2 Desktop Wireframe ($\ge 1024\text{px}$)
+
+```
++---------------------------------------------------------------------------------------------------------+
+| Silt Strider: Morrowind Character Planner & Game Calculators                                            |
+| An open-source suite of planning tools for The Elder Scrolls III: Morrowind and Tamriel Rebuilt.       |
++---------------------------------------------------------------------------------------------------------+
+| [ 📜 ACTIVE SESSION: Jiub · Dark Elf Assassin (Level 1, TR) ]               [ Resume Build Optimizer → ]|
++----------------------------------------------------+----------------------------------------------------+
+| [ TOOL CARD: Build Optimizer ]                     | [ TOOL CARD: Challenge Runs ]                      |
+| Complete 27-skill character studio. Configure      | Randomized playthrough generator. Roll customized  |
+| race, class, birthsign, and starting powers.       | restrictions, survival rules, and major objectives |
+| Includes early and endgame gear recommendations.   | with seed sharing and build export.                |
+| Tags: [ 27 Skills ] [ Gear Advisor ] [ TR Support ]| Tags: [ Custom Difficulty ] [ Permalinks ] [ Vows ]|
+| [ Launch Build Optimizer → ]                       | [ Launch Challenge Runs → ]                        |
++----------------------------------------------------+----------------------------------------------------+
+| [ TOOL CARD: Enchanting Calculator ]               | [ TOOL CARD: Spellmaking Calculator ]              |
+| Item capacity math, soul gem sizing, constant      | Magicka cost formulas, casting reliability odds,   |
+| effect threshold verification, and ranked vendor   | and spellmaker NPC barter pricing across guilds.   |
+| barter fee tables across Vvardenfell and TR.       |                                                    |
+| Tags: [ Capacity Math ] [ Constant Effect ]        | Tags: [ Magicka Cost ] [ Cast % ] [ Vendor Barter ]|
+| [ Launch Enchanting Calculator → ]                 | [ Launch Spellmaking Calculator → ]                |
++----------------------------------------------------+----------------------------------------------------+
+| [ TOOL CARD: Alchemy Calculator ]                  | [ TOOL CARD: Travel Optimizer ]                    |
+| 4-ingredient brewing simulator with automatic      | Multi-modal route finder across silt striders,     |
+| shared-effect matching, apparatus quality scaling, | boats, guild guides, and propylon chambers.        |
+| and reverse recipe lookup.                         |                                                    |
+| Tags: [ 4 Ingredients ] [ Reverse Search ]         | Tags: [ Fewest Hops ] [ Lowest Cost ] [ Transit ]  |
+| [ Launch Alchemy Calculator → ]                    | [ Launch Travel Optimizer → ]                      |
++----------------------------------------------------+----------------------------------------------------+
+| GAME WORLD PROFILES EXPLAINED                                                                           |
+| Vanilla Vvardenfell (2002) · Tamriel Rebuilt Mainland (24.11) · ARCE Balance Adjustments               |
+| Switch profiles at any time in the header bar to recalculate all tool data and catalogs.                |
++---------------------------------------------------------------------------------------------------------+
+```
+
+---
+
+### 13.3 Component Hierarchy & File Layout (Phase 7)
+
+```
+components/home-hub/
+├── home-hub-root.jsx                # Main container for the home directory
+├── active-session-banner.jsx        # Quick-resume banner for in-progress character
+├── tool-directory-grid.jsx          # Responsive 2-column grid of tool launcher cards
+├── tool-launcher-card.jsx           # Individual card with title, description, tags, and action
+├── world-profiles-guide.jsx         # Explanatory card on Vanilla vs TR vs ARCE
+└── colophon-bulletin.jsx            # Credits, changelog snippet, and community links
+```
+
+---
+
+### 13.4 Execution Checklist for Codex (Phase 7)
+- [ ] **Step 1:** Create `components/home-hub/` and scaffold the 6 components.
+- [ ] **Step 2:** Build `active-session-banner.jsx` connecting to `CharacterContext` to display the active character name, race/class, and direct launch button.
+- [ ] **Step 3:** Implement `tool-launcher-card.jsx` with authentic 3-tier frame styling (`--mw-border` container, `--mw-groove` dividers, `--mw-bevel` action button).
+- [ ] **Step 4:** Integrate structured semantic HTML (`<main>`, `<article>`, `<header>`, `<nav>`) and SEO meta tags for search visibility.
+- [ ] **Step 5:** Verify responsive collapse on mobile devices (< 900px) ensuring touch targets $\ge 44\text{px}$.
+
