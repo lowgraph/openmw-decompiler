@@ -373,7 +373,14 @@ Phase 3 introduces **Cross-Tool State Reactivity**:
 - [x] **Early Game & Endgame Kit Visual Emphasis:** Transformed `#gear-box details` and `.gear-results-container details` from plain text disclosures into high-contrast beveled CRPG plaques with 1.3rem *Pelagiad* headings, dark gradient banners (`linear-gradient(180deg, rgba(68,48,26,0.88), rgba(22,16,11,0.95))`), gold chevrons, and active hover lighting.
 - [x] **Complete Miscellaneous Skills:** Updated `SkillDisplayGrid` to list all 17 miscellaneous skills alphabetically under the authentic heading `"Miscellaneous Skills"`.
 - [x] **Mode Bar Visual Prominence & Clearance:** Added generous top margin (`mt-2 sm:mt-4 mb-8`) and expanded `#panel-build` top padding to `32px` to prevent buttons from touching the upper master panel border. Scaled mode switcher typography to `1.05rem` (`text-base`, `px-6 py-3`) with warm gold gradient and glowing focus highlights when active.
-- [x] **Standalone Local Characters Box:** Decoupled `#local-characters` from the bottom of `Configurator` into its own dedicated container (`LocalCharactersPanel`) with an authentic 6px `--mw-border` window frame, situated with `mt-7` (28px) negative space below the Character Configuration box.
 - [x] **Decoupled Superior Box Clearance:** Enforced clear negative space margins (`mt-7` on `LocalCharactersPanel`, `mt-8` on `GearAdvisor`) preventing any overlap or contact with superior dashboard containers.
+
+### 9.5 Column-Aligned Mode Architecture & Local Characters Plaque (Round 3)
+- [x] **Column-Aligned Mode Selectors:** Replaced the floating horizontal mode bar with a 2-column grid (`.mode-bar-grid`), aligning `Custom Class Builder` directly above the left column (`Character Configuration`) and `Premade Builds Catalog` directly above the right column (`Character Sheet`), eliminating asymmetric left floating.
+- [x] **Guaranteed Superior Clearance:** Added 24px bottom margin (`mb-6` / `1.5rem`) on `.mode-bar-grid` and 32px top padding on `#panel-build`, ensuring mode selector buttons never touch the upper borders of `Character Configuration` or `Character Sheet`.
+- [x] **Removed Broken Skill Numbers:** Eliminated the redundant and broken visual index numbers (`{idx + 1}.`) from Major and Minor skill slots in `configurator.jsx`, giving dropdowns clean horizontal expansion.
+- [x] **Relocated Copy Build Link:** Placed the `Copy Build Link` action button directly beneath `Local Characters` in the left pane as a full-width management button.
+- [x] **Local Characters CRPG Plaque:** Styled `#local-characters` with the exact same collapsible plaque aesthetic as the gear kit tabs (1.3rem *Pelagiad* bold heading, dark burnished bronze gradient header, gold chevron `▾`/`▴`, groove border, and dark inset shadow).
+
 
 
