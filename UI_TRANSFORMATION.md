@@ -358,3 +358,13 @@ Phase 3 introduces **Cross-Tool State Reactivity**:
 - [x] **Step 3:** Streamline mobile responsive ergonomics (remove duplicate sheet button, enlarge `<InfoTip>` touch target $\ge 32\text{px}$).
 - [x] **Step 4:** Enhance accessibility (add `:focus-visible` gold outline `#d4b06a`, brighten muted text from `#8a7a5e` to `#9e8b6b` for WCAG AA $\ge 4.5:1$ contrast).
 - [x] **Step 5:** Clean up orphaned/dead code in `components/character-builder/skill-picker/`.
+
+### 9.3 Character Builder Ergonomics & Gear Advisor Face Lift
+- [x] **Desktop Panel Proximity:** Reduced dashboard grid gap from `2rem` (32px) to `1.25rem` (20px) in `.cb-dashboard`, bringing the Configurator and Character Sheet into a tighter, cohesive visual unit on desktop viewports.
+- [x] **Side Padding & Border Breathing Room:** Expanded interior horizontal padding in `.configurator`, `.character-sheet`, and `.gear-advisor` to `px-8 sm:px-10` (32px - 40px), guaranteeing ample breathing room between dropdowns/buttons and outer ornate 9-slice borders.
+- [x] **Master Window Enclosing Frame:** Re-enclosed `#panel-build` within the authentic `--mw-border` 6px master window frame with deep inset shadows (`box-shadow: 0 12px 32px rgba(0,0,0,0.5), inset 0 0 16px 2px rgba(0,0,0,0.85)`), matching `#panel-challenge` (Challenge Runs master window) and establishing an enclosing frame for the entire character creator.
+- [x] **Gear Recommendations CRPG Face Lift:**
+  - Upgraded Armor Rating (AR) from flat inline text into a distinct, tactile CRPG stat badge (`.gear-ar-tag`) with burnished bronze gradient, 1px gold border (`#9e7f45`), bold monospace typography, and inset lighting.
+  - Enhanced category banners (`th[colspan]`) and table headers (`thead th`) with *Pelagiad* serif typography, uppercase tracking (`0.08em`), and etched groove dividers (`--mw-groove`).
+  - Elevated item names (`.gear-name`) with bold Pelagiad typography and styled Tamriel Rebuilt/region badges.
+
