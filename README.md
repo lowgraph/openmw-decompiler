@@ -1,5 +1,7 @@
 # OpenMW inventory exporter
 
+> **Three-agent project:** Three agents collaborate across Silt Strider. **Claude** owns this data pipeline repository, **Codex** owns the site frontend (`A:\Claude\morrowind-tools`), and **Antigravity** leads UI transformation architecture. See [COORDINATION.md](COORDINATION.md) and [AGENTS.md](AGENTS.md).
+
 **Picking this up cold? Start with [HANDOFF.md](HANDOFF.md)** for the project scope,
 what exists, the rules that cost real debugging, and the ordered next steps.
 

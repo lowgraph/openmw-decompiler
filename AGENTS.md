@@ -1,9 +1,17 @@
-# Two agents work on this project
+# Three agents work on this project
 
 Read [COORDINATION.md](COORDINATION.md) before starting, and [HANDOFF.md](HANDOFF.md)
-if you are picking this up cold. You own this repository; a second agent owns the
-site at `A:/Claude/morrowind-tools` and consumes the bundle you publish. Do not edit
-that repository.
+if you are picking this up cold.
+
+1. **Claude (Data Agent):** Owns this data pipeline repository (`lowgraph/openmw-decompiler`).
+   Extracts game files, maintains normalized SQLite in `A:\Cache\OpenMWFoundation`,
+   derives effect rules, evaluates policies, and publishes the app bundle.
+2. **Codex (Site Agent):** Owns the site repository at `A:\Claude\morrowind-tools`
+   and implements the web application consuming the bundle, executing the UI
+   transformation set out in [UI_TRANSFORMATION.md](UI_TRANSFORMATION.md). Do not
+   edit that repository.
+3. **Antigravity (UI Transformation Lead):** Directs the UI/UX architecture,
+   component design, and CRPG authenticity across the project.
 
 # Local workflow preferences
 
