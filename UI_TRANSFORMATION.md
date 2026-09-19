@@ -382,5 +382,7 @@ Phase 3 introduces **Cross-Tool State Reactivity**:
 - [x] **Relocated Copy Build Link:** Placed the `Copy Build Link` action button directly beneath `Local Characters` in the left pane as a full-width management button.
 - [x] **Local Characters CRPG Plaque:** Styled `#local-characters` with the exact same collapsible plaque aesthetic as the gear kit tabs (1.3rem *Pelagiad* bold heading, dark burnished bronze gradient header, gold chevron `▾`/`▴`, groove border, and dark inset shadow).
 
-
-
+### 9.6 Mobile Ergonomics & Clean Attribute Presentation (Round 4)
+- [x] **Non-Persistent Mobile Vitals:** Removed the sticky `.character-vitals-hud` from mobile viewports. On small screens, vitals are kept cleanly inside the `Character Sheet` tab, freeing 110px+ of vertical viewport space for configuring choices without sticky element obstruction.
+- [x] **Mobile-First Gear Advisor Layout:** Restructured the action bar in `GearAdvisor` with clean checkbox wrapping and a full-width (`w-full sm:w-auto`) primary call-to-action button (`py-2.5 px-6`), transforming the previously dangling/awkward button on mobile into a solid, intentional CRPG action.
+- [x] **Clean Specialization & Favored Attribute Option Text:** Removed inline `(+5 skills)` and `(+10)` from dropdown option values in `configurator.jsx` and moved bonuses to field labels (`Specialization (+5)`, `Favored Attr 1 (+10)`, `Favored Attr 2 (+10)`), matching `Major Skills (+25)` and `Minor Skills (+10)`. Eliminates option text truncation and clipping behind custom dropdown arrows.
