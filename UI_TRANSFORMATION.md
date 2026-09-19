@@ -153,3 +153,192 @@ interface CharacterState {
 - [x] **Step 4:** Decouple `#gear-box` into `gear-advisor.jsx` situated below the character sheet.
 - [x] **Step 5:** Connect the new React builder to `ShellProvider` and bind permalink writing via `history.replaceState`.
 - [x] **Step 6:** Run `npm test` in `A:\Claude\morrowind-tools` to ensure all 109 fixture, regression, and math tests continue to pass without errors.
+
+---
+
+## 7. Phase 2 Blueprint: Interactive Skill Matrix & Specialization Board
+
+### 7.1 Objective & UX Architecture
+Morrowind characters always start with exactly 5 Major and 5 Minor skills assigned. Static budget counters (e.g. 5/5 filled pips) and multi-column boards with modal conflicts disrupt natural character planning.
+
+Phase 2 introduces the **Tactile Skill Slot Editor & Multiplier Tracker**:
+- **Direct Tactical Slots:** 5 Major (+25) and 5 Minor (+10) interactive slots displayed in an authentic 2-column Morrowind bevel layout.
+- **Immediate Contextual Intelligence:** Every slot displays the skill selector, governing attribute indicator (`[STR]`, `[AGI]`, etc.), and live computed skill rating badge (`[ 45 ]`, `[ 25 ]`) updating in real time.
+- **Zero-Friction Duplicate Swapping:** Selecting an already-assigned skill automatically swaps it with the duplicate slot with no popups or modal interruptions.
+- **Level-Up Multiplier Distribution Counter:** Pinned status strip displaying class skill coverage across all 7 primary attributes (`STR (3) · AGI (2) · END (2)...`) with an educational tooltip explaining Morrowind's 3-attribute level up mechanic and efficient leveling strategies.
+- **1-Click Preset Customization:** Selecting a preset class locks the skills cleanly for canonical accuracy, while providing a 1-click `[ ✎ Customize Skills ]` action that transitions `className` to `"Custom"` for instant tweaking.
+- **Holistic 27-Skill Roster:** The right-pane Live Character Sheet (`character-sheet.jsx`) remains the authoritative CRPG character sheet, displaying Major, Minor, and all 17 Miscellaneous skills with their computed values, matching `Char Creation.png`.
+
+---
+
+### 7.2 Desktop Wireframe ($\ge 1024\text{px}$)
+
+```
++---------------------------------------------------------------------------------------------------------+
+| CLASS SKILL DISTRIBUTION: STR(3)  AGI(2)  END(2)  INT(1)  WIL(2)  SPD(0)  PER(0)      [ (i) Info ]      |
++---------------------------------------------------------------------------------------------------------+
+| [ Preset Class: Warrior (Locked) ]                                               [ ✎ Customize Skills ] |
++---------------------------------------------------------------------------------------------------------+
+| MAJOR SKILLS (+25)                                                                              5 Slots |
+| 1. [ Long Blade [STR]         v ] [ 45 ]         2. [ Heavy Armor [END]       v ] [ 35 ]                |
+| 3. [ Block [AGI]              v ] [ 35 ]         4. [ Athletics [SPD]         v ] [ 35 ]                |
+| 5. [ Armorer [STR]            v ] [ 20 ]                                                                |
++---------------------------------------------------------------------------------------------------------+
+| MINOR SKILLS (+10)                                                                              5 Slots |
+| 1. [ Spear [END]              v ] [ 20 ]         2. [ Marksman [AGI]          v ] [ 20 ]                |
+| 3. [ Axe [STR]                v ] [ 20 ]         4. [ Blunt Weapon [STR]      v ] [ 20 ]                |
+| 5. [ Medium Armor [END]       v ] [ 15 ]                                                                |
++---------------------------------------------------------------------------------------------------------+
+```
+
+---
+
+### 7.3 Canonical Skill & Governing Attribute Matrix
+
+Every skill belongs to exactly one Specialization and is governed by one Primary Attribute:
+
+| Skill | Specialization | Governing Attribute | Calculation Rule |
+| :--- | :---: | :---: | :--- |
+| **Block** | Combat | Agility | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Armorer** | Combat | Strength | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Medium Armor** | Combat | Endurance | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Heavy Armor** | Combat | Endurance | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Blunt Weapon** | Combat | Strength | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Long Blade** | Combat | Strength | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Axe** | Combat | Strength | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Spear** | Combat | Endurance | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Athletics** | Combat | Speed | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Enchant** | Magic | Intelligence | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Destruction** | Magic | Willpower | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Alteration** | Magic | Willpower | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Illusion** | Magic | Personality | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Conjuration** | Magic | Intelligence | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Mysticism** | Magic | Willpower | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Restoration** | Magic | Willpower | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Alchemy** | Magic | Intelligence | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Unarmored** | Magic | Speed | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Security** | Stealth | Intelligence | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Sneak** | Stealth | Agility | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Acrobatics** | Stealth | Strength | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Light Armor** | Stealth | Agility | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Short Blade** | Stealth | Speed | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Marksman** | Stealth | Agility | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Mercantile** | Stealth | Personality | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Speechcraft** | Stealth | Personality | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+| **Hand-to-hand** | Stealth | Speed | Base 5 + Spec(+5) + Tier(+25/+10) + Race |
+
+*(Note: Luck governs no skills directly, but adds a global bonus to all action resolution formulas)*.
+
+---
+
+### 7.4 State Management & Micro-Interaction Rules
+
+1. **Tier Assignment Lifecycle:**
+   - Each skill exists in one of three states:
+     - `Misc` (Base 5 + Spec? + Race?)
+     - `Minor` (+10 bonus, fills 1 of 5 Minor slots)
+     - `Major` (+25 bonus, fills 1 of 5 Major slots)
+   - Tapping/clicking a skill cycles through `Misc` -> `Minor` -> `Major` -> `Misc`.
+   - Alternatively, clicking the tier badge opens a 3-choice popover: `[ Major (+25) ]` `[ Minor (+10) ]` `[ Misc ]`.
+2. **Budget Constraints & Auto-Promotion / Demotion:**
+   - Maximum 5 Major skills, maximum 5 Minor skills.
+   - If player clicks "Major" when 5 Majors are already filled:
+     - Display a swap dialogue: *"Major slots full (5/5). Choose an existing Major skill to replace."*
+     - If the replaced skill was a Minor skill, swap their positions cleanly.
+3. **Preset Class Integration:**
+   - Choosing a preset class (e.g. "Knight", "Mage", "Assassin") automatically marks its 5 Majors and 5 Minors across the board.
+   - Modifying any skill assignment while a preset class is active automatically transitions `className` to `"Custom"`, with toast feedback.
+4. **Multiplier Balance Counter:**
+   - Above the matrix, a live badge bar displays how many Major + Minor skills fall under each attribute:
+     `STR: 3 · AGI: 2 · END: 2 · INT: 1 · WIL: 2 · SPD: 0 · PER: 0`
+   - Morrowind's leveling rules: Each level up allows picking **three attributes** to increase. Any attribute can gain up to a $\times 5$ bonus (+5) if the player gained 10 skill increases under that governing attribute (from Major, Minor, or Misc training) during that level.
+   - This counter helps players balance class skills (which trigger level-ups) against Misc skills (which allow controlled training without advancing the level counter) to reliably hit $\times 5 / \times 5 / \times 5$ gains.
+
+---
+
+### 7.5 Mobile & Tablet Responsive Specifications (< 1024px)
+
+- **Mobile Viewport Split:** On viewports under 1024px, display a horizontal segment tab bar:
+  `[ Combat (9) ]  [ Magic (9) ]  [ Stealth (9) ]`
+- **Sticky Budget HUD:** Pinned to top of the matrix:
+  `Majors: 5/5 · Minors: 5/5 · Attr: STR(3) AGI(2)...`
+- **Touch Ergonomics:** Each skill card has a minimum height of 44px with distinct tap targets for opening details vs toggling tier.
+
+---
+
+### 7.6 Component Hierarchy & File Layout (Phase 2)
+
+```
+components/character-builder/
+├── configurator.jsx                       # Hosts SkillPicker coordinator
+└── skill-picker/
+    ├── index.jsx                          # Top coordinator (Matrix vs Slot toggle)
+    ├── skill-matrix.jsx                   # 3-column specialization board
+    ├── skill-card.jsx                     # Individual tactile card with attr badge & tier pill
+    ├── skill-budget-bar.jsx               # Sticky 5/5 Major & 5/5 Minor budget tracker
+    ├── skill-attribute-summary.jsx        # Multiplier distribution summary bar
+    └── skill-swap-modal.jsx               # Conflict resolution modal when slots are full
+```
+
+---
+
+### 7.7 Execution Checklist for Codex (Phase 2)
+
+- [ ] **Step 1:** Scaffold `components/character-builder/skill-picker/` and create the 6 subcomponents listed above.
+- [ ] **Step 2:** Build `skill-card.jsx` with authentic `--mw-bevel` borders, governing attribute badges, race bonus badges, and tier toggles.
+- [ ] **Step 3:** Build `skill-matrix.jsx` supporting 3-column desktop layout and mobile tabbed specialization switcher.
+- [ ] **Step 4:** Implement `skill-budget-bar.jsx` and the governing attribute multiplier summary.
+- [ ] **Step 5:** Integrate `SkillPicker` into `configurator.jsx`, binding state to `build.maj` and `build.min` with bidirectional sync to legacy controls.
+- [ ] **Step 6:** Run `npm test` and `npm run build` to guarantee zero regressions.
+
+---
+
+## 8. Phase 3 Blueprint: Cross-Tool Calculator State Integration
+
+### 8.1 Objective & Architecture
+Morrowind's specialized calculators (Enchanting, Spellmaking, Alchemy, Travel) currently function as isolated pages with manually re-entered values. 
+
+Phase 3 introduces **Cross-Tool State Reactivity**:
+- The active character's attributes, skills, and race powers automatically populate into the other calculators.
+- Permalinks retain cross-tool state via unified URL hashes.
+- Powered by `useActiveCharacter()` React Context that bridges the active character sheet across all tools.
+
+---
+
+### 8.2 Tool Integration Specifications
+
+#### 1. Enchanting Calculator (`#panel-enchant`)
+- **Ingested Stats:** Character's live **Intelligence** and **Enchant** skill.
+- **Formulas:**
+  - **Cast Success Rate:** $\text{Chance} = (\text{Enchant} + \frac{\text{Intelligence}}{5} + \frac{\text{Luck}}{10}) \times (\frac{\text{Current Fatigue}}{\text{Max Fatigue}}) - \text{Item Cast Cost}$.
+  - **Constant Effect Cap:** Checks if Enchant skill $\ge 100$ and soul capacity $\ge 400$ (Golden Saint / Ascended Sleeper).
+- **UI Enhancement:** Display live success chance badge next to item configuration.
+
+#### 2. Spellmaking Calculator (`#panel-spell`)
+- **Ingested Stats:** Character's live **Willpower**, **Luck**, and Magic School skills (**Destruction**, **Alteration**, **Illusion**, **Conjuration**, **Mysticism**, **Restoration**).
+- **Formulas:**
+  - **Spell Casting Chance:**
+    $$\text{Cast %} = \left(2 \times \text{School Skill} - \text{Spell Cost} + \frac{\text{Willpower}}{5} + \frac{\text{Luck}}{10}\right) \times \left(0.75 + \frac{0.5 \times \text{Current Fatigue}}{\text{Max Fatigue}}\right)$$
+- **UI Enhancement:** Live reliability rating: `[ Highly Reliable (95%) ]`, `[ Risky (45%) ]`, or `[ Uncastable (0%) ]`.
+
+#### 3. Alchemy Calculator (`#panel-alchemy`)
+- **Ingested Stats:** Character's live **Intelligence**, **Luck**, and **Alchemy** skill.
+- **Formulas:**
+  - **Brewing Success Chance:**
+    $$\text{Brew %} = \text{Alchemy} + \frac{\text{Intelligence}}{10} + \frac{\text{Luck}}{10}$$
+  - **Potion Magnitude & Duration:** Factored by character's apparatus quality and Intelligence.
+- **UI Enhancement:** Live brew success indicator on recipe cards.
+
+#### 4. Travel Optimizer (`#panel-travel`)
+- **Ingested Stats:** Character's starting race and faction alignment.
+- **UI Enhancement:** Quick-select origin button: `[ From Starting Hub: Seyda Neen / Balmora ]`.
+
+---
+
+### 8.3 Execution Checklist for Codex (Phase 3)
+
+- [ ] **Step 1:** Create `components/character-context.jsx` exposing `useActiveCharacter()`.
+- [ ] **Step 2:** Rewire Enchanting Calculator to read `Intelligence` and `Enchant` from context.
+- [ ] **Step 3:** Rewire Spellmaking Calculator to calculate live cast chance for crafted spells.
+- [ ] **Step 4:** Rewire Alchemy Calculator to calculate potion brew success.
+- [ ] **Step 5:** Verify automated tests and production build.
