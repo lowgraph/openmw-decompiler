@@ -673,20 +673,126 @@ components/calculators/
 
 ---
 
-## 12. Phase 6 Blueprint: Cloud Character Vault (Clerk + Cloudflare D1)
+## 12. Phase 6 Blueprint: Character Level Simulator (Leveling Planner & Progression Engine)
 
-### 12.1 Objective & Architecture
+### 12.1 Objective & Design Strategy
+In Morrowind, characters start at Level 1, but character power, Health, Magicka, and Fatigue evolve dynamically as the player levels up:
+- **The Leveling Problem:** Health gains on level up equal $\lfloor \text{Endurance} / 10 \rfloor$. Unlike modern RPGs, this gain is **not retroactive** in Morrowind; raising Endurance early yields significantly more endgame Health than raising it late.
+- **Attribute Multipliers:** Advancing a level requires 10 Major or Minor skill increases. The player selects 3 attributes to raise; each can gain a $+1$ to $+5$ multiplier based on skill points gained in skills governed by that attribute (from Major, Minor, or Misc skills) during that level. Luck has no governing skills and is limited to $+1$ per level.
+- **The Solution:** A dedicated **Character Level Simulator** page (`#panel-leveler`) that ingests the active character's Level 1 build and enables players to map out their progression to Level 50+ (or max level capped by 100 in all Major/Minor skills).
+- **Pragmatic, SEO-Friendly Labeling:** Clear, unambiguous terminology ("Character Level Simulator", "Level Progression", "Attribute Multipliers", "Health Projection", "Skill Training Requirements") avoiding fantasy fluff.
+- **Enabling Proper Saves:** By implementing the progression engine and data model first, character records saved in Phase 7 (Cloud Character Vault) and Local Storage store the character's exact level, level-up choices, and leveled attribute/skill values instead of only Level 1 presets.
+
+---
+
+### 12.2 Canonical Leveling Math & Data Model
+
+$$\text{Level-Up Threshold} = 10 \text{ Major or Minor skill increases}$$
+
+$$\text{Health Gain per Level} = \lfloor \frac{\text{Current Endurance}}{10} \rfloor$$
+
+$$\text{Total Health at Level } N = \text{Base Health} + \sum_{i=1}^{N-1} \lfloor \frac{\text{Endurance}_i}{10} \rfloor$$
+
+$$\text{Total Magicka at Level } N = \text{Intelligence}_N \times (1 + \text{Race Mult} + \text{Sign Mult})$$
+
+$$\text{Total Fatigue at Level } N = \text{Strength}_N + \text{Willpower}_N + \text{Agility}_N + \text{Endurance}_N$$
+
+```typescript
+interface LevelUpChoice {
+  level: number;
+  attributes: [
+    { name: AttributeName; multiplier: 1 | 2 | 3 | 4 | 5 },
+    { name: AttributeName; multiplier: 1 | 2 | 3 | 4 | 5 },
+    { name: AttributeName; multiplier: 1 | 2 | 3 | 4 | 5 }
+  ];
+  skillIncreasesRequired: Record<string, number>; // Major/Minor/Misc skills trained
+  enduranceBeforeLevel: number;
+  healthGained: number;
+}
+
+interface LeveledCharacterData {
+  version: 1;
+  baseCharacter: CharacterState; // Starting Level 1 build
+  currentLevel: number;          // e.g. 15
+  targetLevel: number;           // e.g. 50
+  history: LevelUpChoice[];      // Record of all level-ups
+  attributes: Record<AttributeName, number>;
+  skills: Record<string, number>;
+  vitals: { health: number; magicka: number; fatigue: number };
+}
+```
+
+---
+
+### 12.3 Desktop Wireframe ($\ge 1024\text{px}$)
+
+```
++---------------------------------------------------------------------------------------------------------+
+| Silt Strider: Character Level Simulator                                                                 |
+| Active Character: Jiub · Dark Elf Assassin · Level [ 15 v ] (Max Theoretical: 62)                       |
++----------------------------------------------------+----------------------------------------------------+
+| LEFT PANE: Level Progression Step Editor           | RIGHT PANE: Leveled Character Sheet                |
+| (components/level-simulator/level-step-editor.jsx) | (components/level-simulator/progression-sheet.jsx) |
+|                                                    |                                                    |
+| Level Step: [ Level 14 -> 15 v ]   [ + Next Level ]| +-- LEVELED VITALS (Level 15) -------------------+ |
+| Strategy Preset: [ Efficient (+5/+5/+1 Luck) v ]   | | Health:  [======= 182/182 =======] (+10)       | |
+|                                                    | | Magicka: [======= 80/80 =========]             | |
+| +-- 3 Attribute Level-Up Bonuses ----------------+ | | Fatigue: [======= 290/290 =======]             | |
+| | 1. [ Endurance      v ] [ +5 Multiplier v ]    | +------------------------------------------------+ |
+| |    Requires: 10 Heavy/Medium/Spear increases   |                                                    |
+| | 2. [ Agility        v ] [ +5 Multiplier v ]    | +-- PRIMARY ATTRIBUTES --------------------------+ |
+| |    Requires: 10 Block/Sneak/Light increases    | | Strength: 65 (+25)     Agility: 85 (+35)         | |
+| | 3. [ Luck           v ] [ +1 (Fixed)    v ]    | | Intelligence: 40       Speed: 70 (+20)           | |
+| +------------------------------------------------+ | | Willpower: 30          Endurance: 100 (MAX)     | |
+|                                                    | | Personality: 55        Luck: 55 (+15)           | |
+| +-- Skill Training Requirements for this Level --+ | +------------------------------------------------+ |
+| | Major/Minor: 10 points (Advances level)        |                                                    |
+| | Miscellaneous: 10 points (Bonus multipliers)   | +-- HEALTH PROJECTION CHART ---------------------+ |
+| +------------------------------------------------+ | | Lvl 1: 45hp -> Lvl 5: 75hp -> Lvl 15: 182hp    | |
+|                                                    | | Max Possible Endgame Health: 485 HP            | |
+| [ Apply to Active Character ] [ Save Leveled Build]| +------------------------------------------------+ |
++----------------------------------------------------+----------------------------------------------------+
+```
+
+---
+
+### 12.4 Component Hierarchy & File Layout (Phase 6)
+
+```
+components/level-simulator/
+├── level-simulator-root.jsx         # Coordinator, target level slider, and preset switcher
+├── level-step-editor.jsx            # Left pane: attribute bonus pickers & multiplier selectors
+├── progression-sheet.jsx            # Right pane: live leveled character sheet and vitals
+├── health-growth-chart.jsx          # Visual comparison chart of efficient vs delayed Endurance
+└── skill-training-table.jsx         # Detailed Major, Minor, and Misc training requirements
+```
+
+---
+
+### 12.5 Execution Checklist for Codex (Phase 6)
+- [ ] **Step 1:** Scaffold `components/level-simulator/` and the 5 subcomponents.
+- [ ] **Step 2:** Implement `lib/level-math.mjs` calculating level caps, attribute multipliers, and Health progression.
+- [ ] **Step 3:** Mount `#panel-leveler` into `index.html` and register `leveler` view in `migration/shell-bridge.js`.
+- [ ] **Step 4:** Add `[ Simulate Leveling → ]` quick-link button into `CharacterSheet`.
+- [ ] **Step 5:** Run `npm test` to verify calculations match OpenMW canonical level-up outputs.
+
+---
+
+## 13. Phase 7 Blueprint: Cloud Character Vault (Clerk + Cloudflare D1)
+
+### 13.1 Objective & Architecture
 Currently, character builds are stored solely in the user's browser `localStorage`. While fast, this limits users to a single device and risks data loss upon clearing browser cache.
 
-Phase 6 introduces the **Cloud Character Vault**:
+Phase 7 introduces the **Cloud Character Vault**:
 - **Seamless Authentication:** Clerk user authentication for secure sign-in via Google, Discord, or Email.
 - **Serverless Cloud Persistence:** Cloudflare D1 (serverless SQLite at the edge) for storing character dossiers.
+- **Leveled Character Persistence:** Natively stores the character's simulated level and progression history from Phase 6.
 - **Offline-First Hybrid Sync:** Immediate local writes for zero UI latency, followed by asynchronous cloud sync.
 - **Public Build Permalinks:** 1-click generation of public showcase URLs (`siltstrider.tools/c/<slug>`).
 
 ---
 
-### 12.2 Cloudflare D1 Database Schema
+### 13.2 Cloudflare D1 Database Schema
 
 ```sql
 -- Users table: maps Clerk authentication identity
@@ -708,8 +814,8 @@ CREATE TABLE IF NOT EXISTS characters (
     birthsign TEXT NOT NULL,
     world TEXT NOT NULL,               -- 'vanilla' | 'tr'
     arce INTEGER NOT NULL DEFAULT 0,   -- 0 | 1
-    level INTEGER NOT NULL DEFAULT 1,
-    sheet_data TEXT NOT NULL,          -- JSON payload (attributes, skills, spells, gear)
+    level INTEGER NOT NULL DEFAULT 1,  -- Leveled character level (1–100)
+    sheet_data TEXT NOT NULL,          -- JSON payload (base build + level history)
     is_public INTEGER NOT NULL DEFAULT 0,
     share_slug TEXT UNIQUE,            -- Short URL slug for public sharing
     created_at TEXT NOT NULL,          -- ISO timestamp
@@ -723,7 +829,7 @@ CREATE INDEX IF NOT EXISTS idx_characters_slug ON characters(share_slug);
 
 ---
 
-### 12.3 API Gateway & Security Specifications (Cloudflare Worker)
+### 13.3 API Gateway & Security Specifications (Cloudflare Worker)
 - **Endpoint Routing:**
   - `GET /api/characters`: List all characters belonging to the authenticated user.
   - `POST /api/characters`: Save or update a character dossier.
@@ -736,7 +842,7 @@ CREATE INDEX IF NOT EXISTS idx_characters_slug ON characters(share_slug);
 
 ---
 
-### 12.4 UI / UX: Saved Characters Vault Drawer
+### 13.4 UI / UX: Saved Characters Vault Drawer
 - **Drawer Trigger:** Accessible from the top navigation `.account-bar` (`[ Cloud Saves ]`) and Character Builder (`[ Saved Characters ]`).
 - **Character Dossier Cards:**
   - Card displays Character Name, Level, Race, Class, Birthsign, World Profile badge (`Vanilla` / `TR` / `ARCE`), and last modified date.
@@ -754,7 +860,7 @@ CREATE INDEX IF NOT EXISTS idx_characters_slug ON characters(share_slug);
 
 ---
 
-### 12.5 Execution Checklist for Codex (Phase 6)
+### 13.5 Execution Checklist for Codex (Phase 7)
 - [ ] **Step 1:** Create Cloudflare D1 database migrations under `migrations/0001_character_vault.sql`.
 - [ ] **Step 2:** Implement Worker API route handlers in `app/api/characters/route.js` with Clerk JWT validation.
 - [ ] **Step 3:** Implement hybrid sync engine in `lib/character-vault.mjs` bridging localStorage and D1 API.
@@ -763,49 +869,51 @@ CREATE INDEX IF NOT EXISTS idx_characters_slug ON characters(share_slug);
 
 ---
 
-## 13. Phase 7 Blueprint: Home Hub & Tool Launcher Cards
+## 14. Phase 8 Blueprint: Home Hub & Tool Launcher Cards
 
-### 13.1 Objective & SEO Strategy
+### 14.1 Objective & SEO Strategy
 The current Home view (`#panel-home`) consists of a basic list of six buttons with brief text snippets. 
 
-Phase 7 modernizes Home into an **informative, SEO-rich tool directory and hub**:
-- **Clear Information Architecture:** High-contrast headings, semantic metadata, and structured feature descriptions optimized for search discovery (targeting keywords like *"Morrowind build optimizer"*, *"Morrowind challenge run generator"*, *"Morrowind alchemy calculator"*).
+Phase 8 modernizes Home into an **informative, SEO-rich tool directory and hub**:
+- **Clear Information Architecture:** High-contrast headings, semantic metadata, and structured feature descriptions optimized for search discovery (targeting keywords like *"Morrowind build optimizer"*, *"Morrowind character level simulator"*, *"Morrowind challenge run generator"*, *"Morrowind alchemy calculator"*).
 - **Active Character Quick-Resume:** Prominently displays the player's active or most recently edited build, enabling 1-click continuation without navigating dropdowns.
-- **Responsive 2-Column Card Grid:** 6 tactile CRPG cards with procedural 9-slice borders, gold accents, feature tags, and direct launch buttons.
+- **Responsive Card Grid (7 Tools):** Tactile CRPG cards with procedural 9-slice borders, gold accents, feature tags, and direct launch buttons.
 - **Game World Profiles Guide:** Explanatory callout detailing Vanilla Vvardenfell, Tamriel Rebuilt Mainland, and ARCE balance rules.
 
 ---
 
-### 13.2 Desktop Wireframe ($\ge 1024\text{px}$)
+### 14.2 Desktop Wireframe ($\ge 1024\text{px}$)
 
 ```
 +---------------------------------------------------------------------------------------------------------+
 | Silt Strider: Morrowind Character Planner & Game Calculators                                            |
 | An open-source suite of planning tools for The Elder Scrolls III: Morrowind and Tamriel Rebuilt.       |
 +---------------------------------------------------------------------------------------------------------+
-| [ 📜 ACTIVE SESSION: Jiub · Dark Elf Assassin (Level 1, TR) ]               [ Resume Build Optimizer → ]|
+| [ 📜 ACTIVE SESSION: Jiub · Dark Elf Assassin (Level 15, TR) ]              [ Resume Build Optimizer → ]|
 +----------------------------------------------------+----------------------------------------------------+
-| [ TOOL CARD: Build Optimizer ]                     | [ TOOL CARD: Challenge Runs ]                      |
-| Complete 27-skill character studio. Configure      | Randomized playthrough generator. Roll customized  |
-| race, class, birthsign, and starting powers.       | restrictions, survival rules, and major objectives |
-| Includes early and endgame gear recommendations.   | with seed sharing and build export.                |
-| Tags: [ 27 Skills ] [ Gear Advisor ] [ TR Support ]| Tags: [ Custom Difficulty ] [ Permalinks ] [ Vows ]|
-| [ Launch Build Optimizer → ]                       | [ Launch Challenge Runs → ]                        |
+| [ TOOL CARD: Build Optimizer ]                     | [ TOOL CARD: Character Level Simulator ]           |
+| Complete 27-skill character studio. Configure      | Plan level progression, track +5 multipliers, and  |
+| race, class, birthsign, and starting powers.       | maximize Health with early Endurance scaling.      |
+| Tags: [ 27 Skills ] [ Gear Advisor ] [ TR Support ]| Tags: [ Level 1-78 ] [ Health Math ] [ Multipliers]|
+| [ Launch Build Optimizer → ]                       | [ Launch Level Simulator → ]                       |
 +----------------------------------------------------+----------------------------------------------------+
-| [ TOOL CARD: Enchanting Calculator ]               | [ TOOL CARD: Spellmaking Calculator ]              |
-| Item capacity math, soul gem sizing, constant      | Magicka cost formulas, casting reliability odds,   |
-| effect threshold verification, and ranked vendor   | and spellmaker NPC barter pricing across guilds.   |
-| barter fee tables across Vvardenfell and TR.       |                                                    |
-| Tags: [ Capacity Math ] [ Constant Effect ]        | Tags: [ Magicka Cost ] [ Cast % ] [ Vendor Barter ]|
-| [ Launch Enchanting Calculator → ]                 | [ Launch Spellmaking Calculator → ]                |
+| [ TOOL CARD: Challenge Runs ]                      | [ TOOL CARD: Enchanting Calculator ]               |
+| Randomized playthrough generator. Roll customized  | Item capacity math, soul gem sizing, constant      |
+| restrictions and major objectives with seed links. | effect threshold, and ranked vendor barter fees.   |
+| Tags: [ Custom Difficulty ] [ Permalinks ] [ Vows ]| Tags: [ Capacity Math ] [ Constant Effect ]        |
+| [ Launch Challenge Runs → ]                        | [ Launch Enchanting Calculator → ]                 |
 +----------------------------------------------------+----------------------------------------------------+
-| [ TOOL CARD: Alchemy Calculator ]                  | [ TOOL CARD: Travel Optimizer ]                    |
-| 4-ingredient brewing simulator with automatic      | Multi-modal route finder across silt striders,     |
-| shared-effect matching, apparatus quality scaling, | boats, guild guides, and propylon chambers.        |
-| and reverse recipe lookup.                         |                                                    |
-| Tags: [ 4 Ingredients ] [ Reverse Search ]         | Tags: [ Fewest Hops ] [ Lowest Cost ] [ Transit ]  |
-| [ Launch Alchemy Calculator → ]                    | [ Launch Travel Optimizer → ]                      |
+| [ TOOL CARD: Spellmaking Calculator ]              | [ TOOL CARD: Alchemy Calculator ]                  |
+| Magicka cost formulas, casting reliability odds,   | 4-ingredient brewing simulator with automatic      |
+| and spellmaker NPC barter pricing across guilds.   | shared-effect matching, apparatus quality scaling. |
+| Tags: [ Magicka Cost ] [ Cast % ] [ Vendor Barter ]| Tags: [ 4 Ingredients ] [ Reverse Search ]         |
+| [ Launch Spellmaking Calculator → ]                | [ Launch Alchemy Calculator → ]                    |
 +----------------------------------------------------+----------------------------------------------------+
+| [ TOOL CARD: Travel Optimizer ]                                                                         |
+| Multi-modal route finder across silt striders, boats, guild guides, and propylon chambers.              |
+| Tags: [ Fewest Hops ] [ Lowest Cost ] [ Transit ]                                                       |
+| [ Launch Travel Optimizer → ]                                                                           |
++---------------------------------------------------------------------------------------------------------+
 | GAME WORLD PROFILES EXPLAINED                                                                           |
 | Vanilla Vvardenfell (2002) · Tamriel Rebuilt Mainland (24.11) · ARCE Balance Adjustments               |
 | Switch profiles at any time in the header bar to recalculate all tool data and catalogs.                |
@@ -814,13 +922,13 @@ Phase 7 modernizes Home into an **informative, SEO-rich tool directory and hub**
 
 ---
 
-### 13.3 Component Hierarchy & File Layout (Phase 7)
+### 14.3 Component Hierarchy & File Layout (Phase 8)
 
 ```
 components/home-hub/
 ├── home-hub-root.jsx                # Main container for the home directory
 ├── active-session-banner.jsx        # Quick-resume banner for in-progress character
-├── tool-directory-grid.jsx          # Responsive 2-column grid of tool launcher cards
+├── tool-directory-grid.jsx          # Responsive grid of 7 tool launcher cards
 ├── tool-launcher-card.jsx           # Individual card with title, description, tags, and action
 ├── world-profiles-guide.jsx         # Explanatory card on Vanilla vs TR vs ARCE
 └── colophon-bulletin.jsx            # Credits, changelog snippet, and community links
@@ -828,10 +936,11 @@ components/home-hub/
 
 ---
 
-### 13.4 Execution Checklist for Codex (Phase 7)
+### 14.4 Execution Checklist for Codex (Phase 8)
 - [ ] **Step 1:** Create `components/home-hub/` and scaffold the 6 components.
-- [ ] **Step 2:** Build `active-session-banner.jsx` connecting to `CharacterContext` to display the active character name, race/class, and direct launch button.
+- [ ] **Step 2:** Build `active-session-banner.jsx` connecting to `CharacterContext` to display the active character name, race/class, level, and direct launch button.
 - [ ] **Step 3:** Implement `tool-launcher-card.jsx` with authentic 3-tier frame styling (`--mw-border` container, `--mw-groove` dividers, `--mw-bevel` action button).
 - [ ] **Step 4:** Integrate structured semantic HTML (`<main>`, `<article>`, `<header>`, `<nav>`) and SEO meta tags for search visibility.
 - [ ] **Step 5:** Verify responsive collapse on mobile devices (< 900px) ensuring touch targets $\ge 44\text{px}$.
+
 
