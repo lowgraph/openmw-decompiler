@@ -99,12 +99,14 @@ Keep that property in anything new.
 
 1. Maintain and evolve `UI_TRANSFORMATION.md` roadmap.
 2. Review site UI implementation against CRPG design system and responsive mobile standards.
-3. Specify Phase 2 (modernized skill picker) and Phase 3 (cross-tool calculator state integration).
+3. Completed Phase 1 (Two-Pane Character Builder), Phase 2 (Skill Matrix), Phase 3 (Cross-Tool Calculator State), Phase 4 (Challenge Runs Overhaul), Phase 5 (The 4 Specialized Calculators), and Phase 6 (Character Level Simulator & Build Progression Optimizer).
+4. Specify Phase 7 (Cloud Character Vault - Clerk + Cloudflare D1) and Phase 8 (Home Hub & Tool Launcher Cards).
 
 **Codex (Site agent)**
 
-1. Execute the UI transformation specified in `UI_TRANSFORMATION.md` (Phase 1: two-pane Character Builder, decoupled Gear Advisor, and mobile sticky Vitals HUD; Phase 2: modernized skill pickers; Phase 3: cross-tool state integration).
-2. Fix the mobile navigation drawer conflict (`legacy.css` suppressing `.hamburger`).
+1. ~~Execute Phase 1-6 UI transformations specified in `UI_TRANSFORMATION.md`.~~ **Done.**
+   All interactive workstations (Character Builder, Challenge Runs, Enchanting, Spellmaking, Alchemy, Travel, Level Simulator) are fully implemented, verified via CDP, and covered by 170 passing unit tests.
+2. Next Milestone: Phase 7 (Cloud Character Vault) — implement Clerk authentication and Cloudflare D1 character schema/persistence routes for user builds and leveled progression history.
 3. Rewire the legacy calculators to the loader. `DATA_LOADER.md` is explicit that
    the loader is ready and the calculators still use their verified legacy tables;
    until this lands, the bundle powers nothing.
