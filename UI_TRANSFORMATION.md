@@ -519,12 +519,12 @@ components/challenge-runs/
 ---
 
 ### 10.6 Execution Checklist for Codex (Phase 4)
-- [ ] **Step 1:** Create `components/challenge-runs/` and scaffold the 10 components.
-- [ ] **Step 2:** Extract challenge randomization and constraint validation into `lib/challenge-math.mjs` (conflict detection, tag exclusion, level cap rules).
-- [ ] **Step 3:** Implement slot-pinning logic allowing users to lock specific rolled attributes across re-rolls.
-- [ ] **Step 4:** Implement two-pane desktop layout with authentic 3-tier frame styling and high-contrast parchment text.
-- [ ] **Step 5:** Connect `[ Send to Build Optimizer ]` bridge to pass character state into `CharacterBuilderRoot`.
-- [ ] **Step 6:** Run `npm test` and `npm run build` to verify 100% test passing and zero regressions.
+- [x] **Step 1:** Create `components/challenge-runs/` and scaffold the 10 components.
+- [x] **Step 2:** Extract challenge randomization and constraint validation into `lib/challenge-math.mjs` (conflict detection, tag exclusion, level cap rules).
+- [x] **Step 3:** Implement slot-pinning logic allowing users to lock specific rolled attributes across re-rolls.
+- [x] **Step 4:** Implement two-pane desktop layout with authentic 3-tier frame styling and high-contrast parchment text.
+- [x] **Step 5:** Connect `[ Send to Build Optimizer ]` bridge to pass character state into `CharacterBuilderRoot`.
+- [x] **Step 6:** Run `npm test` and `npm run build` to verify 100% test passing and zero regressions.
 
 ---
 
@@ -665,11 +665,11 @@ components/calculators/
 ---
 
 ### 11.7 Execution Checklist for Codex (Phase 5)
-- [ ] **Step 1:** Scaffold `components/calculators/` and subdirectories for the 4 tools.
-- [ ] **Step 2:** Port formulas for Enchanting capacity, Spellmaking Magicka/cast chance, and Alchemy potency into pure utility libraries (`lib/enchant-math.mjs`, `lib/spell-math.mjs`, `lib/alchemy-math.mjs`, `lib/travel-graph.mjs`).
-- [ ] **Step 3:** Connect calculators to `useActiveCharacter()` so player stats automatically populate without manual re-entry.
-- [ ] **Step 4:** Build interactive UI controls (tactile sliders, apparatus quality pickers, route cards) using authentic 3-tier frame styling.
-- [ ] **Step 5:** Run automated tests (`npm test`) and verify calculations match OpenMW game outputs.
+- [x] **Step 1:** Scaffold `components/calculators/` and subdirectories for the 4 tools.
+- [x] **Step 2:** Port formulas for Enchanting capacity, Spellmaking Magicka/cast chance, and Alchemy potency into pure utility libraries (`lib/enchant-math.mjs`, `lib/spell-math.mjs`, `lib/alchemy-math.mjs`, `lib/travel-graph.mjs`).
+- [x] **Step 3:** Connect calculators to `useActiveCharacter()` so player stats automatically populate without manual re-entry.
+- [x] **Step 4:** Build interactive UI controls (tactile sliders, apparatus quality pickers, route cards) using authentic 3-tier frame styling.
+- [x] **Step 5:** Run automated tests (`npm test`) and verify calculations match OpenMW game outputs.
 
 ---
 
