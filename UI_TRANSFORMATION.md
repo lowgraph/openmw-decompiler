@@ -885,13 +885,13 @@ lib/
 ---
 
 ### 12.6 Execution Checklist for Codex (Phase 6)
-- [ ] **Step 1:** Implement `lib/level-math.mjs` with level cap calculation, Health formulas, multiplier thresholds, and the optimization solver prescribing level-by-level Major/Minor and Misc skill training.
-- [ ] **Step 2:** Scaffold `components/level-simulator/` with all 8 subcomponents.
-- [ ] **Step 3:** Implement the Dual-Mode toggle ("Stats Only" vs "Stats & Skills") and manual level stepper.
-- [ ] **Step 4:** Integrate 1-click optimization buttons and attribute priority ranker.
-- [ ] **Step 5:** Connect `level-simulator-root.jsx` to `CharacterContext` (`useActiveCharacter()`) and add `[ Level Progression Optimizer → ]` quick launch in `CharacterSheet`.
-- [ ] **Step 6:** Mount `#panel-leveler` into `index.html` and register `leveler` view in `migration/shell-bridge.js`.
-- [ ] **Step 7:** Run `npm test` and verify that all calculations match canonical OpenMW level-up logic.
+- [x] **Step 1:** Implement `lib/level-math.mjs` with level cap calculation, Health formulas, multiplier thresholds, and the optimization solver prescribing level-by-level Major/Minor and Misc skill training.
+- [x] **Step 2:** Scaffold `components/level-simulator/` with all 8 subcomponents.
+- [x] **Step 3:** Implement the Dual-Mode toggle ("Stats Only" vs "Stats & Skills") and manual level stepper.
+- [x] **Step 4:** Integrate 1-click optimization buttons and attribute priority ranker.
+- [x] **Step 5:** Connect `level-simulator-root.jsx` to `CharacterContext` (`useActiveCharacter()`) and add `[ Level Progression Optimizer → ]` quick launch in `CharacterSheet`.
+- [x] **Step 6:** Mount `#panel-leveler` into `index.html` and register `leveler` view in `migration/shell-bridge.js`.
+- [x] **Step 7:** Run `npm test` and verify that all calculations match canonical OpenMW level-up logic.
 
 ---
 
