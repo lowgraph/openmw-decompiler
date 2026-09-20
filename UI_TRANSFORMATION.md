@@ -1106,10 +1106,10 @@ components/home-hub/
 ---
 
 ### 14.4 Execution Checklist for Codex (Phase 8)
-- [ ] **Step 1:** Create `components/home-hub/` and scaffold the 6 components.
-- [ ] **Step 2:** Build `active-session-banner.jsx` connecting to `CharacterContext` to display the active character name, race/class, level, and direct launch button.
-- [ ] **Step 3:** Implement `tool-launcher-card.jsx` with authentic 3-tier frame styling (`--mw-border` container, `--mw-groove` dividers, `--mw-bevel` action button).
-- [ ] **Step 4:** Integrate structured semantic HTML (`<main>`, `<article>`, `<header>`, `<nav>`) and SEO meta tags for search visibility.
-- [ ] **Step 5:** Verify responsive collapse on mobile devices (< 900px) ensuring touch targets $\ge 44\text{px}$.
+- [x] **Step 1:** Create `components/home-hub/` and scaffold the 6 components.
+- [x] **Step 2:** Build `active-session-banner.jsx` connecting to `CharacterContext` to display the active character name, race/class, level, and direct launch button.
+- [x] **Step 3:** Implement `tool-launcher-card.jsx` with authentic 3-tier frame styling (`--mw-border` container, `--mw-groove` dividers, `--mw-bevel` action button).
+- [x] **Step 4:** Integrate structured semantic HTML (`<main>`, `<article>`, `<header>`, `<nav>`) and SEO meta tags for search visibility.
+- [x] **Step 5:** Verify responsive collapse on mobile devices (< 900px) ensuring touch targets $\ge 44\text{px}$.
 
 
