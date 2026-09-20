@@ -6,10 +6,9 @@ disposition and fatigue, and the player's. This publishes the merchant side of t
 with the formula's own literals authored beside it.
 
 20% of traders are auto-calculated: the record stores no skills or attributes at all,
-because the engine derives them from class and level when the game loads. Those
-publish null and say so. Everything needed to derive them ships in the Races and
-Classes catalogs, but deriving it here would be an unverifiable reimplementation of
-engine code, so it is left to a caller who can check its answers.
+because the engine derives them from class and level when the game loads. Those are
+derived here by rerunning the engine's own routines -- see autocalc.py -- and
+statsSource says whether a merchant's stats were read or worked out.
 """
 from __future__ import annotations
 
@@ -24,6 +23,7 @@ import sqlite3
 import tempfile
 import time
 
+import autocalc
 from build_acquisition_index import metadata
 from export_items import ExportError
 from extract_foundation import ROOT, load_config
@@ -93,33 +93,44 @@ def barter_stats(stats):
             'luck': attributes.get('luck')}
 
 
-def merchant(actor, name, record_type, services_raw, stats, cells, flags, records):
+def merchant(actor, name, record_type, services_raw, stats, cells, flags, records,
+             reference=None):
     # The decoded service names are carried once in serviceFlags, not per record:
     # eleven strings on 2,575 merchants cost more than everything else together.
     trades = any(kind == 'trade' for bit, (_, kind) in flags.items() if services_raw & bit)
     barter = barter_stats(stats)
     identity = records.get(actor, {})
-    autocalc = bool(stats.get('autocalcFlag'))
+    autocalc_flag = bool(stats.get('autocalcFlag'))
     # getBarterOffer returns basePrice unchanged for a creature, so a creature merchant
     # is exactly priceable without any stats at all: its price is the base value.
     haggles = record_type != 'CREA'
+    stored = None not in barter.values()
+    source = 'record' if stored else None
+    if not stored and reference is not None:
+        # Nothing was stored because the engine works it out. Work it out the same way.
+        derived = autocalc.derive(reference, identity.get('race'), identity.get('class'),
+                                  stats.get('level'), bool(stats.get('female')))
+        if derived and None not in derived.values():
+            barter, source = derived, 'derived'
     return {
         'key': actor, 'name': name, 'recordType': record_type,
         'cells': sorted(cells),
         'trades': trades, 'servicesRaw': services_raw,
         'gold': stats.get('gold'), 'disposition': stats.get('disposition'),
         'level': stats.get('level'), 'fatigue': stats.get('fatigue'),
-        # Null here means the engine decides at load time, never that it is zero.
+        # Null only when the record stored nothing and the derivation could not run.
         'mercantile': barter['mercantile'],
         'personality': barter['personality'],
         'luck': barter['luck'],
-        'autocalc': autocalc, 'haggles': haggles,
-        'priceable': not haggles or (not autocalc and None not in barter.values()),
+        # Where those three came from: the record, or OpenMW's own autocalc rerun here.
+        'statsSource': source,
+        'autocalc': autocalc_flag, 'haggles': haggles,
+        'priceable': not haggles or source is not None,
         'class': identity.get('class'), 'race': identity.get('race'),
         'female': bool(stats.get('female'))}
 
 
-def build(services, game, profile):
+def build(services, game, profile, reference=None):
     flags = service_flags(services)
     records = actor_records(game, profile)
     rows = services.execute(
@@ -136,12 +147,12 @@ def build(services, game, profile):
         if cell:
             cells[actor].add(cell)
         collected[actor] = (name, record_type, services_raw, json.loads(stats_json or '{}'))
-    return [merchant(actor, *collected[actor], cells[actor], flags, records)
+    return [merchant(actor, *collected[actor], cells[actor], flags, records, reference)
             for actor in sorted(collected)]
 
 
-def assemble(services, game, profile, snapshot):
-    records = build(services, game, profile)
+def assemble(services, game, profile, snapshot, reference=None):
+    records = build(services, game, profile, reference)
     traders = [r for r in records if r['trades']]
     priceable = [r for r in traders if r['priceable']]
     return {
@@ -154,14 +165,20 @@ def assemble(services, game, profile, snapshot):
                       'at runtime and is not in any record',
             'providers': len(records), 'traders': len(traders),
             'priceable': len(priceable),
+            'statsFromRecord': sum(1 for r in traders if r['statsSource'] == 'record'),
+            'statsDerived': sum(1 for r in traders if r['statsSource'] == 'derived'),
+            'statsUnknown': sum(1 for r in traders if r['statsSource'] is None and r['haggles']),
             'autocalc': sum(1 for r in traders if r['autocalc']),
             'creatures': sum(1 for r in traders if not r['haggles']),
             'withoutGold': sum(1 for r in records if r['gold'] is None)},
         'coverage': 'The merchant side of the haggling formula, plus which services each '
-                    'provider sells and how much gold they carry. Barter stats are null '
-                    'when the actor is auto-calculated: the record stores none, because '
-                    'the engine derives them from class and level at load. Null means the '
-                    'engine decides, never zero, and priceable false marks it. A '
+                    'provider sells and how much gold they carry. Barter stats are read '
+                    'from the record where it stores them. Where it does not -- an '
+                    'auto-calculated actor stores no skills or attributes at all -- they '
+                    'are derived by rerunning the engine\'s own autoCalculateAttributes and '
+                    'autoCalculateSkills, and statsSource says which of the two happened. '
+                    'Null on all three means neither worked, never that the value is '
+                    'zero. A '
                     'creature merchant never haggles -- the engine returns the base '
                     'price unchanged -- so it is priceable with no stats at all. Nothing '
                     'here evaluates disposition changes, bargaining attempts, restocking '
@@ -189,12 +206,21 @@ def main(argv=None):
     parser.add_argument('--output', type=Path)
     parser.add_argument('--services-database', type=Path)
     parser.add_argument('--foundation-database', type=Path)
+    parser.add_argument('--catalogs', type=Path, help='Catalog release, for autocalc inputs')
+    parser.add_argument('--no-autocalc', action='store_true',
+                        help='Leave auto-calculated merchants unpriceable')
     args = parser.parse_args(argv)
     try:
         root = load_config(ROOT/'foundation_config.json')[2]
         profiles = args.profile or ['vanilla', 'tr', 'tr_arce']
         paths = (args.services_database or root/'services/services.sqlite',
                  args.foundation_database or root/'game-data.sqlite')
+        catalogs = args.catalogs
+        if catalogs is None and not args.no_autocalc:
+            pointer = root/'catalogs/current.json'
+            if not pointer.is_file():
+                raise ExportError('No catalog release found; pass --catalogs or --no-autocalc')
+            catalogs = root/'catalogs'/json.loads(pointer.read_text(encoding='utf-8'))['releaseId']
         written = []
         with ExitStack() as stack:
             dbs = []
@@ -206,13 +232,14 @@ def main(argv=None):
             services, game = dbs
             snapshot = metadata(services).get('snapshotId')
             for profile in profiles:
-                payload = assemble(services, game, profile, snapshot)
+                reference = None if args.no_autocalc else autocalc.reference(catalogs, profile)
+                payload = assemble(services, game, profile, snapshot, reference)
                 destination, size = publish(payload, args.output or root/'merchants', profile)
                 counts = payload['derivation']
-                share = 100*counts['autocalc']/counts['traders'] if counts['traders'] else 0
                 print(f'{profile}: {counts["providers"]} providers, {counts["traders"]} trade, '
-                      f'{counts["priceable"]} priceable, {counts["autocalc"]} auto-calculated '
-                      f'({share:.0f}% of traders), {size/1024:.0f} KB', flush=True)
+                      f'{counts["priceable"]} priceable ({counts["statsFromRecord"]} from the '
+                      f'record, {counts["statsDerived"]} derived, {counts["statsUnknown"]} '
+                      f'still unknown), {size/1024:.0f} KB', flush=True)
                 written.append(destination)
         print('Merchant catalog complete:\n  ' + '\n  '.join(str(p) for p in written))
         return 0

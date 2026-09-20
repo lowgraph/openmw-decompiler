@@ -19,10 +19,13 @@ and the merchant's disposition toward you. This catalog publishes the merchant's
 the player's half comes from the character being planned.
 
 ```
-vanilla    660 providers    382 trade    328 priceable    25 KB gzipped
-tr        2575 providers   1530 trade   1247 priceable    98 KB gzipped
+vanilla    660 providers    382 trade    382 priceable    25 KB gzipped
+tr        2575 providers   1530 trade   1530 priceable    98 KB gzipped
 tr_arce   identical to tr, so the bundle inherits it
 ```
+
+Every trader can be priced: the one in five whose stats the engine invents at load are
+derived here the same way it does. See below.
 
 Service names are carried once in `serviceFlags` and referenced by `servicesRaw` per
 record. Eleven strings on 2,575 merchants cost more than every other field together.
@@ -65,29 +68,64 @@ Ababael Timsar-Dadisun (Merc 100)  novice pays 1618 and is paid 1; expert pays 9
 A creature is therefore `priceable: true` with no stats at all — its price is exactly
 the base value.
 
-## 20% of traders have no stats to read
+**The sell price can exceed the buy price**, and that is the engine, not a mistake here.
+There is no `min` between the two terms: `sell > buy` whenever the player's term beats
+the merchant's by more than 50. Agrippina Herennia sells a 1,000 gold item to a maxed
+haggler for 693 and buys it back for 806. That is Morrowind's long-known Mercantile
+exploit, reproduced faithfully because it is what the game does.
+
+## One trader in five stores no stats, and is derived
 
 An auto-calculated NPC stores no skills and no attributes: the engine derives them from
-class and level at load. That is not a gap in the extraction, because there is nothing
-in the record to extract. The split is perfectly clean — **not one auto-calculated actor
-has a stored Mercantile.**
+class and level at load. There is nothing in the record to extract, and the split is
+perfectly clean — **not one auto-calculated actor has a stored Mercantile.**
 
-| Profile | Traders | Priceable | Auto-calculated |
-| --- | --- | --- | --- |
-| vanilla | 382 | 328 | 54 (14%) |
-| tr | 1,530 | 1,247 | 283 (18%) |
+`autocalc.py` reruns the engine's own `autoCalculateAttributes` and
+`autoCalculateSkills`, transcribed from `apps/openmw/mwclass/npc.cpp`, so every trader
+is now priceable:
 
-Those publish `mercantile`, `personality` and `luck` as **null**, with `autocalc: true`
-and `priceable: false`. Null means the engine decides, never zero: treating it as zero
-makes `npcTerm` vanish and every such merchant look maximally generous. The reference
-`barterOffer` returns null for them rather than a plausible-looking wrong number.
+| Profile | Traders | From the record | Derived | Still unknown |
+| --- | --- | --- | --- | --- |
+| vanilla | 382 | 305 | 54 | **0** |
+| tr | 1,530 | 1,219 | 283 | **0** |
 
-Deriving those stats is possible with what already ships — `Races` carries per-gender
-attribute values and skill bonuses, `Classes` carries favoured attributes,
-specialization and major/minor skills, and each merchant here publishes its `class`,
-`race`, `female` and `level`. It is not done here because it is a reimplementation of
-engine code with no way to check its answers short of reading them back out of a
-running game. A caller who can verify is welcome to it.
+`statsSource` says which happened. A stored value is never overwritten. `autocalc` still
+reports what the record said, independently of whether a derivation succeeded, and null
+on all three still means neither route worked — never that the value is zero.
+
+### How the derivation was checked
+
+This is engine code reimplemented outside the engine, so it needed evidence rather than
+confidence. The way in: **at level 1 the `(level - 1)` terms vanish**, and autocalc
+reduces to exactly what character creation produces. 94 of the user's 96 real saves are
+level 1.
+
+Across 49 distinct race/class/birthsign level-1 characters:
+
+```
+attributes exact                       32
+attributes explained by birthsign only 15
+attributes unexplained                  2
+skill values BELOW prediction           0
+skill values above prediction          55
+```
+
+The fifteen are fortify effects the save reports inside `base` — Ro'Grogu the Khajiit
+Barbarian was out by Endurance +25 and Personality +25, which is precisely what his
+birthsign, Lady's Favor, grants. The two residuals are partial: a Charioteer's +25 Speed
+matched with a stray +2 Strength left over, and a TR birthsign the lookup did not
+resolve.
+
+The load-bearing number is the zero. Every skill disagreement is the character's value
+being *higher* than predicted, and they land on `unarmored` (36), `athletics` (11) and
+`acrobatics` (3) — the skills that rise from walking, running and jumping. A wrong
+formula would produce values below the prediction too. It produces none.
+
+The derived population also behaves as it should: derived Mercantile has a median of 44
+against 10 for hand-authored merchants, because Bethesda wrote most shopkeepers as weak
+hagglers while autocalc scales with level. That is the game's behaviour, not an artifact.
+
+Use `--no-autocalc` to publish the nulls instead.
 
 ## Options and verification
 
@@ -97,16 +135,26 @@ python build_app_bundle.py --no-merchants
 python -m unittest test_merchant_catalog -v
 ```
 
-Tests cover stored stats publishing, auto-calculated nulls, null skill and attribute
-blocks, gold and disposition, class and race coming from the record rather than the
-provider table, a creature not haggling and being priceable anyway, an auto-calculated
-NPC not being, trade versus service-only flags, the raw bitfield, the flag table being
-carried once, the counts separating auto-calculated from creatures, and the formula's
-own weights and exemptions.
+```powershell
+python -m unittest test_autocalc -v
+```
+
+Tests cover stored stats publishing, auto-calculated nulls without a reference, null
+skill and attribute blocks, gold and disposition, class and race coming from the record
+rather than the provider table, a creature not haggling and being priceable anyway,
+trade versus service-only flags, the raw bitfield, the flag table being carried once,
+the counts separating read from derived, a stored value never being overwritten, a class
+the catalogs do not carry staying unknown, and the formula's own weights and exemptions.
+
+`test_autocalc.py` pins the derivation itself: major, minor, specialised and
+miscellaneous skills at level 1, how fast each rises, the 100 ceiling, level 0, the
+favoured-attribute bonus, gender selection, attribute growth weighted by the skills an
+attribute governs, and the level-1 equivalence the whole verification rests on.
 
 Beyond the unit tests, the reference implementation was exercised against every
-priceable vanilla merchant: **0 monotonicity violations in 579** — a better haggler
-never pays more or receives less.
+priceable vanilla merchant, derived ones included: **0 monotonicity violations in 637**
+— a better haggler never pays more or receives less — and all 54 derived traders price
+without error.
 
 ## What this layer does not do
 

@@ -105,7 +105,7 @@ travel edges                  vanilla 115   tr and tr_arce 427   23 guild guides
 journal quests                vanilla 530   tr and tr_arce 1905 trackable of 2573
 beast-race gear               vanilla 18 rows differ, 32 have nothing (boots, shoes)
 places                        vanilla 2887   tr and tr_arce 10784   394 TR settlements
-merchants                     vanilla 382   tr and tr_arce 1530 traders; 20% autocalc
+merchants                     vanilla 382   tr and tr_arce 1530 traders; all priceable
 engine dump                   141 effects in 6s, 186 in 4s, one run per profile
 journal topics                tr 2,577  vanilla 758      326 have no resolvable title
 transport destinations        tr 433  vanilla 117        17k directed door links

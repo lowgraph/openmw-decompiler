@@ -119,6 +119,59 @@ class CreatureTests(Fixture):
         self.assertFalse(record['priceable'])
 
 
+class DerivationTests(Fixture):
+    """An auto-calculated merchant gets its stats by rerunning the engine's own routines."""
+    def reference(self):
+        return {'races': {'imperial': {
+                    'attributes': {'personality': {'male': 50, 'female': 50},
+                                   'luck': {'male': 40, 'female': 40}},
+                    'skillBonuses': [{'skill': 'mercantile', 'bonus': 10}]}},
+                'classes': {'trader': {'specialization': 'stealth',
+                                       'favoredAttributes': ['personality'],
+                                       'majorSkills': ['mercantile'], 'minorSkills': []}},
+                'skills': [{'skill': 'mercantile', 'governingAttribute': 'personality',
+                            'specialization': 'stealth'}]}
+
+    def test_without_a_reference_nothing_is_derived(self):
+        record = self.one(stats=AUTOCALC, actors=(('m', 'Trader', 'Imperial'),))
+        self.assertIsNone(record['mercantile'])
+        self.assertIsNone(record['statsSource'])
+        self.assertFalse(record['priceable'])
+
+    def test_with_a_reference_the_stats_are_worked_out(self):
+        records = build(self.services([('m', 'M', 'NPC_', 1, AUTOCALC, 'interior:shop')]),
+                        self.game([('m', 'Trader', 'Imperial')]), 'tr', self.reference())
+        record = records[0]
+        self.assertEqual(record['statsSource'], 'derived')
+        self.assertEqual(record['mercantile'], 57)  # level 9 major specialised skill
+        self.assertTrue(record['priceable'])
+        self.assertTrue(record['autocalc'], 'still flagged as auto-calculated')
+
+    def test_a_stored_merchant_is_never_overwritten_by_derivation(self):
+        records = build(self.services([('m', 'M', 'NPC_', 1, STATS, 'interior:shop')]),
+                        self.game([('m', 'Trader', 'Imperial')]), 'tr', self.reference())
+        self.assertEqual(records[0]['statsSource'], 'record')
+        self.assertEqual(records[0]['mercantile'], 40, 'the record wins')
+
+    def test_a_class_the_catalogs_do_not_carry_stays_unknown(self):
+        records = build(self.services([('m', 'M', 'NPC_', 1, AUTOCALC, 'interior:shop')]),
+                        self.game([('m', 'T_Glb_Jeweler', 'Imperial')]), 'tr', self.reference())
+        self.assertIsNone(records[0]['statsSource'])
+        self.assertIsNone(records[0]['mercantile'])
+        self.assertFalse(records[0]['priceable'])
+
+    def test_the_counts_separate_read_from_derived(self):
+        db = self.services([('a', 'A', 'NPC_', 1, STATS, 'interior:shop'),
+                            ('b', 'B', 'NPC_', 1, AUTOCALC, 'interior:shop')])
+        payload = assemble(db, self.game([('a', 'Trader', 'Imperial'),
+                                          ('b', 'Trader', 'Imperial')]),
+                           'tr', 'snap', self.reference())
+        counts = payload['derivation']
+        self.assertEqual(counts['statsFromRecord'], 1)
+        self.assertEqual(counts['statsDerived'], 1)
+        self.assertEqual(counts['statsUnknown'], 0)
+
+
 class ServiceTests(Fixture):
     def test_a_trade_flag_makes_a_trader(self):
         self.assertTrue(self.one(raw=1)['trades'])

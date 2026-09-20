@@ -9,6 +9,10 @@
  * `barterOffer` below is transcribed from OpenMW's own getBarterOffer, not reconstructed
  * from a wiki. Two cases never reach the arithmetic: a creature merchant returns the
  * base price unchanged, and a zero base price stays zero.
+ *
+ * Every trader is priceable. One in five stores no stats at all — the engine derives
+ * them from class and level at load — and those are derived here the same way, marked
+ * `statsSource: "derived"`. See MERCHANTS.md for how that was checked.
  */
 import type { Profile } from "./catalog-types";
 
@@ -32,14 +36,17 @@ export type Merchant = {
   level: number | null;
   fatigue: number | null;
 
-  /** Null when `autocalc` is true: the record stores no stats, because the engine
-   *  derives them from class and level at load. **Null means the engine decides, never
-   *  zero.** Treating null as 0 makes every such merchant look maximally generous. */
+  /** Read from the record, or worked out by rerunning the engine's own autocalc when
+   *  the record stores nothing. Null only when neither was possible. **Null never means
+   *  zero** — treating it as 0 makes a merchant look maximally generous. */
   mercantile: number | null;
   personality: number | null;
   luck: number | null;
+  /** Which of the two produced the three values above. Null when neither could. */
+  statsSource: "record" | "derived" | null;
 
-  /** True when the stats above are engine-derived and therefore absent here. */
+  /** True when the record itself stores no stats. Independent of `statsSource`: an
+   *  auto-calculated merchant usually still has derived values. */
   autocalc: boolean;
   /** False for creatures, which the engine exempts from the formula entirely. */
   haggles: boolean;
@@ -47,8 +54,7 @@ export type Merchant = {
    *  stats are all present. False means `barterOffer` would be guessing. */
   priceable: boolean;
 
-  /** Enough to derive an auto-calculated merchant's stats from the Races and Classes
-   *  catalogs, for a caller willing to reimplement the engine's autocalc. */
+  /** The inputs the derivation used, kept so its answer can be checked. */
   class: string | null;
   race: string | null;
   female: boolean;
@@ -82,6 +88,7 @@ export type MerchantCatalog = {
   derivation: {
     method: string;
     providers: number; traders: number; priceable: number;
+    statsFromRecord: number; statsDerived: number; statsUnknown: number;
     autocalc: number; creatures: number; withoutGold: number;
   };
   coverage: string;
