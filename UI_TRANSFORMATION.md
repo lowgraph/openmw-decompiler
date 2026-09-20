@@ -1112,4 +1112,52 @@ components/home-hub/
 - [x] **Step 4:** Integrate structured semantic HTML (`<main>`, `<article>`, `<header>`, `<nav>`) and SEO meta tags for search visibility.
 - [x] **Step 5:** Verify responsive collapse on mobile devices (< 900px) ensuring touch targets $\ge 44\text{px}$.
 
+---
+
+## 15. Phase 9 Blueprint: Equipped Loadouts & Equipment Inspector (Paperdoll Studio)
+
+### Objective
+Provide an authentic, tactile 19-slot CRPG equipment inspector arranged symmetrically around a central character identity plaque. Accurately calculate weighted Total Armor Rating (AR), carry capacity & encumbrance, weapon combat ratings, beast race restrictions, two-handed mutual exclusions, passive constant-effect enchantments, and multi-loadout presets.
+
+### 15.1 Architectural Components & Features
+- **19-Slot Tactile Paperdoll Grid (`components/equipment-studio/paperdoll-grid.jsx`):**
+  - Defense Column (9 slots): Helmet, Left Pauldron, Cuirass, Right Pauldron, Left Gauntlet, Right Gauntlet, Greaves, Boots, Off-hand Shield / Light.
+  - Central Character Plaque: Active character name, race, birthsign, visual CRPG silhouette, and quick summary footer (`Total AR`, `Encumbrance`).
+  - Weapons, Attire & Jewelry Column (10 slots): Main-Hand Weapon, Ammunition, Robe, Shirt, Pants, Skirt, Left Ring, Right Ring, Amulet, Belt.
+  - Procedural CRPG SVG slot glyphs, AR/weight chips, and 1-click unequip `✕`.
+- **Mathematical & Calculations Engine (`lib/equipment-math.mjs`):**
+  - **Weighted Total Armor Rating (AR):** Canonical slot weighting ratios (Cuirass 30%, Shield 10%, Helmet 10%, Greaves 10%, Boots 10%, Pauldrons 10% each, Gauntlets 5% each) and Unarmored formula ($\lfloor \text{UnarmoredSkill}^2 \times 0.0065 \rfloor$).
+  - **Encumbrance & Carry Capacity:** $\text{Strength} \times 5$ carrying capacity with active weight progress bar.
+  - **Main-Hand Weapon Combat Profile:** Computes Chop, Slash, and Thrust damage ranges, weapon speed, reach, and Hand-to-Hand fallback.
+  - **Two-Handed vs. Shield Mutual Exclusion:** Equipping a two-handed weapon automatically unequips off-hand shield/light.
+  - **Beast Race Equipment Restrictions:** Argonian and Khajiit characters accurately barred from equipping boots and closed helmets with authentic lore-accurate badges and warnings.
+  - **Constant Effect Enchantment Aggregation:** Aggregates passive enchantments from equipped gear into a structured combat ledger.
+- **Multi-Loadout Presets System (`loadout-tabs-bar.jsx`):** Up to 4 named loadouts per character (Primary Combat, Secondary / Alternate, Stealth & Infiltration, Arcane & Utility) with 1-click switching, duplicating, renaming, clearing, and curated starter/endgame kit templates (Seyda Neen Scout, Ghostgate Glass Champion, Daedric Warlord).
+- **Interactive Item Picker & Custom Forging Drawer (`item-picker-drawer.jsx`):** Slide-in modal drawer with embedded game items catalog across all slots, category filter chips (ALL, LIGHT, MEDIUM, HEAVY), instant search, beast restriction indicators, and a custom item forge form.
+- **Cross-Tool Architecture & Integrations:**
+  - 3-Way Studio Mode Bar in `character-builder-root.jsx` (`Custom Class Builder`, `Equipped Loadouts & Studio`, `Premade Builds Catalog`).
+  - Character Sheet Quick Launch (`character-sheet.jsx`): `[ Equipped Paperdoll → ]`.
+  - Gear Advisor Direct Equip Bridge (`gear-advisor.jsx`): `[ Equip Kit to Paperdoll → ]`.
+
+### 15.2 Component Hierarchy (Phase 9)
+```
+components/equipment-studio/
+├── equipment-studio-root.jsx        # Root container, active loadout state, event listeners
+├── paperdoll-grid.jsx               # Symmetrical 19-slot paperdoll surrounding avatar plaque
+├── equipment-slot-card.jsx          # Tactile slot card with SVG glyphs, chips, and unequip
+├── equipment-stats-summary.jsx      # Weighted Total AR, carry capacity meter, weapon card, passives
+├── loadout-tabs-bar.jsx             # 4-preset tab bar, renaming, duplication, and kit templates
+└── item-picker-drawer.jsx           # Slide-in modal item browser with search, filters, and forge form
+```
+
+### 15.3 Execution Checklist for Codex (Phase 9)
+- [x] **Step 1:** Implement mathematical calculation engine in `lib/equipment-math.mjs` and comprehensive test suite in `test/equipment-math.test.js`.
+- [x] **Step 2:** Build tactile slot cards (`equipment-slot-card.jsx`) with procedural SVG glyphs and authentic CRPG bevels.
+- [x] **Step 3:** Implement symmetrical 19-slot paperdoll grid (`paperdoll-grid.jsx`) with responsive mobile category filter.
+- [x] **Step 4:** Build combat and stats summary panel (`equipment-stats-summary.jsx`) with weighted AR, carry capacity progress bar, and constant effect passives.
+- [x] **Step 5:** Build multi-loadout tab bar (`loadout-tabs-bar.jsx`) and item picker drawer (`item-picker-drawer.jsx`).
+- [x] **Step 6:** Mount `EquipmentStudioRoot` in `character-builder-root.jsx`, wire quick launch in `character-sheet.jsx`, and connect `[ Equip Kit to Paperdoll → ]` in `gear-advisor.jsx`.
+- [x] **Step 7:** Verify layout integrity via headless Chrome CDP on port 8765 across desktop (1440px) and mobile (390px).
+
+
 
