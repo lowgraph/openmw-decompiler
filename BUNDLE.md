@@ -52,13 +52,20 @@ as `{changed, removed}` against that base. Base selection is by matching world a
 version with `arce: false`; a base profile is always complete, so resolution never
 recurses. Selecting `tr_arce` on its own instead publishes it in full.
 
-Measured against bundle `05c8e35f088e181ca115d94c`:
+Measured against bundle `1f72304a9b35046784b9b9d3`, 27 catalogs:
 
-| Profile | Files | Inherited | Raw | Gzipped |
-| --- | --- | --- | --- | --- |
-| `vanilla` | 23 | 0 | 3.86 MB | 271 KB |
-| `tr` | 23 | 0 | 14.35 MB | 988 KB |
-| `tr_arce` | 3 | 20 | 0.08 MB | **13 KB** |
+| Profile | Files | Inherited | Gzipped |
+| --- | --- | --- | --- |
+| `vanilla` | 27 | 0 | 355 KB |
+| `tr` | 27 | 0 | 1,300 KB |
+| `tr_arce` | 3 | 24 | **13 KB** |
+
+What the derived catalogs cost, gzipped, vanilla and TR:
+
+```
+Places  32 / 130    Merchants 25 / 99    Quests 19 / 63
+Travel   4 /  15    GearRows  14 / 19    EffectRules 7 / 8
+```
 
 Gear rows cost 12 KB gzipped on vanilla and 16 KB on TR, effect rules 7 KB and 8 KB.
 Both cost ARCE nothing: its rows and rules are byte-identical to TR's, so it inherits

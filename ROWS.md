@@ -91,9 +91,19 @@ So every `Pick` carries `beastWearable`, and every row carries `beastPrimary` �
 same row answered from the same candidates by the same near-first rule. On vanilla:
 
 ```
-424 rows: 18 where a beast race needs a different item, 32 where nothing fits
-nothing fits: boots and shoes, and only those
-Chitin Helm -> Colovian Fur Helm
+vanilla   424 rows: 18 need a different item for a beast race, 32 where nothing fits
+tr        424 rows: 22 need a different item for a beast race, 32 where nothing fits
+nothing fits: boots and shoes, and only those, in both profiles
+```
+
+The picks are their own confirmation. Nothing here matches on names — the rule reads
+`PRT_Head` against `PRT_Hair` in the body part list — yet it independently arrives at
+what Bethesda and Tamriel Rebuilt wrote into the names:
+
+```
+Adamantium Helm     -> Orcish Open Helm
+Ebony Closed Helm   -> Imperial Templar Helmet
+Chitin Helm         -> Colovian Fur Helm
 ```
 
 `beastPrimary: null` means **nothing in this slot fits them**, not that the row is

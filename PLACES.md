@@ -66,9 +66,9 @@ tr: 3 cell(s) named by Merchants are not in Places: interior:nowhere ...
   One of the two was built from a different extraction; rebuild both.
 ```
 
-Measured on the current release, that check passes completely — **0 unresolved out of
-1,763 referenced cells in TR and 487 in vanilla**. So within one bundle the join is
-total, and `placeLabel` never has to fall back to showing a raw key.
+Measured on bundle `1f72304a9b35046784b9b9d3`, that check passes completely — **0
+unresolved out of 1,639 referenced cells in TR and 439 in vanilla**. So within one
+bundle the join is total, and `placeLabel` never has to fall back to showing a raw key.
 
 This is worth having because the failure is otherwise silent: a stale Places built from
 an older extraction would leave a handful of locations nameless in the browser and
