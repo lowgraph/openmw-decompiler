@@ -220,9 +220,30 @@ and saved challenges will not fit in that blob. Decide blob-versus-rows now, kee
 Clerk-owned-identity and revision discipline that `cloudflare/README.md` sets out, and
 put the content `snapshotId` on every row that stores a game reference.
 
-**7. Save import.** Target OpenMW `.omwsave` first; the user's corpus is format v37 and
-heavily modded. It is a separate binary format with its own version drift, and it
-produces *observations* to reconcile against a planned build — not character records.
+**7. ~~Save import.~~ Built by Codex, on the site side.** `lib/omwsave-parser.mjs` in
+`morrowind-tools` reads `.omwsave` directly — ESM3 framing, version-gated to format 40.
+Verified 20 September 2026 against the user's real corpus: **96 of 96 saves parsed, all
+format 37**, yielding identity, vitals, skills and attributes, quests, journal ids,
+factions, inventory and spells. It is not ours to build; do not start a second one.
+
+It has one gap, and our data closes it. A save names the character's class but not what
+that class *contains*, so the parser reports `skill.kind` as null rather than guessing
+which skills were major:
+
+```
+Class "T_Glb_Jeweler" is defined in a content file, not in this save, so
+major/minor/misc cannot be recovered; skill.kind is null.
+```
+
+95 of the 96 saves carry that warning, so it is the normal case, not an edge. **38 of
+the 39 distinct classes in the corpus are in the `Classes` catalog we already ship** —
+`T_Glb_Jeweler` included, with its five majors and five minors. Filling `kind` is a
+lookup against the bundle, not new pipeline work. The one class the catalog cannot
+supply is `$generated:3`, a player-made custom class, which the save does store and the
+parser can recover itself.
+
+The framing still holds: a save produces *observations* to reconcile against a planned
+build, not character records.
 
 **8. The objective toggle.** The user has foreseen "best protection" versus "best
 constant effect". `strength` in a row is currently armour rating, best weapon damage,
