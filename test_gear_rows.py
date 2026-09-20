@@ -1,8 +1,11 @@
+from pathlib import Path
 import unittest
 
 from build_gear_rows import (ARMOR_CLASSES, ARMOR_SLOTS, BEAST_FORBIDDEN_PARTS,
-                             CLOTHING_SLOTS, WEAPON_ROWS, beast_wearable,
-                             armor_class, assemble, best, row_key, strength, toggle_sets, variant)
+                             CLOTHING_SLOTS, OBJECTIVES, WEAPON_ROWS, armor_class,
+                             assemble, beast_wearable, best, objectives_from, row_key,
+                             strength, toggle_sets, variant)
+from evaluate_policy import load_policy
 from export_items import ExportError
 
 SETTINGS = {'ihelmweight': 5, 'icuirassweight': 30, 'igreavesweight': 15, 'ishieldweight': 15,
@@ -17,9 +20,9 @@ def armour(kind, weight, rating=10):
             'key': kind, 'name': kind, 'value': 100}
 
 
-def candidate(name, strength_value, near, price=None, beast=True):
+def candidate(name, strength_value, near, price=None, beast=True, enchantment=0):
     return {'key': name, 'name': name, 'strength': strength_value, 'nearStart': near,
-            'beastWearable': beast,
+            'enchantment': enchantment, 'beastWearable': beast,
             'price': price, 'acquisition': 'take', 'cellKey': 'somewhere'}
 
 
@@ -131,6 +134,69 @@ class BeastRaceTests(unittest.TestCase):
         self.assertEqual(sorted(BEAST_FORBIDDEN_PARTS), [0, 15, 16])
 
 
+class ObjectiveTests(unittest.TestCase):
+    """A row is answered once per objective; the two often disagree."""
+    def rows(self, candidates, objectives=('power', 'enchantment')):
+        key = ('armor', 'cuirass', 'heavy', None)
+        buckets = {key: {(False, False, False): candidates}}
+        return {r['key']: r for r in assemble(buckets, {'armor'}, objectives)
+                if r['slot'] == 'cuirass' and r['armorClass'] == 'heavy'
+                and r['toggles'] == {'theft': False, 'endgame': False, 'nearStart': False}}
+
+    def test_each_objective_gets_its_own_row(self):
+        rows = self.rows([candidate('a', 10, True)])
+        self.assertEqual(sorted(rows), ['armor/cuirass/heavy/000/enchantment',
+                                        'armor/cuirass/heavy/000/power'])
+
+    def test_the_objectives_can_choose_differently(self):
+        # Eleidon's Ward is the real case: huge capacity, ordinary protection.
+        tough = candidate('tough', 80, True, enchantment=100)
+        capacious = candidate('capacious', 20, True, enchantment=3000)
+        rows = self.rows([tough, capacious])
+        self.assertEqual(rows['armor/cuirass/heavy/000/power']['primary']['key'], 'tough')
+        self.assertEqual(rows['armor/cuirass/heavy/000/enchantment']['primary']['key'],
+                         'capacious')
+
+    def test_a_row_says_which_objective_it_answered(self):
+        rows = self.rows([candidate('a', 10, True)])
+        self.assertEqual(rows['armor/cuirass/heavy/000/power']['objective'], 'power')
+        self.assertEqual(rows['armor/cuirass/heavy/000/enchantment']['objective'],
+                         'enchantment')
+
+    def test_the_or_row_is_judged_on_the_same_objective(self):
+        near = candidate('near', 50, True, enchantment=10)
+        far = candidate('far', 10, False, enchantment=9000)
+        rows = self.rows([near, far])
+        # On power the far piece is weaker, so it earns no "or".
+        self.assertIsNone(rows['armor/cuirass/heavy/000/power']['alternative'])
+        # On capacity it is far better, so it does.
+        self.assertEqual(rows['armor/cuirass/heavy/000/enchantment']['alternative']['key'],
+                         'far')
+
+    def test_the_beast_pick_follows_the_objective_too(self):
+        rows = self.rows([candidate('closed', 90, True, enchantment=1, beast=False),
+                          candidate('open-weak', 5, True, enchantment=5000, beast=True)])
+        self.assertEqual(rows['armor/cuirass/heavy/000/power']['beastPrimary']['key'],
+                         'open-weak')
+        self.assertEqual(rows['armor/cuirass/heavy/000/enchantment']['beastPrimary']['key'],
+                         'open-weak')
+
+    def test_one_objective_gives_the_old_row_count(self):
+        self.assertEqual(len(self.rows([candidate('a', 1, True)], ('power',))), 1)
+
+    def test_an_objective_the_builder_cannot_measure_is_refused(self):
+        with self.assertRaises(ExportError) as caught:
+            objectives_from({'objectives': ['power', 'lightest']})
+        self.assertIn('lightest', str(caught.exception))
+
+    def test_no_objectives_named_falls_back_to_power(self):
+        self.assertEqual(objectives_from({}), ['power'])
+
+    def test_the_shipped_policy_asks_for_both(self):
+        policy = load_policy(Path(__file__).parent/'policy/early-game.json')
+        self.assertEqual(objectives_from(policy), ['power', 'enchantment'])
+
+
 class BeastRowTests(unittest.TestCase):
     """A row carries a beast race's own pick, because it is often a different item."""
     def rows(self, candidates):
@@ -186,15 +252,15 @@ class AssembleTests(unittest.TestCase):
     def test_every_row_has_a_unique_stable_key(self):
         rows = self.rows({})
         keys = [r['key'] for r in rows]
-        self.assertEqual(len(set(keys)), len(rows), 'keys must be unique across all 424 rows')
-        self.assertIn('armor/helmet/light/000', keys)
-        self.assertIn('shield/-/heavy/111', keys)
-        self.assertIn('weapon/short_blade-1h/-/000', keys)
-        self.assertIn('clothing/ring/-/010', keys)
+        self.assertEqual(len(set(keys)), len(rows), 'keys must be unique across every row')
+        self.assertIn('armor/helmet/light/000/power', keys)
+        self.assertIn('shield/-/heavy/111/power', keys)
+        self.assertIn('weapon/short_blade-1h/-/000/power', keys)
+        self.assertIn('clothing/ring/-/010/power', keys)
 
     def test_the_key_encodes_the_toggle_set(self):
         rows = {r['key']: r for r in self.rows({}) if r['category'] == 'shield'}
-        self.assertEqual(rows['shield/-/light/101']['toggles'],
+        self.assertEqual(rows['shield/-/light/101/power']['toggles'],
                          {'theft': True, 'endgame': False, 'nearStart': True})
 
     def test_categories_can_be_built_separately(self):

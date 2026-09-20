@@ -14,6 +14,11 @@
     "excludedCells lists exact keys: a substring match on 'test' would wrongly drop Nchuleftingth's Test of Pattern and Atestas' Pawn & Loan."
   ],
   "hostileFightThreshold": 70,
+  "objectives": ["power", "enchantment"],
+  "objectiveNotes": {
+    "power": "What the piece is for: armour rating on armour and shields, best damage on weapons, and enchantment capacity on clothing, which has no other purpose.",
+    "enchantment": "Enchantment capacity, which decides what a constant effect can cost. Often a different item: Eleidon's Ward carries 30,000 points at 100 armour, while the best cuirass in the game has 100 armour at 1,500."
+  },
   "earlyGame": {
     "characterLevel": 1,
     "maxGoldPerItem": 500,

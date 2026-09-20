@@ -106,6 +106,7 @@ effect rules                  vanilla 141   tr and tr_arce 186   45 are Lua-only
 travel edges                  vanilla 115   tr and tr_arce 427   23 guild guides in tr
 journal quests                vanilla 530   tr and tr_arce 1905 trackable of 2573
 beast-race gear               vanilla 18 rows differ, 32 have nothing (boots, shoes)
+gear row objectives           power and enchantment disagree on 94 of 352 vanilla pairs
 places                        vanilla 2887   tr and tr_arce 10784   394 TR settlements
 factions                      vanilla 27     tr and tr_arce 103     Hlaalu owns 9746 in tr
 merchants                     vanilla 382   tr and tr_arce 1530 traders; all priceable
@@ -272,10 +273,12 @@ parser can recover itself.
 The framing still holds: a save produces *observations* to reconcile against a planned
 build, not character records.
 
-**8. The objective toggle.** The user has foreseen "best protection" versus "best
-constant effect". `strength` in a row is currently armour rating, best weapon damage,
-or enchantment capacity, and every pick publishes the number, so the site can re-rank
-today. A first-class objective belongs in the policy, not the row builder.
+**8. ~~The objective toggle.~~ Done.** `power` and `enchantment`, authored in
+`policy/early-game.json` as HANDOFF asked, with the builder refusing one it cannot
+measure. Every slot is answered once per objective, so rows double to 848 and the key
+gains a fifth segment. They disagree on 94 of vanilla's 352 filled pairs. Free at build
+time — the candidates and verdicts are gathered once, and the objective only changes
+which of them wins. See ROWS.md.
 
 **Optional, only if disk matters:** filtering STAT placements out of `world.sqlite`
 removes 1.49M of 2.2M rows with zero consumers — STAT appears in no acquisition graph

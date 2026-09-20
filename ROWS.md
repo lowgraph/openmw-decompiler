@@ -110,6 +110,44 @@ Chitin Helm         -> Colovian Fur Helm
 empty — `primary` is still there for everyone else. When the primary is already
 wearable, `beastPrimary` repeats it, so a caller never has to work out which applies.
 
+## The objective a row answers
+
+A row optimises for something, and "best" is not one question. You foresaw this as
+*best protection* versus *best constant effect*, and they are genuinely different
+items:
+
+| Objective | Ranks on |
+| --- | --- |
+| `power` | armour rating on armour and shields, best damage on weapons, capacity on clothing, which has no other purpose |
+| `enchantment` | enchantment capacity, which decides what a constant effect can cost |
+
+Every slot is answered once per objective, so the row count doubles to 848, and the key
+gains a fifth segment: `armor/cuirass/heavy/000/power`. Both are authored in
+`policy/early-game.json`, where HANDOFF said a first-class objective belongs, and the
+builder refuses one it cannot measure:
+
+```
+Policy names objective(s) the row builder cannot measure: lightest
+  Known objectives: enchantment, power
+```
+
+**It matters more than it might sound.** On vanilla the two disagree on **94 of the 352
+filled pairs** — better than one row in four:
+
+```
+armor/helmet/heavy    power Indoril Helmet (45ar)          -> enchantment Imperial Steel Helmet (250pts)
+armor/cuirass/heavy   power Duke's Guard Silver Cuirass    -> enchantment Iron Cuirass (200pts)
+armor/greaves/medium  power Orcish Greaves (30ar)          -> enchantment Imperial Chain Greaves (70pts)
+```
+
+The objective applies to the whole row, not just the primary: the "or" row is judged on
+it, and so is `beastPrimary`. An alternative that is stronger on power but weaker on
+capacity earns no "or" in the enchantment row.
+
+**It is free at build time.** The candidates and the policy verdicts are gathered once;
+an objective only changes which of them wins. Vanilla took 188s for 848 rows against
+184s for 424, and the payload goes from 435 KB to 912 KB raw — 25 KB gzipped.
+
 ## The near-start places are checked now
 
 `nearStart.places` is a list of authored strings matched as substrings of a cell key.
@@ -159,6 +197,12 @@ bounds each item's search: a row built from truncated evidence still carries
 `--category` builds a subset. Publication is a staged write followed by an atomic
 rename, and the filename is content-addressed, so an identical build overwrites itself
 and a changed one lands beside the old.
+
+Objective tests cover each objective getting its own row, the two choosing
+differently, a row naming the objective it answered, the "or" row being judged on the
+same objective, the beast pick following it, one objective reproducing the old row
+count, an unmeasurable objective being refused, the fallback when none are named, and
+the shipped policy asking for both.
 
 Beast-race tests cover a closed helm being refused and an open one allowed, both
 feet, an ankle not counting as a foot, one forbidden part among several being enough,

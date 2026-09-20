@@ -21,6 +21,10 @@ export type WeaponSkill = "short_blade" | "long_blade" | "blunt" | "axe" | "spea
 /** The toggle set a row was built for; the same three the policy layer takes. */
 export type RowToggles = { theft: boolean; endgame: boolean; nearStart: boolean };
 
+/** What a row optimises for. Every slot is answered once per objective, and they
+ *  disagree on 94 of vanilla's 352 filled rows. */
+export type Objective = "power" | "enchantment";
+
 /** Races with the Beast flag: Argonian and Khajiit. */
 export type BeastRace = "argonian" | "khajiit";
 
@@ -31,8 +35,11 @@ export type Pick = {
   beastWearable: boolean;
   key: string;
   name: string;
-  /** Armour rating, best weapon damage, or enchantment capacity. Re-rank on this. */
+  /** What the piece is for: armour rating on armour and shields, best damage on
+   *  weapons, enchantment capacity on clothing, which has no other purpose. */
   strength: number;
+  /** Enchantment capacity, which decides what a constant effect can cost. */
+  enchantment: number;
   /** Undamaged catalog value, for comparison against the route's own price. */
   baseValue: number;
   endgame: boolean;
@@ -53,7 +60,8 @@ export type Pick = {
 };
 
 export type GearRow = {
-  /** Stable, unique: `category/slot-or-skill/armorClass/theft endgame nearStart`. */
+  /** Stable, unique:
+   *  `category/slot-or-skill/armorClass/theft endgame nearStart/objective`. */
   key: string;
   category: RowCategory;
   /** Set for armor and clothing rows; null for shields and weapons. */
@@ -69,7 +77,12 @@ export type GearRow = {
   nearStart: number;
   /** Closest source first, even when it costs more. Null when the row is empty. */
   primary: Pick | null;
-  /** A strictly stronger piece from farther away; null unless it beats a near primary. */
+  /** Which question this row answers. `power` ranks on `strength`, `enchantment` on
+   *  `enchantment`, and every pick in the row — primary, alternative and beastPrimary
+   *  alike — was chosen on it. */
+  objective: Objective;
+  /** A strictly stronger piece from farther away; null unless it beats a near primary.
+   *  "Stronger" means stronger *on this row's objective*. */
   alternative: Pick | null;
   /** How many of `eligible` an Argonian or Khajiit could actually equip. */
   beastEligible: number;
@@ -83,6 +96,8 @@ export type GearRow = {
 /** The standalone artifact. In the app bundle these rows ship as the `GearRows` catalog,
  *  where `policy`, `limits`, `categories` and `coverage` travel as payload fields. */
 export type GearRows = {
+  /** The objectives this release was built for, and what each ranks on. */
+  objectives?: Array<{ key: Objective; ranksOn: string; note: string | null }>;
   schemaVersion: "1.0.0";
   profile: "vanilla" | "tr" | "tr_arce";
   snapshotId: string;

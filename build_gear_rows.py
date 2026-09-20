@@ -72,12 +72,23 @@ def armor_class(record, settings):
 
 
 def strength(record):
-    """The number a row ranks on: protection, damage, or enchantment capacity."""
+    """What the piece is for: protection, damage, or capacity when it has neither."""
     if record['recordType'] == 'ARMO':
         return record['armorRating']
     if record['recordType'] == 'WEAP':
         return max(record[k]['max'] for k in ('chop', 'slash', 'thrust'))
     return record.get('enchantp') or 0
+
+
+def enchantment(record):
+    """Enchantment capacity, which decides what a constant effect can cost."""
+    return record.get('enchantp') or 0
+
+
+# What each objective ranks on. A row is answered once per objective, and the two
+# disagree often: Eleidon's Ward carries 30,000 points at 100 armour, while the best
+# cuirass in the game has 100 armour at 1,500.
+OBJECTIVES = {'power': 'strength', 'enchantment': 'enchantment'}
 
 
 def row_key(record, settings):
@@ -113,6 +124,7 @@ def beast_wearable(record):
 
 def pick(record, verdict, route):
     return {'key': record['key'], 'name': record['name'], 'strength': strength(record),
+            'enchantment': enchantment(record),
             'beastWearable': beast_wearable(record),
             'baseValue': record['value'], 'endgame': verdict['endgame'],
             'acquisition': route['acquisition'], 'price': route['price'], 'value': route['value'],
@@ -122,16 +134,30 @@ def pick(record, verdict, route):
             'evidenceTruncated': verdict['evidenceTruncated']}
 
 
-def row_identity(category, slot, armour, weapon, toggles):
-    """Stable key for one row. Unique across the 53 definitions and 8 toggle sets."""
+def row_identity(category, slot, armour, weapon, toggles, objective):
+    """Stable key for one row, across definitions, toggle sets and objectives."""
     part = slot or (f'{weapon[0]}-{weapon[1]}h' if weapon else '-')
     flags = f"{int(toggles['theft'])}{int(toggles['endgame'])}{int(toggles['nearStart'])}"
-    return f"{category}/{part}/{armour or '-'}/{flags}"
+    return f"{category}/{part}/{armour or '-'}/{flags}/{objective}"
 
 
-def best(candidates):
-    # Strongest first; among equals the one that costs least.
-    return max(candidates, key=lambda c: (c['strength'], -(c['price'] or 0)), default=None)
+def best(candidates, field='strength'):
+    # Best on the objective first; among equals the one that costs least.
+    return max(candidates, key=lambda c: (c[field], -(c['price'] or 0)), default=None)
+
+
+def objectives_from(policy):
+    """The objectives the policy asks for, checked against the ones we can measure."""
+    named = policy.get('objectives')
+    if not named:
+        return ['power']
+    unknown = [o for o in named if o not in OBJECTIVES]
+    if unknown:
+        raise ExportError(
+            'Policy names objective(s) the row builder cannot measure: '
+            + ', '.join(sorted(unknown))
+            + '\n  Known objectives: ' + ', '.join(sorted(OBJECTIVES)))
+    return list(named)
 
 
 def build(world, acquisition, services, catalogs, profile, policy, categories, limits,
@@ -168,10 +194,10 @@ def build(world, acquisition, services, catalogs, profile, policy, categories, l
                 bucket.append(pick(record, verdict, verdict['routes'][chosen]))
             if index % 200 == 0:
                 print(f'  {index:,}/{len(records):,}', flush=True)
-    return assemble(buckets, categories)
+    return assemble(buckets, categories, objectives_from(policy))
 
 
-def assemble(buckets, categories):
+def assemble(buckets, categories, objectives=('power',)):
     rows = []
     definitions = []
     if 'armor' in categories:
@@ -189,25 +215,33 @@ def assemble(buckets, categories):
                 (toggles['theft'], toggles['endgame'], toggles['nearStart']), [])
             near = [c for c in candidates if c['nearStart']]
             far = [c for c in candidates if not c['nearStart']]
-            primary = best(near) or best(far)
-            strongest = best(far)
-            # A beast race gets its own pick from the same candidates: an Argonian in
-            # a boots row has nothing at all, and in a helmet row wants the best open
-            # helm rather than the best helm.
-            beast_near = [c for c in near if c['beastWearable']]
-            beast_far = [c for c in far if c['beastWearable']]
-            beast_primary = best(beast_near) or best(beast_far)
-            # An "or" row only earns its place when it beats the close pick.
-            alternative = (strongest if primary and strongest and primary['nearStart']
-                           and strongest['strength'] > primary['strength'] else None)
-            rows.append({'key': row_identity(category, slot, armour, weapon, toggles),
-                         'category': category, 'slot': slot, 'armorClass': armour,
-                         'skill': weapon[0] if weapon else None,
-                         'hands': weapon[1] if weapon else None,
-                         'toggles': toggles, 'eligible': len(candidates),
-                         'nearStart': len(near), 'primary': primary, 'alternative': alternative,
-                         'beastEligible': len(beast_near) + len(beast_far),
-                         'beastPrimary': beast_primary})
+            # The objectives cost nothing here: the candidates are already gathered and
+            # the policy already evaluated, so answering a second question about the
+            # same list is free. Only the choosing changes.
+            for objective in objectives:
+                field = OBJECTIVES[objective]
+                primary = best(near, field) or best(far, field)
+                strongest = best(far, field)
+                # A beast race gets its own pick from the same candidates: an Argonian
+                # in a boots row has nothing at all, and in a helmet row wants the best
+                # open helm rather than the best helm.
+                beast_near = [c for c in near if c['beastWearable']]
+                beast_far = [c for c in far if c['beastWearable']]
+                beast_primary = best(beast_near, field) or best(beast_far, field)
+                # An "or" row only earns its place when it beats the close pick.
+                alternative = (strongest if primary and strongest and primary['nearStart']
+                               and strongest[field] > primary[field] else None)
+                rows.append({'key': row_identity(category, slot, armour, weapon, toggles,
+                                                 objective),
+                             'category': category, 'slot': slot, 'armorClass': armour,
+                             'skill': weapon[0] if weapon else None,
+                             'hands': weapon[1] if weapon else None,
+                             'toggles': toggles, 'objective': objective,
+                             'eligible': len(candidates),
+                             'nearStart': len(near), 'primary': primary,
+                             'alternative': alternative,
+                             'beastEligible': len(beast_near) + len(beast_far),
+                             'beastPrimary': beast_primary})
     return rows
 
 
@@ -225,6 +259,9 @@ def publish(rows, output, profile, policy, limits, snapshot, categories):
                'policy': {'version': policy['policyVersion'], 'schemaVersion': policy['schemaVersion'],
                           'name': policy.get('name')},
                'limits': limits, 'categories': sorted(categories),
+               'objectives': [{'key': key, 'ranksOn': OBJECTIVES[key],
+                               'note': (policy.get('objectiveNotes') or {}).get(key)}
+                              for key in objectives_from(policy)],
                'coverage': 'Rows are derived from policy verdicts over static evidence. Script '
                            'grants are not consulted; a quest reward is never an eligible row. '
                            'beastPrimary is the same row for an Argonian or Khajiit, who cannot '
