@@ -19,7 +19,8 @@ import tempfile
 import time
 
 from build_acquisition_index import metadata
-from evaluate_policy import assess, load_policy, load_category, resolve_limits
+from evaluate_policy import (assess, check_near_start, load_policy, load_category,
+                             profile_cells, resolve_limits)
 from export_items import ExportError
 from extract_foundation import ROOT, load_config
 from inspect_acquisition_index import query_item
@@ -280,6 +281,13 @@ def main(argv=None):
                 db.execute('BEGIN')
                 dbs.append(db)
             world, acquisition, services = dbs
+            # The near-start places are authored substrings; check them against the real
+            # cell keys before spending twenty minutes building rows around them.
+            coverage = check_near_start(policy, profile_cells(services))
+            inert = sorted(place for place, seen in coverage.items() if args.profile not in seen)
+            if inert:
+                print(f'{args.profile}: near-start places that match nothing in this '
+                      f'profile: {", ".join(inert)}', flush=True)
             snapshot = metadata(world).get('snapshotId')
             limits = resolve_limits(world, policy)
             started = time.time()

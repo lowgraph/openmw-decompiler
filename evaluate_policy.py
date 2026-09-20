@@ -160,6 +160,39 @@ def cell_danger(world, profile, cell_key, level, threshold, cache=None):
     return result
 
 
+def check_near_start(policy, cells_by_profile):
+    """Every authored near-start place must name somewhere in at least one profile.
+
+    The places are matched as substrings of a cell key, which works and until now was
+    checked against nothing: "ald'ruhn" matched no cell in any profile because the game
+    spells it ald-ruhn, and the rule only kept working because both were listed.
+
+    The bar is *somewhere*, not everywhere. Old Ebonheart is a Tamriel Rebuilt city and
+    correctly matches nothing in vanilla; requiring every profile would fail an entry
+    that is doing its job.
+    """
+    places = policy['earlyGame']['nearStart']['places']
+    matched = {place: sorted(profile for profile, keys in cells_by_profile.items()
+                             if any(place in key for key in keys))
+               for place in places}
+    dead = sorted(place for place, profiles in matched.items() if not profiles)
+    if dead:
+        raise ExportError(
+            f'{len(dead)} near-start place(s) in the policy match no cell in any profile: '
+            + ', '.join(repr(place) for place in dead)
+            + '\n  Check the spelling against the cell keys: the game writes '
+              'ald-ruhn with a hyphen, not an apostrophe.')
+    return matched
+
+
+def profile_cells(services):
+    """Cell keys per profile, for checking authored places against the real world."""
+    cells = {}
+    for profile, key in services.execute('SELECT profile_id, cell_key FROM cells'):
+        cells.setdefault(profile, set()).add(key.casefold())
+    return cells
+
+
 def resolve_limits(world, policy):
     """Prefer authored numbers; otherwise measure the benchmark encounter itself."""
     early = policy['earlyGame']

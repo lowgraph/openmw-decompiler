@@ -5,8 +5,9 @@ import sqlite3
 import tempfile
 import unittest
 
-from evaluate_policy import (assess, cell_danger, effective_value, load_policy, reachability,
-                             resolve_limits, with_obstacle, within_limits,
+from evaluate_policy import (assess, cell_danger, check_near_start, effective_value,
+                             load_policy, profile_cells, reachability, resolve_limits,
+                             with_obstacle, within_limits,
                              DIRECT, INVENTORY, RESTOCKING, RANDOM)
 from export_items import ExportError
 
@@ -551,3 +552,57 @@ class AssessmentTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class NearStartPlaceTests(unittest.TestCase):
+    """The authored place list is matched as substrings, so it has to be checked.
+
+    "ald'ruhn" sat in the policy matching no cell in any profile, because the game
+    writes ald-ruhn. The rule only kept working because both spellings were listed.
+    """
+    def policy(self, places):
+        return {'earlyGame': {'nearStart': {'required': False, 'places': places}}}
+
+    def test_a_place_that_names_a_cell_passes(self):
+        found = check_near_start(self.policy(['balmora']),
+                                 {'vanilla': {'interior:balmora, meldor: armorer'}})
+        self.assertEqual(found, {'balmora': ['vanilla']})
+
+    def test_a_place_that_names_nothing_anywhere_is_refused(self):
+        with self.assertRaises(ExportError) as caught:
+            check_near_start(self.policy(["ald'ruhn"]),
+                             {'vanilla': {'interior:ald-ruhn, ald skar inn'}})
+        self.assertIn("ald'ruhn", str(caught.exception))
+        self.assertIn('apostrophe', str(caught.exception))
+
+    def test_a_place_in_only_one_profile_is_fine(self):
+        # Old Ebonheart is a Tamriel Rebuilt city; matching nothing in vanilla is
+        # correct, and demanding every profile would fail an entry doing its job.
+        found = check_near_start(self.policy(['old ebonheart']),
+                                 {'vanilla': {'interior:ebonheart, argonian mission'},
+                                  'tr': {'interior:old ebonheart, guild of mages'}})
+        self.assertEqual(found['old ebonheart'], ['tr'])
+
+    def test_every_dead_place_is_named_not_just_the_first(self):
+        with self.assertRaises(ExportError) as caught:
+            check_near_start(self.policy(['nowhere', 'elsewhere']), {'vanilla': {'interior:x'}})
+        self.assertIn('nowhere', str(caught.exception))
+        self.assertIn('elsewhere', str(caught.exception))
+
+    def test_the_shipped_policy_has_no_dead_places(self):
+        policy = load_policy(Path(__file__).parent/'policy/early-game.json')
+        places = policy['earlyGame']['nearStart']['places']
+        self.assertNotIn("ald'ruhn", places, 'the game spells it with a hyphen')
+        self.assertIn('ald-ruhn', places)
+
+
+class ProfileCellTests(unittest.TestCase):
+    def test_cells_are_grouped_by_profile_and_folded(self):
+        db = sqlite3.connect(':memory:')
+        db.execute('CREATE TABLE cells(profile_id,cell_key)')
+        db.executemany('INSERT INTO cells VALUES(?,?)',
+                       [('vanilla', 'Interior:Balmora'), ('tr', 'interior:narsis')])
+        db.commit()
+        found = profile_cells(db)
+        self.assertEqual(found['vanilla'], {'interior:balmora'})
+        self.assertEqual(sorted(found), ['tr', 'vanilla'])

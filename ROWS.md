@@ -110,6 +110,28 @@ Chitin Helm         -> Colovian Fur Helm
 empty — `primary` is still there for everyone else. When the primary is already
 wearable, `beastPrimary` repeats it, so a caller never has to work out which applies.
 
+## The near-start places are checked now
+
+`nearStart.places` is a list of authored strings matched as substrings of a cell key.
+That worked, and was checked against nothing — so `ald'ruhn` sat in the policy matching
+**no cell in any profile**, because the game writes `ald-ruhn`. The rule kept working
+only because both spellings were listed. It has been corrected, and the build now
+refuses a place that names nowhere:
+
+```
+1 near-start place(s) in the policy match no cell in any profile: "ald'ruhn"
+  Check the spelling against the cell keys: the game writes ald-ruhn with a
+  hyphen, not an apostrophe.
+```
+
+The bar is **somewhere, not everywhere**. Old Ebonheart is a Tamriel Rebuilt city and
+correctly matches nothing in vanilla; a per-profile check would have failed an entry
+doing its job. A place inert in the profile being built is reported rather than refused.
+
+Worth knowing when reading a row: `ebonheart` as a substring also matches all 116 Old
+Ebonheart cells, so it is not the fourteen you might expect. Harmless here, since both
+are on the list.
+
 ## Toggles
 
 Every row carries the `toggles` it was built for. The combinations are independent
