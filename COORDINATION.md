@@ -99,14 +99,14 @@ Keep that property in anything new.
 
 1. Maintain and evolve `UI_TRANSFORMATION.md` roadmap.
 2. Review site UI implementation against CRPG design system and responsive mobile standards.
-3. Completed Phase 1 (Two-Pane Character Builder), Phase 2 (Skill Matrix), Phase 3 (Cross-Tool Calculator State), Phase 4 (Challenge Runs Overhaul), Phase 5 (The 4 Specialized Calculators), Phase 6 (Character Level Simulator & Build Progression Optimizer), and Phase 7 (Cloud Character Vault & OpenMW Binary Save Ingestion).
-4. Specify Phase 8 (Home Hub & Tool Launcher Cards).
+3. Completed Phase 1 (Two-Pane Character Builder), Phase 2 (Skill Matrix), Phase 3 (Cross-Tool Calculator State), Phase 4 (Challenge Runs Overhaul), Phase 5 (The 4 Specialized Calculators), Phase 6 (Character Level Simulator & Build Progression Optimizer), Phase 7 (Cloud Character Vault & OpenMW Binary Save Ingestion), and Phase 8 (Home Hub & Tool Directory Overhaul).
+4. Specify Phase 9 / Post-Launch refinements and bundle rewiring.
 
 **Codex (Site agent)**
 
-1. ~~Execute Phase 1-7 UI transformations specified in `UI_TRANSFORMATION.md`.~~ **Done.**
-   All interactive workstations (Character Builder, Challenge Runs, Enchanting, Spellmaking, Alchemy, Travel, Level Simulator, Cloud Character Vault) are fully implemented, verified via CDP, and covered by 215 passing unit tests.
-2. Next Milestone: Phase 8 (Home Hub & Tool Launcher Cards) — modernize `#panel-home` into an informative, SEO-rich tool directory with active character quick-resume and tactile launcher cards.
+1. ~~Execute Phase 1-8 UI transformations specified in `UI_TRANSFORMATION.md`.~~ **Done.**
+   All interactive workstations and the Home Hub (Character Builder, Challenge Runs, Enchanting, Spellmaking, Alchemy, Travel, Level Simulator, Cloud Character Vault, Home Hub) are fully implemented, verified via CDP, and covered by 225 passing unit tests.
+2. Next Milestone: Rewire legacy calculators to the loader and complete remaining bundle integrations.
 3. Rewire the legacy calculators to the loader. `DATA_LOADER.md` is explicit that
    the loader is ready and the calculators still use their verified legacy tables;
    until this lands, the bundle powers nothing.
