@@ -26,7 +26,10 @@ EXTRA_CATALOGS = {
     'GearRows': {'directory': 'gear-rows', 'array': 'rows',
                  'carry': ('policy', 'limits', 'categories', 'coverage')},
     'EffectRules': {'directory': 'rules', 'array': 'records',
-                    'carry': ('derivation', 'costFormula', 'coverage')}}
+                    'carry': ('derivation', 'costFormula', 'coverage')},
+    'Travel': {'directory': 'travel', 'array': 'edges',
+               'carry': ('toggles', 'nodes', 'providers', 'authored', 'verification',
+                         'policyVersion', 'coverage')}}
 
 
 def identity(record):
@@ -255,17 +258,22 @@ def main(argv=None):
     parser.add_argument('--output', type=Path)
     parser.add_argument('--profile', action='append', choices=['vanilla', 'tr', 'tr_arce'])
     parser.add_argument('--include-book-text', action='store_true', help='Publish book prose as its own file')
-    parser.add_argument('--gear-rows', type=Path, help='Gear row directory; defaults to <root>/gear-rows')
-    parser.add_argument('--no-gear-rows', action='store_true', help='Leave gear rows out')
-    parser.add_argument('--rules', type=Path, help='Rules library directory; defaults to <root>/rules')
-    parser.add_argument('--no-rules', action='store_true', help='Leave the rules library out')
+    # One pair of flags per extra catalog, named after its directory, so adding a
+    # catalog to EXTRA_CATALOGS is the only edit adding a catalog needs.
+    for name, spec in EXTRA_CATALOGS.items():
+        flag = spec['directory']
+        parser.add_argument('--'+flag, type=Path,
+                            help=f'{name} directory; defaults to <root>/{flag}')
+        parser.add_argument('--no-'+flag, action='store_true', help=f'Leave {name} out')
     args = parser.parse_args(argv)
     try:
         root = load_config(ROOT/'foundation_config.json')[2]
         build(args.catalogs or root/'catalogs', args.output or root/'app-bundle',
               args.profile, args.include_book_text,
-              {'GearRows': None if args.no_gear_rows else (args.gear_rows or root/'gear-rows'),
-               'EffectRules': None if args.no_rules else (args.rules or root/'rules')})
+              {name: None if getattr(args, 'no_'+spec['directory'].replace('-', '_'))
+                     else (getattr(args, spec['directory'].replace('-', '_'))
+                           or root/spec['directory'])
+               for name, spec in EXTRA_CATALOGS.items()})
         return 0
     except KeyboardInterrupt:
         print('\nCancelled; previous active bundle is unchanged.')

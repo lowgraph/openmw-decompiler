@@ -84,9 +84,11 @@ Every stage is built and tested. `python -m unittest discover -p "test_*.py"` ru
 | **Gear rows** | `build_gear_rows.py` | ROWS.md | 424 rows per profile |
 | **Engine effect dump** | `dump_profiles.py` | openmw_effect_dump/README.md | `effect-flags/<profile>.json` |
 | **Effect rules** | `build_rules_library.py` | RULES.md | 141 vanilla / 186 TR rules |
+| **Fast travel** | `build_travel_catalog.py` | TRAVEL.md | 115 vanilla / 427 TR edges |
 
 The app contract is in `catalog-types.ts`, `bundle-types.ts`, `policy-types.ts`,
-`gear-rows-types.ts` and `rules-types.ts`. Keep them in step with the builders.
+`gear-rows-types.ts`, `rules-types.ts` and `travel-types.ts`. Keep them in step with
+the builders.
 
 ### Numbers worth knowing
 
@@ -96,6 +98,7 @@ profile_placements rows       4,787,754      tr and tr_arce are identical
 app bundle, gzipped           vanilla 271 KB   tr 988 KB   tr_arce +13 KB
 gear rows                     424 per profile, vanilla 414 filled, 196s
 effect rules                  vanilla 141   tr and tr_arce 186   45 are Lua-only
+travel edges                  vanilla 115   tr and tr_arce 427   23 guild guides in tr
 engine dump                   141 effects in 6s, 186 in 4s, one run per profile
 journal topics                tr 2,577  vanilla 758      326 have no resolvable title
 transport destinations        tr 433  vanilla 117        17k directed door links
@@ -200,10 +203,12 @@ those features were blocked on, and nothing consumes them yet. `effectCost` in
 calculator. Whatever consumes it must key by `key`, or it silently drops the 39
 Lua-registered effects the game itself offers.
 
-**4. Travel.** `services.sqlite` already has providers, destinations, costs and directed
-door links. The site's existing calculator optimizes for fewest connections; keep that
-as a baseline objective and add cheapest and character-aware routing beside it, not
-instead of it.
+**4. ~~Travel.~~ Shipped as the `Travel` catalog.** The transport network, with
+`mageGuildMember` and `conjurerRank` toggles. What remains is the *routing*, which is
+the site's: the existing calculator optimizes for fewest connections; keep that as a
+baseline objective and add cheapest and character-aware routing beside it, not instead
+of it. Teleport doors are still unshipped by choice — 17,156 links, a separate graph,
+a different question. See TRAVEL.md.
 
 **5. Journal titles.** 326 journal topics resolve no title, about 10% of them. Feature 9
 needs display names. Decide between a fallback to first-stage text and hand-authored

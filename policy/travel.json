@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0.0",
+  "policyVersion": "2026.09.20",
+  "name": "Silt Strider fast travel policy",
+  "notes": [
+    "Authored rules, versioned independently of any extraction snapshot.",
+    "The travel records carry no faction or rank requirement: profile_destinations is (profile, provider, entry, cell, status) and nothing more. Rank gating lives in dialogue conditions, so it is authored here rather than claimed as derived.",
+    "The builder verifies every edge named below exists in the extracted data and fails if one does not, so a renamed cell cannot silently empty a rule.",
+    "Site toggles: mageGuildMember (default on), conjurerRank (default off, Tamriel Rebuilt only)."
+  ],
+  "guildGuide": {
+    "rule": "destinations",
+    "note": "A guild guide is a travel provider whose every destination is a Mages Guild cell. Identifying them by the NPC class 'Guild Guide' misses Thazlorakis, the bound Daedroth who serves as Firewatch's Conjurer-rank guide and is a CREA record with no class. The builder cross-checks the two rules and reports every disagreement.",
+    "cellMarkers": ["guild of mages", "mages guild", "mage's guild"],
+    "npcClass": "Guild Guide"
+  },
+  "conjurerRank": {
+    "profiles": ["tr", "tr_arce"],
+    "note": "Tamriel Rebuilt gates the long-distance guild guide network between Vivec, Old Ebonheart, Firewatch and Narsis behind the Mages Guild rank of Conjurer. Each city keeps a short-range guide that is not gated: Soril in Firewatch still reaches Helnim and Nivalis with the toggle off.",
+    "cities": {
+      "vivec": "interior:vivec, guild of mages",
+      "old ebonheart": "interior:old ebonheart, guild of mages",
+      "firewatch": "interior:firewatch, guild of mages",
+      "narsis": "interior:narsis, guild of mages: commons"
+    },
+    "edges": [
+      {"from": "vivec", "to": "old ebonheart"},
+      {"from": "vivec", "to": "firewatch"},
+      {"from": "vivec", "to": "narsis"},
+      {"from": "old ebonheart", "to": "vivec"},
+      {"from": "old ebonheart", "to": "firewatch"},
+      {"from": "old ebonheart", "to": "narsis"},
+      {"from": "firewatch", "to": "old ebonheart"},
+      {"from": "firewatch", "to": "vivec"},
+      {"from": "firewatch", "to": "narsis"},
+      {"from": "narsis", "to": "old ebonheart"},
+      {"from": "narsis", "to": "vivec"},
+      {"from": "narsis", "to": "firewatch"}
+    ]
+  },
+  "modes": {
+    "note": "The travel mode is the provider's class. Anything unlisted publishes mode null rather than a guess; those are one-off transports, not a network.",
+    "byClass": {
+      "Caravaner": "silt_strider",
+      "Shipmaster": "boat",
+      "Gondolier": "gondola",
+      "T_Mw_RiverstriderService": "riverstrider",
+      "Guild Guide": "guild_guide"
+    }
+  },
+  "excludedCells": [
+    "interior:toddtest"
+  ]
+}
