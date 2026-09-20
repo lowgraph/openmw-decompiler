@@ -25,6 +25,10 @@ the plugin files omit — targeting, no-magnitude and no-duration — from how t
 content uses each effect. The spell cost formula branches on the last two. See
 [RULES.md](RULES.md) and `rules-types.ts`.
 
+**Merchants and barter:** run `python build_merchant_catalog.py` to publish every
+service provider with the stats the haggling formula reads, and the formula's own
+engine literals. See [MERCHANTS.md](MERCHANTS.md) and `merchant-types.ts`.
+
 **Journal quests:** run `python build_quest_catalog.py` to publish every journal
 topic with its title, its stages, and which of those finish it — what journal
 completion per character tracks against. See [QUESTS.md](QUESTS.md) and

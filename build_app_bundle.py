@@ -31,7 +31,9 @@ EXTRA_CATALOGS = {
                'carry': ('toggles', 'nodes', 'providers', 'authored', 'verification',
                          'policyVersion', 'coverage')},
     'Quests': {'directory': 'quests', 'array': 'records',
-               'carry': ('derivation', 'policyVersion', 'coverage')}}
+               'carry': ('derivation', 'policyVersion', 'coverage')},
+    'Merchants': {'directory': 'merchants', 'array': 'records',
+                  'carry': ('barterFormula', 'serviceFlags', 'derivation', 'coverage')}}
 
 
 def identity(record):
