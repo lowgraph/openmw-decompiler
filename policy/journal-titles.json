@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0.0",
+  "policyVersion": "2026.09.20",
+  "name": "Silt Strider authored journal titles",
+  "notes": [
+    "Almost every journal quest names itself: a response with quest_status 'name' carries the title. 676 of 758 vanilla topics and 2455 of 2577 Tamriel Rebuilt topics do.",
+    "Most that do not are not quests at all -- Blades contact notes, book-reading entries, a developer test -- and carry no completion state, so they need no title.",
+    "That leaves 3 in vanilla and 15 in Tamriel Rebuilt that can be completed but never name themselves. Only titles that can be verified against the game are authored here; the rest publish name null with the first journal entry as fallback text, because inventing a quest name is worse than showing the player the real words.",
+    "Add an entry here when you can confirm a title. The builder fails if a key named here is not an untitled trackable quest in some profile, so a stale entry cannot sit unnoticed."
+  ],
+  "titles": {
+    "co_estate": "East Empire Company: The Factor's Estate",
+    "colony_update": "East Empire Company: Raven Rock Updates",
+    "va_vampchild": "Blood Ties"
+  },
+  "excludedTopics": [
+    "11111 test journal"
+  ]
+}

@@ -25,6 +25,11 @@ the plugin files omit — targeting, no-magnitude and no-duration — from how t
 content uses each effect. The spell cost formula branches on the last two. See
 [RULES.md](RULES.md) and `rules-types.ts`.
 
+**Journal quests:** run `python build_quest_catalog.py` to publish every journal
+topic with its title, its stages, and which of those finish it — what journal
+completion per character tracks against. See [QUESTS.md](QUESTS.md) and
+`quest-types.ts`.
+
 **Fast travel:** run `python build_travel_catalog.py` to publish the transport network
 — silt striders, boats, gondolas, riverstriders and guild guides — with the two site
 toggles for Mages Guild membership and Conjurer rank. See [TRAVEL.md](TRAVEL.md) and

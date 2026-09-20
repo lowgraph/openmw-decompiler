@@ -29,7 +29,9 @@ EXTRA_CATALOGS = {
                     'carry': ('derivation', 'costFormula', 'coverage')},
     'Travel': {'directory': 'travel', 'array': 'edges',
                'carry': ('toggles', 'nodes', 'providers', 'authored', 'verification',
-                         'policyVersion', 'coverage')}}
+                         'policyVersion', 'coverage')},
+    'Quests': {'directory': 'quests', 'array': 'records',
+               'carry': ('derivation', 'policyVersion', 'coverage')}}
 
 
 def identity(record):

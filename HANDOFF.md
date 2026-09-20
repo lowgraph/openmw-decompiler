@@ -85,10 +85,11 @@ Every stage is built and tested. `python -m unittest discover -p "test_*.py"` ru
 | **Engine effect dump** | `dump_profiles.py` | openmw_effect_dump/README.md | `effect-flags/<profile>.json` |
 | **Effect rules** | `build_rules_library.py` | RULES.md | 141 vanilla / 186 TR rules |
 | **Fast travel** | `build_travel_catalog.py` | TRAVEL.md | 115 vanilla / 427 TR edges |
+| **Journal quests** | `build_quest_catalog.py` | QUESTS.md | 754 vanilla / 2573 TR topics |
 
 The app contract is in `catalog-types.ts`, `bundle-types.ts`, `policy-types.ts`,
-`gear-rows-types.ts`, `rules-types.ts` and `travel-types.ts`. Keep them in step with
-the builders.
+`gear-rows-types.ts`, `rules-types.ts`, `travel-types.ts` and `quest-types.ts`. Keep
+them in step with the builders.
 
 ### Numbers worth knowing
 
@@ -99,6 +100,7 @@ app bundle, gzipped           vanilla 271 KB   tr 988 KB   tr_arce +13 KB
 gear rows                     424 per profile, vanilla 414 filled, 196s
 effect rules                  vanilla 141   tr and tr_arce 186   45 are Lua-only
 travel edges                  vanilla 115   tr and tr_arce 427   23 guild guides in tr
+journal quests                vanilla 530   tr and tr_arce 1905 trackable of 2573
 engine dump                   141 effects in 6s, 186 in 4s, one run per profile
 journal topics                tr 2,577  vanilla 758      326 have no resolvable title
 transport destinations        tr 433  vanilla 117        17k directed door links
@@ -210,12 +212,26 @@ baseline objective and add cheapest and character-aware routing beside it, not i
 of it. Teleport doors are still unshipped by choice — 17,156 links, a separate graph,
 a different question. See TRAVEL.md.
 
-**5. Journal titles.** 326 journal topics resolve no title, about 10% of them. Feature 9
-needs display names. Decide between a fallback to first-stage text and hand-authored
-names, and record the decision as authored content.
+**5. ~~Journal titles.~~ Done, and the premise was wrong.** The 326 was the sum across
+three profiles; per profile it is 82 and 122. Almost none are quests — a topic no entry
+ever finishes is a journal note, and `trackable: false` now says so. Only 3 vanilla and
+15 TR topics are completable *and* unnamed; three are authored in
+`policy/journal-titles.json`, which clears vanilla, and the remaining 12 publish
+`name: null` with the first entry as fallback rather than an invented title. Shipped as
+the `Quests` catalog; see QUESTS.md.
 
-**6. The user-data schema in D1.** Only `saved_characters` exists, with a 16 KB
-`character_json` cap. Journal completion per character, equipped loadouts, known spells
+**6. The user-data schema in D1.** *Partly built by Codex.* `cloud_saves`,
+`saved_challenges`, `saved_loadouts` and `user_tiers` now exist, with parsed saves in a
+packed SLT1 blob and a few queryable metadata columns beside it. **There is still no
+journal table**: quest progress lives inside that blob, with only `quest_count` and
+`topic_count` exposed, so "which of my characters finished this quest" cannot be asked.
+Measured payloads: a character record is 446 bytes, a TR journal at 100% is 61 KB, every
+TR spell known is 50 KB — all far inside D1's 2 MB row limit, so the case for rows is
+queryability, not size. Bulk writes are shaped by the 100-bound-parameter cap. The
+`Quests` catalog is what such a table would key against.
+
+The original note, still true of the older table: only `saved_characters` existed, with
+a 16 KB `character_json` cap. Journal completion per character, equipped loadouts, known spells
 and saved challenges will not fit in that blob. Decide blob-versus-rows now, keep the
 Clerk-owned-identity and revision discipline that `cloudflare/README.md` sets out, and
 put the content `snapshotId` on every row that stores a game reference.
