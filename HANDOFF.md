@@ -225,10 +225,13 @@ the `Quests` catalog; see QUESTS.md.
 packed SLT1 blob and a few queryable metadata columns beside it. **There is still no
 journal table**: quest progress lives inside that blob, with only `quest_count` and
 `topic_count` exposed, so "which of my characters finished this quest" cannot be asked.
-Measured payloads: a character record is 446 bytes, a TR journal at 100% is 61 KB, every
-TR spell known is 50 KB — all far inside D1's 2 MB row limit, so the case for rows is
-queryability, not size. Bulk writes are shaped by the 100-bound-parameter cap. The
-`Quests` catalog is what such a table would key against.
+The field requirements for that table are now written up in
+[JOURNAL_PROGRESS.md](JOURNAL_PROGRESS.md), with the measurements behind them and a
+proposal in Codex's own house style that has been executed against SQLite. Codex owns
+the migration. The headline: every quest id in all 96 real saves resolves to the
+`Quests` catalog, but 469 of 757 only after lowercasing, so case folding is mandatory
+rather than tidy. Rows are small in practice — median 4 per save against a 2,577
+ceiling — so the argument for rows is queryability, not size.
 
 The original note, still true of the older table: only `saved_characters` existed, with
 a 16 KB `character_json` cap. Journal completion per character, equipped loadouts, known spells
