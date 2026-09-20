@@ -99,14 +99,14 @@ Keep that property in anything new.
 
 1. Maintain and evolve `UI_TRANSFORMATION.md` roadmap.
 2. Review site UI implementation against CRPG design system and responsive mobile standards.
-3. Completed Phase 1 (Two-Pane Character Builder), Phase 2 (Skill Matrix), Phase 3 (Cross-Tool Calculator State), Phase 4 (Challenge Runs Overhaul), Phase 5 (The 4 Specialized Calculators), and Phase 6 (Character Level Simulator & Build Progression Optimizer).
-4. Specify Phase 7 (Cloud Character Vault - Clerk + Cloudflare D1) and Phase 8 (Home Hub & Tool Launcher Cards).
+3. Completed Phase 1 (Two-Pane Character Builder), Phase 2 (Skill Matrix), Phase 3 (Cross-Tool Calculator State), Phase 4 (Challenge Runs Overhaul), Phase 5 (The 4 Specialized Calculators), Phase 6 (Character Level Simulator & Build Progression Optimizer), and Phase 7 (Cloud Character Vault & OpenMW Binary Save Ingestion).
+4. Specify Phase 8 (Home Hub & Tool Launcher Cards).
 
 **Codex (Site agent)**
 
-1. ~~Execute Phase 1-6 UI transformations specified in `UI_TRANSFORMATION.md`.~~ **Done.**
-   All interactive workstations (Character Builder, Challenge Runs, Enchanting, Spellmaking, Alchemy, Travel, Level Simulator) are fully implemented, verified via CDP, and covered by 170 passing unit tests.
-2. Next Milestone: Phase 7 (Cloud Character Vault) — implement Clerk authentication and Cloudflare D1 character schema/persistence routes for user builds and leveled progression history.
+1. ~~Execute Phase 1-7 UI transformations specified in `UI_TRANSFORMATION.md`.~~ **Done.**
+   All interactive workstations (Character Builder, Challenge Runs, Enchanting, Spellmaking, Alchemy, Travel, Level Simulator, Cloud Character Vault) are fully implemented, verified via CDP, and covered by 215 passing unit tests.
+2. Next Milestone: Phase 8 (Home Hub & Tool Launcher Cards) — modernize `#panel-home` into an informative, SEO-rich tool directory with active character quick-resume and tactile launcher cards.
 3. Rewire the legacy calculators to the loader. `DATA_LOADER.md` is explicit that
    the loader is ready and the calculators still use their verified legacy tables;
    until this lands, the bundle powers nothing.
@@ -116,9 +116,8 @@ Keep that property in anything new.
 5. Commit or delete the untracked `lib/character-catalogs.mjs`.
 6. Build the three-toggle UI: steal early gear, endgame gear early, near starting
    areas. See POLICY.md in the data repository for what each one means.
-7. D1 schema and routes for journal progress, equipped loadouts, known spells and
-   saved challenges. The existing 16 KB `character_json` cap will not hold them.
-   The data agent supplies the field requirements; the migrations are yours.
+7. ~~D1 schema and routes for journal progress, equipped loadouts, known spells and
+   saved challenges.~~ **Done.** Implemented dual-format SLT1 binary codec (~96% compression) and fallback JSON in `cloudflare/schema.sql`, `cloudflare/routes/saves.mjs`, and `cloudflare/routes/entitlements.mjs`.
 
 **Claude (Data agent)**
 
@@ -135,7 +134,7 @@ Keep that property in anything new.
 3. The travel graph as a shipped catalog, from `services.sqlite`.
 4. Merchant barter pricing, for "gold price per merchant".
 5. The 326 journal topics with no resolvable title.
-6. Save import for OpenMW `.omwsave`, format v37.
+6. ~~Save import for OpenMW `.omwsave`, format v37.~~ **Done.** Client-side ESM parser `lib/omwsave-parser.mjs` extracts character attributes, skills, dynamic vitals, inventory, quests, cell, and gold directly in the browser.
 
 ## Asking across the boundary
 

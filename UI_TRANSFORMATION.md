@@ -909,7 +909,9 @@ Phase 7 introduces the **Cloud Character Vault**:
 
 ---
 
-### 13.2 Cloudflare D1 Database Schema
+### 13.2 Cloudflare D1 Database Schema & Quota Enforcement
+
+The edge database uses Cloudflare D1 (SQLite) with an optimized dual-format architecture (SLT1 binary BLOBs and fallback structured JSON) and a tiered quota enforcement trigger:
 
 ```sql
 -- Users table: maps Clerk authentication identity
@@ -920,10 +922,23 @@ CREATE TABLE IF NOT EXISTS users (
     last_active DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Characters table: stores character build dossiers
-CREATE TABLE IF NOT EXISTS characters (
+-- User tiers & quota limits: free 5 saves, supporter/paid 25 saves
+CREATE TABLE IF NOT EXISTS user_tiers (
+    user_id TEXT PRIMARY KEY,
+    tier TEXT NOT NULL DEFAULT 'free',  -- 'free' | 'supporter' | 'patron'
+    max_saves INTEGER NOT NULL DEFAULT 5,
+    max_revisions_per_save INTEGER NOT NULL DEFAULT 3,
+    max_blob_bytes INTEGER NOT NULL DEFAULT 131072,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Saves table: stores builds, progression dossiers, and ingested OpenMW saves
+CREATE TABLE IF NOT EXISTS saves (
     id TEXT PRIMARY KEY,               -- UUID v4
     user_id TEXT NOT NULL,             -- Foreign key to users(id)
+    save_type TEXT NOT NULL,           -- 'build' | 'progression' | 'challenge' | 'omwsave'
     name TEXT NOT NULL,                -- Character name (1-100 chars)
     race TEXT NOT NULL,
     class_name TEXT NOT NULL,
@@ -932,57 +947,94 @@ CREATE TABLE IF NOT EXISTS characters (
     world TEXT NOT NULL,               -- 'vanilla' | 'tr'
     arce INTEGER NOT NULL DEFAULT 0,   -- 0 | 1
     level INTEGER NOT NULL DEFAULT 1,  -- Leveled character level (1–100)
-    sheet_data TEXT NOT NULL,          -- JSON payload (base build + level history)
+    current_cell TEXT,
+    gold INTEGER DEFAULT 0,
+    play_time_seconds INTEGER DEFAULT 0,
+    format TEXT NOT NULL DEFAULT 'binary', -- 'binary' (SLT1) | 'json'
+    payload_blob BLOB,                 -- Compressed SLT1 binary payload (~1.4 KB)
+    payload_json TEXT,                 -- Fallback JSON payload
+    checksum TEXT,                     -- SHA-256 integrity digest
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    revision INTEGER NOT NULL DEFAULT 1,
     is_public INTEGER NOT NULL DEFAULT 0,
     share_slug TEXT UNIQUE,            -- Short URL slug for public sharing
-    created_at TEXT NOT NULL,          -- ISO timestamp
-    updated_at TEXT NOT NULL,          -- ISO timestamp
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_characters_user ON characters(user_id);
-CREATE INDEX IF NOT EXISTS idx_characters_slug ON characters(share_slug);
+CREATE INDEX IF NOT EXISTS idx_saves_user_updated ON saves(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_saves_slug ON saves(share_slug);
+
+-- Quota Enforcement Trigger: prevents inserting beyond allowed slots (5 free / 25 paid)
+CREATE TRIGGER IF NOT EXISTS trg_enforce_save_quota
+BEFORE INSERT ON saves
+BEGIN
+    SELECT RAISE(FAIL, 'Quota exceeded: user has reached maximum allowed cloud saves for their tier')
+    WHERE (
+        SELECT COUNT(*) FROM saves WHERE user_id = NEW.user_id
+    ) >= (
+        SELECT COALESCE(max_saves, 5) FROM user_tiers WHERE user_id = NEW.user_id
+        UNION ALL
+        SELECT 5
+        LIMIT 1
+    );
+END;
 ```
 
 ---
 
 ### 13.3 API Gateway & Security Specifications (Cloudflare Worker)
 - **Endpoint Routing:**
-  - `GET /api/characters`: List all characters belonging to the authenticated user.
-  - `POST /api/characters`: Save or update a character dossier.
-  - `DELETE /api/characters/:id`: Delete a character.
-  - `POST /api/characters/:id/share`: Toggle public visibility and generate a shareable slug.
-  - `GET /api/characters/public/:slug`: Public read-only fetch of a shared character build (unauthenticated).
-- **Authentication:**
-  - Worker validates incoming `Authorization: Bearer <token>` using `@clerk/backend` verifyToken against Clerk's JSON Web Key Set (JWKS).
-  - Rejects unauthenticated requests with HTTP 401; isolates users strictly to their own rows via `WHERE user_id = ?`.
+  - `GET /api/saves`: List all character saves for the authenticated user, ordered by `updated_at DESC`.
+  - `POST /api/saves`: Create a new character save (enforcing the 5/25 save quota).
+  - `GET /api/saves/:id`: Retrieve a specific save (returns decrypted/decompressed payload).
+  - `PUT /api/saves/:id`: Update an existing save (optimistic concurrency with revision bumping).
+  - `DELETE /api/saves/:id`: Delete a character save and associated revisions.
+  - `POST /api/saves/:id/duplicate`: Duplicate an existing save appending `(Copy)` to the title.
+  - `POST /api/saves/:id/share`: Toggle public visibility and generate `#builder&build=<token>` permalink.
+  - `GET /api/entitlements`: Returns quota limits and current save usage (`count`, `limit`, `tier`).
+- **Security & Authentication:**
+  - Authenticated via Clerk JWT session tokens passed in `Authorization: Bearer <token>`.
+  - Same-origin Worker routing (`cloudflare/worker.mjs`) compatible with Next.js static exports (`output: 'export'`).
+  - Users are strictly isolated via `WHERE user_id = ?` query bindings.
 
 ---
 
-### 13.4 UI / UX: Saved Characters Vault Drawer
-- **Drawer Trigger:** Accessible from the top navigation `.account-bar` (`[ Cloud Saves ]`) and Character Builder (`[ Saved Characters ]`).
-- **Character Dossier Cards:**
-  - Card displays Character Name, Level, Race, Class, Birthsign, World Profile badge (`Vanilla` / `TR` / `ARCE`), and last modified date.
-  - Visual Cloud Sync status indicator:
-    - `[ ☁ Synced ]` (green): Stored safely in Cloudflare D1.
-    - `[ ⏳ Syncing... ]` (yellow): Local changes uploading.
-    - `[ 💾 Local ]` (neutral): Stored in browser offline cache (signed out or offline).
-- **Management Actions:**
-  - `[ Load Character ]`: Loads sheet into the active Character Builder session.
-  - `[ Duplicate Build ]`: Creates an independent copy for branching theorycraft builds.
-  - `[ Share Build Link ]`: Generates a public showcase URL.
-  - `[ Export JSON / Import JSON ]`: Full data portability without platform lock-in.
-  - `[ Delete ]`: Confirmed deletion with modal safeguard.
-- **Conflict Resolution Modal:** If a character was edited on another device, a side-by-side diff prompt allows the user to choose "Keep Cloud Version" or "Overwrite with This Device".
+### 13.4 UI / UX: Cloud Character Vault Workstation & Modal Portal
+- **Vault Triggers:**
+  - Desktop Header: `[ Cloud Vault ]` button inside `.nav-primary` and `.account-bar`.
+  - Mobile Drawer: `[ Cloud Character Vault ]` quick launch link.
+  - Character Builder: Direct launch button inside the Character Sheet header and Local Characters panel.
+  - Global Event Bus: `window.dispatchEvent(new CustomEvent('silt-open-vault'))`.
+- **Character Dossier Cards (`components/character-vault/cloud-vault-card.jsx`):**
+  - Displays Character Name, Level, Race, Class, Birthsign, Cell Location, Gold, and Quest count.
+  - World profile tags (`Vanilla` / `TR` / `ARCE`) and Revision counter (`Rev 1`).
+  - Visual Cloud Sync indicator: `[ Cloud Synced ]` (muted brass on dark parchment).
+  - Action buttons:
+    - `[ Load Build → ]`: Ingests character directly into Character Builder and Level Simulator.
+    - `[ Duplicate ]`: Clones build for branching progression experiments.
+    - `[ Share Link ]`: Generates compact URL hash permalink.
+    - `[ Export JSON ]`: Zero lock-in JSON export.
+    - `[ Rename ]` and `[ Delete ]` with inline confirmation.
+- **Vault Dialog & Controls (`components/character-vault/cloud-vault-modal.jsx`):**
+  - **Account & Quota Status Bar:** Displays user email/tier with real-time usage gauge (`X / 5` or `X / 25` used). Capacity warning banner triggers when quota is full.
+  - **Save Active Build Banner:** 1-click button saving the currently active browser build directly to the cloud.
+  - **Drag-and-Drop Ingestion Dropzone:** Supports dropping native `.omwsave` binary files or exported `.json` builds directly into the vault.
+  - **5 Filter Tabs:** `All`, `OpenMW Saves`, `Builds`, `Challenges`, and `Local Browser Saves`.
+  - **Local-to-Cloud Migration:** `Migrate to Cloud` button converts offline `localStorage` characters into cloud saves seamlessly.
+  - **CRPG Aesthetic Standards:** Canonical `--mw-border` 6px parchment window frame, `--mw-bevel` 4px buttons, `--mw-groove` dividers, Pelagiad display font, `#d4b06a` gold highlights, and `#f3e6c8` warm text. Completely free of emojis and neon colors.
 
 ---
 
 ### 13.5 Execution Checklist for Codex (Phase 7)
-- [ ] **Step 1:** Create Cloudflare D1 database migrations under `migrations/0001_character_vault.sql`.
-- [ ] **Step 2:** Implement Worker API route handlers in `app/api/characters/route.js` with Clerk JWT validation.
-- [ ] **Step 3:** Implement hybrid sync engine in `lib/character-vault.mjs` bridging localStorage and D1 API.
-- [ ] **Step 4:** Build `SavedCharactersDrawer` component (`components/character-vault/saved-characters-drawer.jsx`) with dossier cards and sync pills.
-- [ ] **Step 5:** Test online/offline transitions and multi-device sync conflict resolution.
+- [x] **Step 1:** Create Cloudflare D1 database migrations under `cloudflare/schema.sql` and `cloudflare/migrations/0002_cloud_save_vault.sql` with quota enforcement triggers.
+- [x] **Step 2:** Implement Worker API route handlers in `cloudflare/routes/saves.mjs` and `cloudflare/routes/entitlements.mjs` with Clerk JWT validation.
+- [x] **Step 3:** Implement SLT1 binary codec (`lib/cloud-save-codec.mjs`) and client-side OpenMW binary save parser (`lib/omwsave-parser.mjs`).
+- [x] **Step 4:** Implement hybrid sync engine in `lib/character-vault.mjs` bridging localStorage and D1 API with optimistic locking.
+- [x] **Step 5:** Build `use-cloud-vault.js`, `cloud-vault-card.jsx`, and `cloud-vault-modal.jsx` components.
+- [x] **Step 6:** Mount `<VaultPortal />` in `components/legacy-workbench.jsx` and add cross-tool navigation hooks in header, mobile drawer, character sheet, and local saves panel.
+- [x] **Step 7:** Verify with 215 passing site tests (including 10 adversarial/edge test suites in `test/cloud-vault-ui.test.js`) and headless Chrome CDP visual captures.
 
 ---
 
