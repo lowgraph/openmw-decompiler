@@ -1,6 +1,7 @@
 import unittest
 
-from build_gear_rows import (ARMOR_CLASSES, ARMOR_SLOTS, CLOTHING_SLOTS, WEAPON_ROWS,
+from build_gear_rows import (ARMOR_CLASSES, ARMOR_SLOTS, BEAST_FORBIDDEN_PARTS,
+                             CLOTHING_SLOTS, WEAPON_ROWS, beast_wearable,
                              armor_class, assemble, best, row_key, strength, toggle_sets, variant)
 from export_items import ExportError
 
@@ -16,8 +17,9 @@ def armour(kind, weight, rating=10):
             'key': kind, 'name': kind, 'value': 100}
 
 
-def candidate(name, strength_value, near, price=None):
+def candidate(name, strength_value, near, price=None, beast=True):
     return {'key': name, 'name': name, 'strength': strength_value, 'nearStart': near,
+            'beastWearable': beast,
             'price': price, 'acquisition': 'take', 'cellKey': 'somewhere'}
 
 
@@ -94,6 +96,74 @@ class ToggleTests(unittest.TestCase):
         self.assertTrue(rules['earlyGame']['nearStart']['required'])
         self.assertFalse(POLICY['earlyGame']['allowTheft'])
         self.assertFalse(POLICY['earlyGame']['nearStart']['required'])
+
+
+class BeastRaceTests(unittest.TestCase):
+    """Argonians and Khajiit cannot equip anything covering the head or a foot.
+
+    MWClass::Armor::canBeEquipped refuses on ESM::PRT_Head, PRT_LFoot or PRT_RFoot, so
+    an open helm that dresses PRT_Hair is fine and a closed one is not. Measured on the
+    real catalogs: 45 of 79 vanilla helmets are closed, and every one of the 37 boots.
+    """
+    def test_a_closed_helm_is_refused(self):
+        self.assertFalse(beast_wearable({'bodyParts': [{'slot': 0, 'male': 'a_helm'}]}))
+
+    def test_an_open_helm_dresses_the_hair_and_is_allowed(self):
+        self.assertTrue(beast_wearable({'bodyParts': [{'slot': 1, 'male': 'a_helm'}]}))
+
+    def test_boots_are_refused_on_either_foot(self):
+        for slot in (15, 16):
+            self.assertFalse(beast_wearable({'bodyParts': [{'slot': slot}]}), slot)
+
+    def test_ankles_and_knees_are_not_feet(self):
+        # Boots reference ankles too, but an ankle alone does not forbid the item.
+        self.assertTrue(beast_wearable({'bodyParts': [{'slot': 17}, {'slot': 19}]}))
+
+    def test_one_forbidden_part_among_several_is_enough(self):
+        self.assertFalse(beast_wearable({'bodyParts': [{'slot': 17}, {'slot': 15}]}))
+
+    def test_an_item_with_no_body_parts_is_unrestricted(self):
+        # Weapons carry none, and the engine never reaches the check for them.
+        self.assertTrue(beast_wearable({}))
+        self.assertTrue(beast_wearable({'bodyParts': None}))
+
+    def test_the_forbidden_parts_are_the_engine_s_own_numbers(self):
+        self.assertEqual(sorted(BEAST_FORBIDDEN_PARTS), [0, 15, 16])
+
+
+class BeastRowTests(unittest.TestCase):
+    """A row carries a beast race's own pick, because it is often a different item."""
+    def rows(self, candidates):
+        key = ('armor', 'helmet', 'light', None)
+        buckets = {key: {(False, False, False): candidates}}
+        return [r for r in assemble(buckets, {'armor'})
+                if r['slot'] == 'helmet' and r['armorClass'] == 'light'
+                and r['toggles'] == {'theft': False, 'endgame': False, 'nearStart': False}][0]
+
+    def test_a_beast_gets_the_best_helm_it_can_actually_wear(self):
+        row = self.rows([candidate('closed', 50, True, beast=False),
+                         candidate('open', 20, True, beast=True)])
+        self.assertEqual(row['primary']['key'], 'closed')
+        self.assertEqual(row['beastPrimary']['key'], 'open',
+                         'the stronger helm is unequippable, so it is not the answer')
+        self.assertEqual(row['beastEligible'], 1)
+
+    def test_a_row_with_nothing_wearable_says_so_rather_than_lying(self):
+        # Every boots row in the game is this: all 37 vanilla boots cover a foot.
+        row = self.rows([candidate('boots', 50, True, beast=False)])
+        self.assertIsNotNone(row['primary'])
+        self.assertIsNone(row['beastPrimary'])
+        self.assertEqual(row['beastEligible'], 0)
+
+    def test_an_unrestricted_row_gives_a_beast_the_same_pick(self):
+        row = self.rows([candidate('cuirass', 50, True), candidate('worse', 10, True)])
+        self.assertEqual(row['beastPrimary']['key'], row['primary']['key'])
+        self.assertEqual(row['beastEligible'], 2)
+
+    def test_the_beast_pick_prefers_a_close_source_like_the_primary_does(self):
+        row = self.rows([candidate('far-open', 50, False, beast=True),
+                         candidate('near-open', 20, True, beast=True)])
+        self.assertEqual(row['beastPrimary']['key'], 'near-open')
 
 
 class AssembleTests(unittest.TestCase):

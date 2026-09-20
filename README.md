@@ -25,6 +25,11 @@ the plugin files omit — targeting, no-magnitude and no-duration — from how t
 content uses each effect. The spell cost formula branches on the last two. See
 [RULES.md](RULES.md) and `rules-types.ts`.
 
+**Places:** run `python build_places_catalog.py` to publish every cell with its name,
+region and grid position, plus settlements grouped from the exterior cells that share a
+name. It is the join that turns any other catalog's `cellKey` into somewhere. See
+[PLACES.md](PLACES.md) and `place-types.ts`.
+
 **Merchants and barter:** run `python build_merchant_catalog.py` to publish every
 service provider with the stats the haggling formula reads, and the formula's own
 engine literals. See [MERCHANTS.md](MERCHANTS.md) and `merchant-types.ts`.

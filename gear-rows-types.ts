@@ -21,7 +21,14 @@ export type WeaponSkill = "short_blade" | "long_blade" | "blunt" | "axe" | "spea
 /** The toggle set a row was built for; the same three the policy layer takes. */
 export type RowToggles = { theft: boolean; endgame: boolean; nearStart: boolean };
 
+/** Races with the Beast flag: Argonian and Khajiit. */
+export type BeastRace = "argonian" | "khajiit";
+
 export type Pick = {
+  /** False when an Argonian or Khajiit cannot equip this at all. The engine refuses
+   *  any item whose body parts touch the head or a foot, so a closed helm and every
+   *  pair of boots are out, while an open helm that dresses the hair is fine. */
+  beastWearable: boolean;
   key: string;
   name: string;
   /** Armour rating, best weapon damage, or enchantment capacity. Re-rank on this. */
@@ -64,6 +71,13 @@ export type GearRow = {
   primary: Pick | null;
   /** A strictly stronger piece from farther away; null unless it beats a near primary. */
   alternative: Pick | null;
+  /** How many of `eligible` an Argonian or Khajiit could actually equip. */
+  beastEligible: number;
+  /** The same row answered for a beast race, chosen from the same candidates by the
+   *  same near-first rule. **Null means nothing in this slot fits them** — which is
+   *  every boots row and almost every shoes row — not that the row is empty. When the
+   *  primary is already wearable this repeats it, so a caller never has to decide. */
+  beastPrimary: Pick | null;
 };
 
 /** The standalone artifact. In the app bundle these rows ship as the `GearRows` catalog,

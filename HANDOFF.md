@@ -87,10 +87,11 @@ Every stage is built and tested. `python -m unittest discover -p "test_*.py"` ru
 | **Fast travel** | `build_travel_catalog.py` | TRAVEL.md | 115 vanilla / 427 TR edges |
 | **Journal quests** | `build_quest_catalog.py` | QUESTS.md | 754 vanilla / 2573 TR topics |
 | **Merchants** | `build_merchant_catalog.py` | MERCHANTS.md | 660 vanilla / 2575 TR providers |
+| **Places** | `build_places_catalog.py` | PLACES.md | 2887 vanilla / 10784 TR cells |
 
 The app contract is in `catalog-types.ts`, `bundle-types.ts`, `policy-types.ts`,
 `gear-rows-types.ts`, `rules-types.ts`, `travel-types.ts`, `quest-types.ts` and
-`merchant-types.ts`. Keep them in step with the builders.
+`merchant-types.ts` and `place-types.ts`. Keep them in step with the builders.
 
 ### Numbers worth knowing
 
@@ -102,6 +103,8 @@ gear rows                     424 per profile, vanilla 414 filled, 196s
 effect rules                  vanilla 141   tr and tr_arce 186   45 are Lua-only
 travel edges                  vanilla 115   tr and tr_arce 427   23 guild guides in tr
 journal quests                vanilla 530   tr and tr_arce 1905 trackable of 2573
+beast-race gear               vanilla 18 rows differ, 32 have nothing (boots, shoes)
+places                        vanilla 2887   tr and tr_arce 10784   394 TR settlements
 merchants                     vanilla 382   tr and tr_arce 1530 traders; 20% autocalc
 engine dump                   141 effects in 6s, 186 in 4s, one run per profile
 journal topics                tr 2,577  vanilla 758      326 have no resolvable title

@@ -33,6 +33,8 @@ ARMOR_WEIGHT_GMST = {
     'left_gauntlet': 'igauntletweight', 'right_gauntlet': 'igauntletweight',
     'left_bracer': 'igauntletweight', 'right_bracer': 'igauntletweight'}
 ARMOR_SLOTS = [s for s in ARMOR_WEIGHT_GMST if s != 'shield']
+# ESM::PRT_Head, PRT_RFoot, PRT_LFoot, from components/esm3/loadarmo.hpp.
+BEAST_FORBIDDEN_PARTS = frozenset({0, 15, 16})
 ARMOR_CLASSES = ['light', 'medium', 'heavy']
 # Arrows and bolts are ammunition, not an equipment slot, so they get no row.
 WEAPON_ROWS = {'SB1H': ('short_blade', 1), 'LB1H': ('long_blade', 1), 'LB2H': ('long_blade', 2),
@@ -93,8 +95,24 @@ def row_key(record, settings):
     return ('clothing', record['type'], None, None) if record['type'] in CLOTHING_SLOTS else None
 
 
+def beast_wearable(record):
+    """Whether an Argonian or Khajiit can equip this at all.
+
+    MWClass::Armor::canBeEquipped and its Clothing twin refuse any item whose body part
+    list touches the head or either foot, with the engine's own comment: "Beast races
+    cannot equip shoes / boots, or full helms (head part vs hair part)". An open helm
+    dresses PRT_Hair instead of PRT_Head, which is why some helmets are fine and most
+    are not. The rule is per item, not per slot: one Tamriel Rebuilt shoe passes it.
+    """
+    for part in record.get('bodyParts') or ():
+        if part.get('slot') in BEAST_FORBIDDEN_PARTS:
+            return False
+    return True
+
+
 def pick(record, verdict, route):
     return {'key': record['key'], 'name': record['name'], 'strength': strength(record),
+            'beastWearable': beast_wearable(record),
             'baseValue': record['value'], 'endgame': verdict['endgame'],
             'acquisition': route['acquisition'], 'price': route['price'], 'value': route['value'],
             'cellKey': route['cellKey'], 'nearStart': route['nearStart'],
@@ -172,6 +190,12 @@ def assemble(buckets, categories):
             far = [c for c in candidates if not c['nearStart']]
             primary = best(near) or best(far)
             strongest = best(far)
+            # A beast race gets its own pick from the same candidates: an Argonian in
+            # a boots row has nothing at all, and in a helmet row wants the best open
+            # helm rather than the best helm.
+            beast_near = [c for c in near if c['beastWearable']]
+            beast_far = [c for c in far if c['beastWearable']]
+            beast_primary = best(beast_near) or best(beast_far)
             # An "or" row only earns its place when it beats the close pick.
             alternative = (strongest if primary and strongest and primary['nearStart']
                            and strongest['strength'] > primary['strength'] else None)
@@ -180,7 +204,9 @@ def assemble(buckets, categories):
                          'skill': weapon[0] if weapon else None,
                          'hands': weapon[1] if weapon else None,
                          'toggles': toggles, 'eligible': len(candidates),
-                         'nearStart': len(near), 'primary': primary, 'alternative': alternative})
+                         'nearStart': len(near), 'primary': primary, 'alternative': alternative,
+                         'beastEligible': len(beast_near) + len(beast_far),
+                         'beastPrimary': beast_primary})
     return rows
 
 
@@ -199,7 +225,11 @@ def publish(rows, output, profile, policy, limits, snapshot, categories):
                           'name': policy.get('name')},
                'limits': limits, 'categories': sorted(categories),
                'coverage': 'Rows are derived from policy verdicts over static evidence. Script '
-                           'grants are not consulted; a quest reward is never an eligible row.',
+                           'grants are not consulted; a quest reward is never an eligible row. '
+                           'beastPrimary is the same row for an Argonian or Khajiit, who cannot '
+                           'equip anything covering the head or a foot: null there means nothing '
+                           'in this slot fits them, which is every boots and almost every shoes '
+                           'row, not that the row is empty.',
                'builtAtUnix': time.time(), 'rows': rows}
     body = json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(',', ':')).encode('utf-8')
     identifier = hashlib.sha256(body).hexdigest()[:24]

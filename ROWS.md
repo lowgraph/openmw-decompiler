@@ -62,6 +62,44 @@ empties medium gauntlets and the light right bracer: vanilla's only medium gaunt
 are Bear Gauntlets in Skaal Village, on Solstheim. That is the rule working, not a gap. Turning theft and endgame on moves the "or" rows to the Mournhold Museum of
 Artifacts, which is what the site already says that toggle does.
 
+## Beast races get their own pick
+
+Argonians and Khajiit cannot equip anything that covers the head or a foot.
+`MWClass::Armor::canBeEquipped` and its Clothing twin refuse on `ESM::PRT_Head`,
+`PRT_LFoot` or `PRT_RFoot`, with the engine's own comment: *"Beast races cannot equip
+shoes / boots, or full helms (head part vs hair part)."* An open helm dresses
+`PRT_Hair` instead, which is why some helmets pass and most do not.
+
+The rule is **per item, not per slot**, so it has to be read off each record's body
+part list rather than guessed from the type:
+
+| | vanilla | Tamriel Rebuilt |
+| --- | --- | --- |
+| helmets a beast race cannot wear | 45 of 79 | 219 of 517 |
+| boots | **37 of 37** | **224 of 224** |
+| shoes | 25 of 25 | 86 of **87** |
+
+The two outliers are worth naming, because each shows the check reading the record
+rather than the type. Tamriel Rebuilt's **Rough Cloth Strips**, typed `shoes`, passes
+because its body part list is *empty* — it dresses nothing, so there is no foot to
+object to. And its **Pants of Missing Bits** fails, because the list references
+`PRT_LFoot` and `PRT_LAnkle` with no mesh attached to either; the engine compares
+`mPart` and never looks at whether a model is there. Neither is an exception to code
+around. Both are why the check cannot be a table of slot names.
+
+So every `Pick` carries `beastWearable`, and every row carries `beastPrimary` — the
+same row answered from the same candidates by the same near-first rule. On vanilla:
+
+```
+424 rows: 18 where a beast race needs a different item, 32 where nothing fits
+nothing fits: boots and shoes, and only those
+Chitin Helm -> Colovian Fur Helm
+```
+
+`beastPrimary: null` means **nothing in this slot fits them**, not that the row is
+empty — `primary` is still there for everyone else. When the primary is already
+wearable, `beastPrimary` repeats it, so a caller never has to work out which applies.
+
 ## Toggles
 
 Every row carries the `toggles` it was built for. The combinations are independent
@@ -89,6 +127,13 @@ bounds each item's search: a row built from truncated evidence still carries
 `--category` builds a subset. Publication is a staged write followed by an atomic
 rename, and the filename is content-addressed, so an identical build overwrites itself
 and a changed one lands beside the old.
+
+Beast-race tests cover a closed helm being refused and an open one allowed, both
+feet, an ankle not counting as a foot, one forbidden part among several being enough,
+an item with no body parts at all, the engine's own part numbers, and at row level: a
+beast getting the best helm it can wear rather than the best helm, a row where nothing
+fits saying so, an unrestricted row giving the same pick, and the near-first rule
+applying to the beast pick too.
 
 Tests cover armour-class thresholds and their boundaries, bracers borrowing the
 gauntlet threshold, strength per record type, row keys including shields and excluded

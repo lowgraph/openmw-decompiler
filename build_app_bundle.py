@@ -33,7 +33,9 @@ EXTRA_CATALOGS = {
     'Quests': {'directory': 'quests', 'array': 'records',
                'carry': ('derivation', 'policyVersion', 'coverage')},
     'Merchants': {'directory': 'merchants', 'array': 'records',
-                  'carry': ('barterFormula', 'serviceFlags', 'derivation', 'coverage')}}
+                  'carry': ('barterFormula', 'serviceFlags', 'derivation', 'coverage')},
+    'Places': {'directory': 'places', 'array': 'records',
+               'carry': ('regions', 'settlements', 'derivation', 'coverage')}}
 
 
 def identity(record):
@@ -61,6 +63,44 @@ def delta(base, target, where):
     changed = [record for name, record in new.items() if old.get(name) != record]
     removed = sorted(name for name in old if name not in new)
     return changed, removed
+
+
+# Where each catalog names a cell. Travel keys its nodes by cell, Merchants list the
+# cells an actor stands in, and a gear row's pick says where the item is.
+CELL_REFERENCES = {
+    'Travel': lambda payload: set(payload.get('nodes') or ()),
+    'Merchants': lambda payload: {cell for record in payload['records']
+                                  for cell in record.get('cells') or ()},
+    'GearRows': lambda payload: {record[side]['cellKey']
+                                 for record in payload['rows']
+                                 for side in ('primary', 'alternative', 'beastPrimary')
+                                 if record.get(side) and record[side].get('cellKey')},
+}
+
+
+def check_cell_references(extra, profile):
+    """Every cellKey another catalog names must be a place we publish.
+
+    Places is built from the same profile's cells, so a miss means one of the two is
+    stale. Left unchecked it shows up in the browser as a location with no name.
+    """
+    places = extra.get('Places')
+    if not places:
+        return 0
+    known = {record['key'] for record in places[profile]['records']}
+    checked = 0
+    for name, cells_of in CELL_REFERENCES.items():
+        if name not in extra:
+            continue
+        referenced = cells_of(extra[name][profile])
+        checked += len(referenced)
+        missing = sorted(referenced - known)
+        if missing:
+            raise ExportError(
+                f'{profile}: {len(missing)} cell(s) named by {name} are not in Places: '
+                + ', '.join(missing[:4]) + (' ...' if len(missing) > 4 else '')
+                + '\n  One of the two was built from a different extraction; rebuild both.')
+    return checked
 
 
 def load_extra(directory, profile, snapshot, name):
@@ -171,6 +211,8 @@ def build(source, output, profiles=None, include_book_text=False, extras=None):
         raise ExportError(f'Build lock exists: {lock}; check for another build before removing a stale lock') from exc
     os.close(handle)
     try:
+        for profile_id in selected:
+            check_cell_references(extra, profile_id)
         identifier = hashlib.sha256((catalogs['snapshotId'] + VERSION + catalogs['schemaVersion']
                                      + ','.join(sorted(selected)) + str(include_book_text)
                                      + ','.join(sorted(payload['sourceFile'] for group in extra.values()
