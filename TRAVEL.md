@@ -89,6 +89,11 @@ conditions rather than in the travel records. So the Conjurer requirement is aut
 in `policy/travel.json`, marked `source: "authored"`, and versioned independently of
 any extraction snapshot — the same discipline as `policy/early-game.json`.
 
+The rank itself is now grounded: the `Factions` catalog carries the Mages Guild's
+ranks, and Conjurer is rank 4 — reputation 30 in vanilla, 70 in Tamriel Rebuilt. See
+[FACTIONS.md](FACTIONS.md). What stays authored is the claim that *these twelve
+journeys* are the ones it gates, which no record states.
+
 The twelve gated journeys, all confirmed present in the extracted data:
 
 | City | Guide | Reaches |

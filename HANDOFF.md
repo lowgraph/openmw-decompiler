@@ -88,10 +88,12 @@ Every stage is built and tested. `python -m unittest discover -p "test_*.py"` ru
 | **Journal quests** | `build_quest_catalog.py` | QUESTS.md | 754 vanilla / 2573 TR topics |
 | **Merchants** | `build_merchant_catalog.py` | MERCHANTS.md | 660 vanilla / 2575 TR providers |
 | **Places** | `build_places_catalog.py` | PLACES.md | 2887 vanilla / 10784 TR cells |
+| **Factions** | `build_faction_catalog.py` | FACTIONS.md | 27 vanilla / 103 TR factions |
 
 The app contract is in `catalog-types.ts`, `bundle-types.ts`, `policy-types.ts`,
 `gear-rows-types.ts`, `rules-types.ts`, `travel-types.ts`, `quest-types.ts` and
-`merchant-types.ts` and `place-types.ts`. Keep them in step with the builders.
+`merchant-types.ts`, `place-types.ts` and `faction-types.ts`. Keep them in step with
+the builders.
 
 ### Numbers worth knowing
 
@@ -105,6 +107,7 @@ travel edges                  vanilla 115   tr and tr_arce 427   23 guild guides
 journal quests                vanilla 530   tr and tr_arce 1905 trackable of 2573
 beast-race gear               vanilla 18 rows differ, 32 have nothing (boots, shoes)
 places                        vanilla 2887   tr and tr_arce 10784   394 TR settlements
+factions                      vanilla 27     tr and tr_arce 103     Hlaalu owns 9746 in tr
 merchants                     vanilla 382   tr and tr_arce 1530 traders; all priceable
 engine dump                   141 effects in 6s, 186 in 4s, one run per profile
 journal topics                tr 2,577  vanilla 758      326 have no resolvable title

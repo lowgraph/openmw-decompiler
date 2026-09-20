@@ -35,7 +35,9 @@ EXTRA_CATALOGS = {
     'Merchants': {'directory': 'merchants', 'array': 'records',
                   'carry': ('barterFormula', 'serviceFlags', 'derivation', 'coverage')},
     'Places': {'directory': 'places', 'array': 'records',
-               'carry': ('regions', 'settlements', 'derivation', 'coverage')}}
+               'carry': ('regions', 'settlements', 'derivation', 'coverage')},
+    'Factions': {'directory': 'factions', 'array': 'records',
+                 'carry': ('derivation', 'coverage')}}
 
 
 def identity(record):

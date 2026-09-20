@@ -25,6 +25,10 @@ the plugin files omit — targeting, no-magnitude and no-duration — from how t
 content uses each effect. The spell cost formula branches on the last two. See
 [RULES.md](RULES.md) and `rules-types.ts`.
 
+**Factions:** run `python build_faction_catalog.py` to publish every faction, its
+ranks, and the attributes, skills and reputation each rank asks for. See
+[FACTIONS.md](FACTIONS.md) and `faction-types.ts`.
+
 **Places:** run `python build_places_catalog.py` to publish every cell with its name,
 region and grid position, plus settlements grouped from the exterior cells that share a
 name. It is the join that turns any other catalog's `cellKey` into somewhere. See
