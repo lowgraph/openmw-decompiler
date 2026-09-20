@@ -52,19 +52,19 @@ as `{changed, removed}` against that base. Base selection is by matching world a
 version with `arce: false`; a base profile is always complete, so resolution never
 recurses. Selecting `tr_arce` on its own instead publishes it in full.
 
-Measured against bundle `9e74d159c916a49e9844c254`, 28 catalogs:
+Measured against bundle `962f60686693716f1ec07a16`, 28 catalogs:
 
 | Profile | Files | Inherited | Gzipped |
 | --- | --- | --- | --- |
-| `vanilla` | 28 | 0 | 360 KB |
-| `tr` | 28 | 0 | 1,316 KB |
+| `vanilla` | 28 | 0 | 370 KB |
+| `tr` | 28 | 0 | 1,331 KB |
 | `tr_arce` | 3 | 25 | **13 KB** |
 
 What the derived catalogs cost, gzipped, vanilla and TR:
 
 ```
 Places  32 / 130    Merchants 25 / 99    Quests   19 / 63
-Travel   4 /  15    GearRows  14 / 19    Factions  4 / 13
+Travel   4 /  15    GearRows  24 / 34    Factions  4 / 13
 EffectRules 7 / 8
 ```
 

@@ -131,8 +131,9 @@ Policy names objective(s) the row builder cannot measure: lightest
   Known objectives: enchantment, power
 ```
 
-**It matters more than it might sound.** On vanilla the two disagree on **94 of the 352
-filled pairs** — better than one row in four:
+**It matters more than it might sound.** The two disagree on **94 of vanilla's 352
+filled pairs and 148 of TR's 424** — better than one row in four, and more than one in
+three once Tamriel Rebuilt's wider selection is in play:
 
 ```
 armor/helmet/heavy    power Indoril Helmet (45ar)          -> enchantment Imperial Steel Helmet (250pts)
@@ -146,7 +147,9 @@ capacity earns no "or" in the enchantment row.
 
 **It is free at build time.** The candidates and the policy verdicts are gathered once;
 an objective only changes which of them wins. Vanilla took 188s for 848 rows against
-184s for 424, and the payload goes from 435 KB to 912 KB raw — 25 KB gzipped.
+184s for 424. Gzipped, the catalog goes from 14 to 24 KB on vanilla and 19 to 34 KB on
+TR — the rows doubled and the payload did not, because the two objectives pick the same
+item three times in four.
 
 ## The near-start places are checked now
 

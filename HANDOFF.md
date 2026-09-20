@@ -106,7 +106,7 @@ effect rules                  vanilla 141   tr and tr_arce 186   45 are Lua-only
 travel edges                  vanilla 115   tr and tr_arce 427   23 guild guides in tr
 journal quests                vanilla 530   tr and tr_arce 1905 trackable of 2573
 beast-race gear               vanilla 18 rows differ, 32 have nothing (boots, shoes)
-gear row objectives           power and enchantment disagree on 94 of 352 vanilla pairs
+gear row objectives           power vs enchantment differ on 94/352 vanilla, 148/424 tr
 places                        vanilla 2887   tr and tr_arce 10784   394 TR settlements
 factions                      vanilla 27     tr and tr_arce 103     Hlaalu owns 9746 in tr
 merchants                     vanilla 382   tr and tr_arce 1530 traders; all priceable
