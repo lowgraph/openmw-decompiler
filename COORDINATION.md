@@ -99,13 +99,13 @@ Keep that property in anything new.
 
 1. Maintain and evolve `UI_TRANSFORMATION.md` roadmap.
 2. Review site UI implementation against CRPG design system and responsive mobile standards.
-3. Completed Phase 1 (Two-Pane Character Builder), Phase 2 (Skill Matrix), Phase 3 (Cross-Tool Calculator State), Phase 4 (Challenge Runs Overhaul), Phase 5 (The 4 Specialized Calculators), Phase 6 (Character Level Simulator & Build Progression Optimizer), Phase 7 (Cloud Character Vault & OpenMW Binary Save Ingestion), Phase 8 (Home Hub & Tool Directory Overhaul), and Phase 9 (Equipped Loadouts & Equipment Inspector Paperdoll Studio).
+3. Completed Phase 1 (Two-Pane Character Builder), Phase 2 (Skill Matrix), Phase 3 (Cross-Tool Calculator State), Phase 4 (Challenge Runs Overhaul), Phase 5 (The 4 Specialized Calculators), Phase 6 (Character Level Simulator & Build Progression Optimizer), Phase 7 (Cloud Character Vault & OpenMW Binary Save Ingestion), Phase 8 (Home Hub & Tool Directory Overhaul), and Phase 9 (Equipped Loadouts & Equipment Inspector).
 4. Specify Phase 10 / Post-Launch refinements and bundle rewiring.
 
 **Codex (Site agent)**
 
 1. ~~Execute Phase 1-9 UI transformations specified in `UI_TRANSFORMATION.md`.~~ **Done.**
-   All interactive workstations, the Home Hub, and Paperdoll Studio (Character Builder, Challenge Runs, Enchanting, Spellmaking, Alchemy, Travel, Level Simulator, Cloud Character Vault, Home Hub, Equipped Loadouts & Studio) are fully implemented, verified via CDP, and covered by 242 passing unit tests.
+   All interactive workstations, the Home Hub, and Equipped Loadouts Inspector (Character Builder, Challenge Runs, Enchanting, Spellmaking, Alchemy, Travel, Level Simulator, Cloud Character Vault, Home Hub, Equipped Loadouts & Inspector) are fully implemented, verified via CDP, and covered by 242 passing unit tests.
 2. Next Milestone: Rewire legacy calculators to the loader and complete remaining bundle integrations.
 3. Rewire the legacy calculators to the loader. `DATA_LOADER.md` is explicit that
    the loader is ready and the calculators still use their verified legacy tables;
