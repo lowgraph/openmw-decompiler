@@ -99,24 +99,22 @@ Keep that property in anything new.
 
 1. Maintain and evolve `UI_TRANSFORMATION.md` roadmap.
 2. Review site UI implementation against CRPG design system and responsive mobile standards.
-3. Completed Phase 1 (Two-Pane Character Builder), Phase 2 (Skill Matrix), Phase 3 (Cross-Tool Calculator State), Phase 4 (Challenge Runs Overhaul), Phase 5 (The 4 Specialized Calculators), Phase 6 (Character Level Simulator & Build Progression Optimizer), Phase 7 (Cloud Character Vault & OpenMW Binary Save Ingestion), Phase 8 (Home Hub & Tool Directory Overhaul), and Phase 9 (Equipped Loadouts & Equipment Inspector).
-4. Specify Phase 10 / Post-Launch refinements and bundle rewiring.
+3. Completed Phase 1 through Phase 10: Two-Pane Character Builder, Skill Matrix, Cross-Tool State, Challenge Runs Overhaul, 4 Specialized Workstations, Level Simulator & Build Progression Optimizer, Cloud Character Vault & OpenMW Binary Save Ingestion, Home Hub & Tool Directory Overhaul, Equipped Loadouts & Equipment Inspector, and Bundle Rewiring & Live Game-Data Integration.
+4. Next: Post-launch polish, profile data staging verification, and long-term catalogue additions.
 
 **Codex (Site agent)**
 
 1. ~~Execute Phase 1-9 UI transformations specified in `UI_TRANSFORMATION.md`.~~ **Done.**
-   All interactive workstations, the Home Hub, and Equipped Loadouts Inspector (Character Builder, Challenge Runs, Enchanting, Spellmaking, Alchemy, Travel, Level Simulator, Cloud Character Vault, Home Hub, Equipped Loadouts & Inspector) are fully implemented, verified via CDP, and covered by 242 passing unit tests.
-2. Next Milestone: Rewire legacy calculators to the loader and complete remaining bundle integrations.
-3. Rewire the legacy calculators to the loader. `DATA_LOADER.md` is explicit that
-   the loader is ready and the calculators still use their verified legacy tables;
-   until this lands, the bundle powers nothing.
+   All interactive workstations, the Home Hub, and Equipped Loadouts Inspector (Character Builder, Challenge Runs, Enchanting, Spellmaking, Alchemy, Travel, Level Simulator, Cloud Character Vault, Home Hub, Equipped Loadouts & Inspector) are fully implemented, verified via CDP, and covered by 247 passing unit tests.
+2. ~~Rewire legacy calculators to the loader and complete remaining bundle integrations (Phase 10).~~ **Done.**
+   All 4 specialized workstations (Enchanting, Spellmaking, Alchemy, Travel) and Gear Advisor now connect directly to `useGameData` / `FEATURE_CATALOGS` (`travel`, `enchanting`, `spellmaking`, `alchemy`, `gear`) with live status indicators and graceful fallback to static tables.
+3. ~~Build the three-toggle UI: steal early gear, endgame gear early, near starting areas.~~ **Done.**
+   Added `#gear-near-start` toggle in legacy `index.html` and synchronized in React `gear-advisor.jsx` with full 3-toggle policy resolution matching `GearRows`.
 4. Repoint `scripts/stage-game-data.mjs` away from its `A:/Cache/OpenMWBundlePreview`
    default to `A:/Cache/OpenMWFoundation/app-bundle`. The preview folder is scratch
    and will be deleted.
 5. Commit or delete the untracked `lib/character-catalogs.mjs`.
-6. Build the three-toggle UI: steal early gear, endgame gear early, near starting
-   areas. See POLICY.md in the data repository for what each one means.
-7. ~~D1 schema and routes for journal progress, equipped loadouts, known spells and
+6. ~~D1 schema and routes for journal progress, equipped loadouts, known spells and
    saved challenges.~~ **Done.** Implemented dual-format SLT1 binary codec (~96% compression) and fallback JSON in `cloudflare/schema.sql`, `cloudflare/routes/saves.mjs`, and `cloudflare/routes/entitlements.mjs`.
 
 **Claude (Data agent)**

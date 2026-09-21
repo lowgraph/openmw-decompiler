@@ -1160,6 +1160,49 @@ components/equipment-studio/
 - [x] **Step 6:** Mount `EquipmentStudioRoot` in `character-builder-root.jsx`, wire quick launch in `character-sheet.jsx`, and connect `[ Equip Kit to Loadout → ]` in `gear-advisor.jsx`.
 - [x] **Step 7:** Verify layout integrity via headless Chrome CDP on port 8765 across desktop (1440px) and mobile (390px).
 
+---
 
+## 16. Phase 10 Blueprint: Bundle Rewiring & Live Game-Data Integration
 
+### Objective
+Complete the production data wiring across all 4 specialized workstations (**Enchanting**, **Spellmaking**, **Alchemy**, **Travel**) and the **Gear Advisor**, transitioning them from static extracts in `public/legacy/` to dynamic, profile-aware content-addressed bundles (`lib/bundle-loader.mjs` & `useGameData`) with live status badges and seamless fallbacks.
 
+### 16.1 Architectural Components & Features
+- **Bundle Loader Expansion (`lib/bundle-loader.mjs`):**
+  - Expanded `FEATURE_CATALOGS` to include:
+    - `travel: Object.freeze(['Travel', 'Places'])`
+    - `enchanting: Object.freeze(['MagicEffects', 'GameSettings', 'Enchantments', 'EffectRules', 'Merchants'])`
+    - `spellmaking: Object.freeze(['MagicEffects', 'GameSettings', 'EffectRules', 'Merchants'])`
+- **Dynamic Travel Graph Adapter (`lib/travel-graph.mjs`):**
+  - Implemented `adaptTravelGraph(records, nodes)` to compile live transit networks dynamically from bundle `Travel` records and node metadata.
+  - Normalizes settlement names across Mages Guilds, Wolverine Hall, and Vivec cantons.
+  - Extended `buildNetworkGraph`, `getAvailableTransitStops`, and `findFewestHopsRoute` to accept dynamic custom graphs with fallback to static routing tables.
+- **Three-Toggle Gear Acquisition Policy:**
+  - Added `#gear-near-start` ("Near starting areas") toggle to `index.html` `.gear-toggles` group and wired through `earlyGearOptions()`.
+  - Extracted legacy data via `npm run extract:legacy` to regenerate `public/legacy/body.html`.
+  - Updated `components/character-builder/gear-advisor.jsx` with bi-directional DOM synchronization, `handleToggleNearStart`, and resilient build ranking profile generation.
+- **Live Workstations Integration:**
+  - **Alchemy Workstation (`alchemy-workstation.jsx`):** Consumes `useGameData('alchemy')`, dynamically loads live ingredients and apparatus tiers, and displays live status badge `• Live: X Ing. (PROFILE)`.
+  - **Enchanting Workstation (`enchanting-workstation.jsx`):** Consumes `useGameData('enchanting')`, filters effects using `allowEnchanting === true` from live `EffectRules`, extracts enchanters using `servicesRaw & 65536` from `Merchants`, and displays live status badge `• Live: X Effects · Y Vendors (PROFILE)`.
+  - **Spellmaking Workstation (`spellmaking-workstation.jsx`):** Consumes `useGameData('spellmaking')`, filters spells using `allowSpellmaking === true` from live `EffectRules`, extracts spellmakers using `servicesRaw & 32768` from `Merchants`, and displays live status badge `• Live: X Spells · Y Vendors (PROFILE)`.
+  - **Travel Workstation (`travel-workstation.jsx`):** Consumes `useGameData('travel')`, dynamically builds network graphs via `adaptTravelGraph`, and displays live status badge `• Live: X Stops (PROFILE)`.
+
+### 16.2 Verification & Test Coverage
+- **Unit and Contract Tests:**
+  - `test/bundle-contract.test.js`: Verified loader contract for `travel`, `enchanting`, and `spellmaking`.
+  - `test/live-workstations.test.js`: Comprehensive adversarial tests covering transit graph edge cases, disconnected stops, self-loops, merchant service bit isolation, effect permissions, and all 8 boolean toggle permutations for gear policy.
+- **Passing Test Suites:**
+  - 100% pass rate in Site tests (247 suites).
+  - 100% pass rate in Pipeline tests (396 suites).
+  - Turbopack production build compiled cleanly with static page pre-rendering.
+- **Headless Chrome CDP Visual Verification:**
+  - Captured desktop (1440px) and mobile (390px) screenshots for Enchanting, Spellmaking, Alchemy, Travel, and Gear Advisor on port 8765 confirming layout integrity, CRPG gold aesthetic, and badge displays.
+
+### 16.3 Execution Checklist for Codex (Phase 10)
+- [x] **Step 1:** Expand `FEATURE_CATALOGS` in `lib/bundle-loader.mjs` for `travel`, `enchanting`, and `spellmaking`.
+- [x] **Step 2:** Implement `adaptTravelGraph` in `lib/travel-graph.mjs` and update routing methods.
+- [x] **Step 3:** Implement 3-toggle UI in `index.html` and `gear-advisor.jsx` and re-extract legacy HTML.
+- [x] **Step 4:** Wire Alchemy, Enchanting, Spellmaking, and Travel workstations to `useGameData` with live badges.
+- [x] **Step 5:** Write unit and adversarial contract tests (`test/bundle-contract.test.js`, `test/live-workstations.test.js`).
+- [x] **Step 6:** Run full test suites (`npm test`, python tests, `npm run build`).
+- [x] **Step 7:** Capture visual screenshots with headless Chrome CDP on port 8765 and clean up temporary scratch files.

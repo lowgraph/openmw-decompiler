@@ -37,7 +37,10 @@ EXTRA_CATALOGS = {
     'Places': {'directory': 'places', 'array': 'records',
                'carry': ('regions', 'settlements', 'derivation', 'coverage')},
     'Factions': {'directory': 'factions', 'array': 'records',
-                 'carry': ('derivation', 'coverage')}}
+                 'carry': ('derivation', 'coverage')},
+    'Loadouts': {'directory': 'loadouts', 'array': 'records',
+                 'carry': ('builds', 'toggles', 'model', 'items', 'derivation',
+                           'policyVersion', 'coverage')}}
 
 
 def identity(record):
