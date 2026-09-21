@@ -1206,3 +1206,162 @@ Complete the production data wiring across all 4 specialized workstations (**Enc
 - [x] **Step 5:** Write unit and adversarial contract tests (`test/bundle-contract.test.js`, `test/live-workstations.test.js`).
 - [x] **Step 6:** Run full test suites (`npm test`, python tests, `npm run build`).
 - [x] **Step 7:** Capture visual screenshots with headless Chrome CDP on port 8765 and clean up temporary scratch files.
+
+---
+
+## 17. Phase 11 Blueprint: Faction Journal & Promotion Deficit Engine
+
+### Objective
+Implement the complete **Faction Journal Workstation** across the web application, enabling players to track, view, and solve faction affiliations, rank promotions, attribute/skill deficits, inter-faction diplomacy/reactions, and linked guild quests across Vanilla and Tamriel Rebuilt.
+
+### 17.1 Architectural Components & Features
+- **Promotion & Deficit Calculation Engine (`lib/faction-math.mjs`):**
+  - Pure calculation functions: `normalizeStatKey`, `getStatValue`, `joinableFactions`, `meetsRank`, `getHighestEligibleRank`, `solvePromotionGaps`, `MUTUAL_EXCLUSIONS`, `getMutualExclusionConflict`, `getFactionReactions`, and `getFactionQuests`.
+  - Canonical Morrowind FADT promotion rules:
+    - Favoured attributes 1 & 2 $\ge$ rank requirements.
+    - 1 skill $\ge$ `primarySkill` requirement, and 2 other favoured skills $\ge$ `favouredSkill` requirement.
+    - Faction reputation $\ge$ rank reputation requirement.
+  - Mutual exclusivity detection across Great Houses (Hlaalu, Redoran, Telvanni) and Vampire Clans (Aundae, Berne, Quarra).
+  - Diplomacy matrix decomposing reactions into allied (+1 to +3), neutral (0), and hostile (-1 to -3).
+  - Quest association linking quests by faction prefix with completion tracking.
+- **Bundle Loader Expansion (`lib/bundle-loader.mjs`):**
+  - Added `factions: Object.freeze(['Factions', 'Quests', 'Skills', 'Attributes'])` to `FEATURE_CATALOGS`.
+  - Connects to `useGameData('factions')` with live bundle badge `• Live: 27 Factions (PROFILE)`.
+- **Interactive Workstation UI (`components/journal-factions/`):**
+  - `journal-factions-root.jsx`: Responsive master split-pane workspace with top banner, profile status badge, active character summary, and join/leave simulation toggle.
+  - `faction-roster.jsx`: Searchable list across faction names, skills, and attributes, with 8 category filter tabs (`All Factions`, `Guilds`, `Great Houses`, `Imperial`, `Religion & Cults`, `Native & Ashlanders`, `Vampire Clans`, `My Memberships`), owned world placement counts, and real-time qualification badges (`Eligible to Join`, `Unqualified`, `Non-joinable`, `Member · Rank Name`, `⚠ Expelled`).
+  - `faction-detail-view.jsx`:
+    - 10-Rank Stepper Track (Rank 0 to Rank 9) with current rank badge and click-to-inspect requirements.
+    - Promotion Requirements & Deficit Solver card with visual progress meters and deficit instructions.
+    - Interactive Faction Reputation testing control.
+    - Mutual Exclusivity Warning banner for rival affiliations.
+    - Diplomatic Standing & Inter-Faction Relations matrix.
+    - Associated Faction Quests ledger.
+- **Shell & Navigation Integration:**
+  - Added `factions: 'factions'` in `migration/shell-bridge.js`.
+  - Mounted `JournalFactionsRoot` into `#panel-factions` via React portal in `components/legacy-workbench.jsx`.
+  - Added Faction Journal to site header desktop dropdown (`#react-desk-factions`) and mobile drawer, preserving single-row desktop header invariant.
+  - Added Faction Journal launcher card to Home Hub directory (`tool-directory-grid.jsx`), expanding canonical tools to 9.
+- **Legacy HTML Byte Budget Preservation:**
+  - Regenerated `public/legacy/body.html` via `npm run extract:legacy` to 48,906 bytes (< 50,000 bytes budget with 1,094 bytes headroom).
+
+### 17.2 Verification & Test Coverage
+- **Unit and Contract Tests:**
+  - `test/faction-math.test.js`: 7 unit and adversarial tests covering rank progression, deficit calculations, mutual exclusions, and quest linking.
+  - `test/journal-factions-ui.test.js`: 7 UI integration tests verifying roster rendering, category filters, search input, deficit solver display, mutual exclusivity alerts, and adversarial edge cases (non-joinable factions, god characters with 100 in all stats, and malformed faction records).
+  - `test/bundle-contract.test.js`: Verified `factions` catalog loading contract.
+  - `test/home-hub-ui.test.js`: Updated to verify all 9 canonical tools.
+- **Passing Test Suites:**
+  - 100% pass rate in Site tests (262 suites).
+  - 100% pass rate in Pipeline tests (445 suites).
+  - Turbopack production build compiled cleanly with static page pre-rendering.
+- **Headless Chrome CDP Visual Verification:**
+  - Captured desktop (1440px) and mobile (390px) screenshots for Faction Journal on port 8765 confirming layout integrity, CRPG gold aesthetic, and badge displays.
+
+### 17.3 Execution Checklist for Codex (Phase 11)
+- [x] **Step 1:** Implement mathematical promotion engine in `lib/faction-math.mjs` and tests in `test/faction-math.test.js`.
+- [x] **Step 2:** Expand `FEATURE_CATALOGS` in `lib/bundle-loader.mjs` to include `factions`.
+- [x] **Step 3:** Implement UI workstation components (`journal-factions-root.jsx`, `faction-roster.jsx`, `faction-detail-view.jsx`).
+- [x] **Step 4:** Integrate with `legacy-workbench.jsx`, `site-header.jsx`, `tool-directory-grid.jsx`, `index.html`, and `migration/shell-bridge.js`.
+- [x] **Step 5:** Run `npm run extract:legacy` and verify byte budget (< 50,000 bytes).
+- [x] **Step 6:** Author UI integration test suite in `test/journal-factions-ui.test.js`.
+- [x] **Step 7:** Run full test suites (`npm test`, python tests, `npm run build`).
+- [x] **Step 8:** Capture visual screenshots with headless Chrome CDP on port 8765 and clean up temporary scratch files.
+
+---
+
+## 18. Phase 12 Blueprint: Modern App Shell & Architecture Decoupling
+
+### Objective
+Transition the site's underlying infrastructure away from the legacy harness (`index.html` extraction, `LegacyWorkbench.jsx` DOM injection via `dangerouslySetInnerHTML`, 11 `createPortal` mounts into raw `div` IDs, and monkey-patched `window.siltShell` event bus) into a native modern React 19 / Next.js 16 App Shell (`components/app-shell.jsx`), backed by a pure ESM permalink codec (`lib/permalink-codec.mjs`), decoupled state machine, native React views for About and Changelog, and direct asset hosting.
+
+### 18.1 Architectural Components & 4-Pillar Design
+
+```
++----------------------------------------------------------------------------------------------------+
+| MODERN APP SHELL ARCHITECTURE                                                                      |
++----------------------------------------------------------------------------------------------------+
+|  URL Hash & History API (#builder&build=..., #challenge&run=..., #factions, #travel, etc.)         |
+|                                       │                                                            |
+|                                       ▼                                                            |
+|  [ lib/permalink-codec.mjs ] ◄────────┼────────► [ components/shell-context.jsx ]                  |
+|  - encodeShareHash                    │          - React state + hashchange & popstate listeners   |
+|  - decodeShareHash                    │          - navigate(view), setWorld(world), setArce(arce)  |
+|  - toBase64Url / fromBase64Url        │          - Transparent fallback to window.siltShell        |
+|                                       │                                                            |
+|                                       ▼                                                            |
+|  [ components/app-shell.jsx ]                                                                      |
+|  +----------------------------------------------------------------------------------------------+  |
+|  | <SiteHeader /> (Persistent CRPG Header, Desktop Nav Dropdown & 899px Mobile Drawer)         |  |
+|  +----------------------------------------------------------------------------------------------+  |
+|  | <main className="site-main">                                                                 |  |
+|  |   Declarative View Router (Zero Portals, Pure React Mounting):                               |  |
+|  |   - home:        <HomeHubRoot />                                                             |  |
+|  |   - builder:     <CharacterBuilderRoot />                                                    |  |
+|  |   - challenge:   <ChallengeRunsRoot />                                                       |  |
+|  |   - leveler:     <LevelSimulatorRoot />                                                      |  |
+|  |   - factions:    <JournalFactionsRoot />                                                     |  |
+|  |   - enchanting:  <EnchantingWorkstation />                                                   |  |
+|  |   - spellmaking: <SpellmakingWorkstation />                                                  |  |
+|  |   - alchemy:     <AlchemyWorkstation />                                                      |  |
+|  |   - travel:      <TravelWorkstation />                                                       |  |
+|  |   - vault:       <CloudVaultWorkstation />                                                   |  |
+|  |   - about:       <AboutView /> (Native React)                                                |  |
+|  |   - changelog:   <ChangelogView /> (Native React)                                            |  |
+|  +----------------------------------------------------------------------------------------------+  |
+|  | <SiteFooter /> & <CloudVaultModal />                                                         |  |
+|  +----------------------------------------------------------------------------------------------+  |
++----------------------------------------------------------------------------------------------------+
+```
+
+### 18.2 Phased Roadmap
+- **Phase 12A: Pure Permalink Codec & Shell State Engine**
+  - Implement pure ESM module `lib/permalink-codec.mjs` handling encoding/decoding of all 12 views, build states, challenge run states, and profile flags (`vanilla`, `tr`, `tr_arce`).
+  - Decouple `components/shell-context.jsx` from `migration/shell-bridge.js` with direct `hashchange` synchronization while retaining dual-mode backward-compatibility with `window.siltShell`.
+  - Comprehensive unit and adversarial test suite in `test/permalink-codec.test.js`.
+- **Phase 12B: Static Views & Challenge Engine Decoupling**
+  - Implement native React components `components/views/about-view.jsx` and `components/views/changelog-view.jsx`.
+  - Extract challenge rolling and conflict resolution into pure ESM `lib/challenge-engine.mjs`.
+- **Phase 12C: Native `AppShell` Layout Mounting & Asset Ingestion**
+  - Implement `components/app-shell.jsx` and switch `app/page.jsx` to render `AppShell`.
+  - Migrate Pelagiad fonts and procedural 9-slice borders into static assets and CSS tokens.
+- **Phase 12D: Legacy Extraction Deprecation & Test Re-anchoring**
+  - Retire `scripts/extract-legacy.cjs` from the build path.
+  - Re-anchor test suites to verify native React shell.
+
+### 18.3 Execution Checklist for Codex (Phase 12A)
+- [x] **Step 1:** Implement pure ESM `lib/permalink-codec.mjs` with UTF-8 Base64URL encoding/decoding, view serialization, and profile normalization.
+- [x] **Step 2:** Modernize `components/shell-context.jsx` to synchronize with `lib/permalink-codec.mjs` and window hash events.
+- [x] **Step 3:** Author comprehensive unit and adversarial QA test suite in `test/permalink-codec.test.js` (including corrupted base64, injection attempts, and boundary values).
+- [x] **Step 4:** Verify all site test suites pass cleanly (`npm test`).
+- [x] **Step 5:** Verify pipeline discovery tests pass cleanly (`unittest discover`).
+- [x] **Step 6:** Synchronize `UI_TRANSFORMATION.md` and `COORDINATION.md` identically across both repositories.
+
+### 18.4 Execution Checklist for Codex (Phase 12B)
+- [x] **Step 1:** Implement native modern React components `components/views/about-view.jsx` and `components/views/changelog-view.jsx`.
+- [x] **Step 2:** Extract pure ESM challenge generation engine `lib/challenge-engine.mjs` with card aspect rolling and seed reproducibility.
+- [x] **Step 3:** Wire `components/challenge-runs/challenge-runs-root.jsx` to utilize `lib/challenge-engine.mjs`.
+- [x] **Step 4:** Mount About and Changelog overlays in `components/legacy-workbench.jsx` and add panel display rules in `app/globals.css`.
+- [x] **Step 5:** Author comprehensive unit and adversarial QA test suite in `test/challenge-engine.test.js`.
+- [x] **Step 6:** Verify all site test suites pass cleanly (291 tests passing).
+- [x] **Step 7:** Verify pipeline discovery tests pass cleanly (456 tests passing).
+- [x] **Step 8:** Synchronize `UI_TRANSFORMATION.md` and `COORDINATION.md` identically across both repositories.
+
+### 18.5 Execution Checklist for Codex (Phase 12C)
+- [x] **Step 1:** Ingest Pelagiad font (`public/fonts/Pelagiad.ttf`) and procedural 9-slice Morrowind border textures (`public/textures/mw-border.png`, `public/textures/mw-bevel.png`, `public/textures/mw-groove.png`) and declare `@font-face` and CRPG tokens in `app/globals.css`.
+- [x] **Step 2:** Implement native React footer `components/site-footer.jsx` with accessible navigation hooks for About and Changelog.
+- [x] **Step 3:** Implement native modern `components/app-shell.jsx` layout router supporting all 12 tools without DOM portals or `dangerouslySetInnerHTML`.
+- [x] **Step 4:** Decouple `app/page.jsx` from `LegacyWorkbench.jsx` and `body.json` to render `<AppShell />`.
+- [x] **Step 5:** Author comprehensive unit and adversarial QA test suite in `test/app-shell.test.js` (including unknown view fallback, rapid view switching, and unmounted panel tree isolation).
+- [x] **Step 6:** Verify all site test suites pass cleanly (297 tests passing).
+- [x] **Step 7:** Verify Next.js production build (`npm run build`) compiles cleanly.
+- [x] **Step 8:** Verify pipeline discovery tests pass cleanly (474 tests passing).
+- [x] **Step 9:** Synchronize `UI_TRANSFORMATION.md` and `COORDINATION.md` identically across both repositories.
+
+### 18.6 Execution Checklist for Codex (Phase 12D)
+- [x] **Step 1:** Retire `scripts/extract-legacy.cjs` from `predev` and `prebuild` hooks in `package.json`.
+- [x] **Step 2:** Remove `manifest.json` import dependency from `app/page.jsx`, rendering `<AppShell />` cleanly.
+- [x] **Step 3:** Verify Next.js production build (`npm run build`) succeeds without prebuild extraction hook (788ms compile time).
+- [x] **Step 4:** Verify all site test suites pass cleanly (297 tests passing).
+- [x] **Step 5:** Verify pipeline discovery tests pass cleanly (482 tests passing).
+- [x] **Step 6:** Synchronize `UI_TRANSFORMATION.md` and `COORDINATION.md` identically across both repositories.

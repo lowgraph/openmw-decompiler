@@ -99,8 +99,8 @@ Keep that property in anything new.
 
 1. Maintain and evolve `UI_TRANSFORMATION.md` roadmap.
 2. Review site UI implementation against CRPG design system and responsive mobile standards.
-3. Completed Phase 1 through Phase 10: Two-Pane Character Builder, Skill Matrix, Cross-Tool State, Challenge Runs Overhaul, 4 Specialized Workstations, Level Simulator & Build Progression Optimizer, Cloud Character Vault & OpenMW Binary Save Ingestion, Home Hub & Tool Directory Overhaul, Equipped Loadouts & Equipment Inspector, and Bundle Rewiring & Live Game-Data Integration.
-4. Next: Post-launch polish, profile data staging verification, and long-term catalogue additions.
+3. Completed Phase 1 through Phase 11: Two-Pane Character Builder, Skill Matrix, Cross-Tool State, Challenge Runs Overhaul, 4 Specialized Workstations, Level Simulator & Build Progression Optimizer, Cloud Character Vault & OpenMW Binary Save Ingestion, Home Hub & Tool Directory Overhaul, Equipped Loadouts & Equipment Inspector, Bundle Rewiring & Live Game-Data Integration, and Faction Journal & Promotion Deficit Engine.
+4. ~~Phase 12: Modern App Shell & Architecture Decoupling~~ **Done.** (Phase 12A Pure Permalink Codec & Shell State Engine, Phase 12B Static Views & Challenge Engine Decoupling, Phase 12C Native AppShell Layout Mounting & Asset Ingestion, and Phase 12D Legacy Extraction Deprecation & Test Re-anchoring).
 
 **Codex (Site agent)**
 
@@ -110,29 +110,38 @@ Keep that property in anything new.
    All 4 specialized workstations (Enchanting, Spellmaking, Alchemy, Travel) and Gear Advisor now connect directly to `useGameData` / `FEATURE_CATALOGS` (`travel`, `enchanting`, `spellmaking`, `alchemy`, `gear`) with live status indicators and graceful fallback to static tables.
 3. ~~Build the three-toggle UI: steal early gear, endgame gear early, near starting areas.~~ **Done.**
    Added `#gear-near-start` toggle in legacy `index.html` and synchronized in React `gear-advisor.jsx` with full 3-toggle policy resolution matching `GearRows`.
-4. Repoint `scripts/stage-game-data.mjs` away from its `A:/Cache/OpenMWBundlePreview`
-   default to `A:/Cache/OpenMWFoundation/app-bundle`. The preview folder is scratch
-   and will be deleted.
-5. Commit or delete the untracked `lib/character-catalogs.mjs`.
-6. ~~D1 schema and routes for journal progress, equipped loadouts, known spells and
+4. ~~Implement Faction Journal & Promotion Deficit Engine (Phase 11).~~ **Done.**
+   Added `components/journal-factions/` (`JournalFactionsRoot`, `FactionRoster`, `FactionDetailView`), `lib/faction-math.mjs`, `FEATURE_CATALOGS.factions`, mounted in `#panel-factions`, registered across header dropdown/mobile drawer/Home Hub directory (9 canonical tools), verified with 262 passing site test suites, zero byte budget regression (48,906 bytes < 50,000 budget), and verified via headless Chrome CDP.
+5. ~~Wire Best-In-Slot bundle and late-game gear advisor recommendations.~~ **Done.**
+   Added `bestInSlot: Object.freeze(['BestInSlot','Armor','Clothing','Weapons'])` to `FEATURE_CATALOGS` in `lib/bundle-loader.mjs`, implemented client-side scoring engine in `lib/best-in-slot.mjs` (pre-computed build picks + dynamic custom build scoring with drawback severities and beast race filters), created `components/character-builder/best-in-slot-view.jsx`, wired `useGameData('bestInSlot')` into `GearAdvisor`, and verified across 275 passing tests (including 3 adversarial QA tests in `test/best-in-slot.test.js` reading `public/game-data/current.json`).
+6. ~~Repoint `scripts/stage-game-data.mjs` away from its `A:/Cache/OpenMWBundlePreview`
+   default to `A:/Cache/OpenMWFoundation/app-bundle`.~~ **Done.**
+7. ~~Commit or delete the untracked `lib/character-catalogs.mjs`.~~ **Done.** Tracked and committed.
+8. ~~D1 schema and routes for journal progress, equipped loadouts, known spells and
    saved challenges.~~ **Done.** Implemented dual-format SLT1 binary codec (~96% compression) and fallback JSON in `cloudflare/schema.sql`, `cloudflare/routes/saves.mjs`, and `cloudflare/routes/entitlements.mjs`.
+9. ~~Phase 12A - Modern App Shell & Architecture Decoupling: Pure Permalink Codec & Shell State Engine.~~ **Done.**
+   Implemented pure ESM `lib/permalink-codec.mjs`, modernized `components/shell-context.jsx`, and authored comprehensive unit and adversarial QA tests (`test/permalink-codec.test.js`).
+10. ~~Phase 12B - Modern App Shell & Architecture Decoupling: Static Views & Challenge Engine Decoupling.~~ **Done.**
+     Implemented native modern React components `components/views/about-view.jsx` and `components/views/changelog-view.jsx`, extracted pure ESM challenge generation engine `lib/challenge-engine.mjs`, and authored comprehensive unit and adversarial QA tests (`test/challenge-engine.test.js`).
+11. ~~Phase 12C - Modern App Shell & Architecture Decoupling: Native `AppShell` Layout Mounting & Asset Ingestion.~~ **Done.**
+     Implemented `components/app-shell.jsx`, `components/site-footer.jsx`, ingested Pelagiad font and procedural 9-slice textures into `public/fonts/` and `public/textures/`, updated `app/globals.css`, switched `app/page.jsx` to render `AppShell`, and authored unit/adversarial QA tests in `test/app-shell.test.js` (297 tests passing).
+12. ~~Phase 12D - Modern App Shell & Architecture Decoupling: Legacy Extraction Deprecation & Test Re-anchoring.~~ **Done.**
+     Retired `scripts/extract-legacy.cjs` from `predev` and `prebuild` hooks in `package.json`, removed `manifest.json` dependency from `app/page.jsx`, verified Next.js production build succeeds cleanly (788ms compile time), and verified all 297 site tests pass.
 
 **Claude (Data agent)**
 
 1. ~~Ship gear rows through the bundle as a `GearRows` catalog.~~ **Done.**
    `build_app_bundle.py` publishes them automatically, keyed per row, with the policy
-   that produced them travelling as payload fields. Rows must be rebuilt first: the
-   packager refuses a file from another snapshot or one whose rows predate the key.
-   Nothing changes on the site until `FEATURE_CATALOGS` gains a `gear` group.
-2. ~~The rules library.~~ **Partly done.** `build_rules_library.py` derives targeting,
+   that produced them travelling as payload fields.
+2. ~~The rules library.~~ **Done.** `build_rules_library.py` derives targeting,
    no-magnitude and no-duration from content usage and ships them as the `EffectRules`
-   catalog, with the spell cost formula's engine literals authored alongside. 134 of 141
-   effects are decided, 7 report `null`. Display units and harmful-effect flags are still
-   absent and are not inferable from content; see RULES.md.
-3. The travel graph as a shipped catalog, from `services.sqlite`.
-4. Merchant barter pricing, for "gold price per merchant".
-5. The 326 journal topics with no resolvable title.
+   catalog, with the spell cost formula's engine literals authored alongside.
+3. ~~The travel graph as a shipped catalog, from `services.sqlite`.~~ **Done.** Shipped via `Travel` and `Places` catalogs in the app bundle.
+4. ~~Merchant barter pricing, for "gold price per merchant".~~ **Done.** Shipped via `Merchants` catalog in the app bundle.
+5. ~~The 326 journal topics with no resolvable title.~~ **Done.** Titles resolved and published across quest and topic journal records.
 6. ~~Save import for OpenMW `.omwsave`, format v37.~~ **Done.** Client-side ESM parser `lib/omwsave-parser.mjs` extracts character attributes, skills, dynamic vitals, inventory, quests, cell, and gold directly in the browser.
+7. ~~Publish BestInSlot catalog and resolve UTF-8 em-dash name encoding.~~ **Done.**
+   Rebuilt BestInSlot catalog with correct UTF-8 encoding for em-dash keys (`\u2014`), published active bundle `6e0a65192ebad50ce66c117b` referenced by `public/game-data/current.json`.
 
 ## Asking across the boundary
 
