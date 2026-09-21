@@ -385,8 +385,9 @@ class AssessmentTests(unittest.TestCase):
                                     [edge(2, 1)], [placement(2, 'tomb')]), truncated=True)
         self.assertTrue(result['earlyGameEligible'])
 
-    def shop(self, value, health, condition, policy=None):
-        """One worn weapon lying in a weapon merchant's shop, in its own world."""
+    def shop(self, value, health, condition, policy=None, chest=False):
+        """One worn weapon lying in a weapon merchant's shop, in its own world. With `chest`
+        it sits in the merchant's chest instead, and `condition` is the chest's."""
         world = World()
         self.addCleanup(world.close)
         world.object('dagger', 'WEAP')
@@ -398,10 +399,33 @@ class AssessmentTests(unittest.TestCase):
         (catalogs/'p').mkdir()
         (catalogs/'p/Weapons.json').write_text(json.dumps(
             {'records': [{'key': 'dagger', 'value': value, 'health': health}]}), encoding='utf-8')
-        graph = static([node(1, 'dagger', 'WEAP')], [],
-                       [placement(1, 'shop', owner='trader', condition=condition)])
+        if chest:
+            world.object('chest', 'CONT')
+            graph = static([node(1, 'dagger', 'WEAP'), node(2, 'chest', 'CONT')], [edge(2, 1)],
+                           [placement(2, 'shop', owner='trader', condition=condition)])
+        else:
+            graph = static([node(1, 'dagger', 'WEAP')], [],
+                           [placement(1, 'shop', owner='trader', condition=condition)])
         return assess(world.db, world.services, catalogs, 'p', graph, {'events': []},
                       policy or POLICY, self.limits, False)
+
+    def test_a_chest_says_nothing_about_the_condition_of_what_it_holds(self):
+        # A reference's condition is its own. The official Adamantium plugin saves INTV 0 on
+        # the chest at Dandera Selaro's stand; read as the contents' condition, that made a
+        # 10,000 gold cuirass broken, therefore free, therefore an early-game pick.
+        route = self.shop(10000, 900, 0, chest=True)['routes'][0]
+        self.assertIsNone(route['condition'])
+        self.assertFalse(route['needsRepair'])
+        self.assertEqual(route['value'], 10000)
+        self.assertIn('above the 500 gold cap', ' '.join(route['reasons']))
+
+    def test_a_chests_nonzero_charge_does_not_wear_its_contents_either(self):
+        # Crates carried values like this in vanilla: 408 picks read as partly worn.
+        self.assertEqual(self.shop(4000, 300, 2, chest=True)['routes'][0]['value'], 4000)
+
+    def test_the_same_charge_on_the_item_itself_still_counts(self):
+        # The fix is about whose reference it is, not about ignoring the field.
+        self.assertEqual(self.shop(4000, 300, 2)['routes'][0]['value'], 27)
 
     def test_worn_shop_stock_is_a_purchase_at_its_worn_price(self):
         result = self.shop(4000, 300, 2)

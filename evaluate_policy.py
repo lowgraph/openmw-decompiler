@@ -314,7 +314,12 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
         holder = nodes[placement['nodeVersionId']]
         quality = rank.get(holder['versionId'], RANDOM)
         extra = placement.get('details') or {}
-        worth, condition = effective_value(value, maximum, extra.get('itemChargeOrConditionRaw'))
+        # A reference's condition is its own. Placed loose, the item is the reference; in a
+        # container or an actor, the reference is the holder's, and whatever charge the
+        # editor saved on a chest says nothing about its contents, which start undamaged.
+        own = holder['versionId'] == root['versionId']
+        charge = extra.get('itemChargeOrConditionRaw') if own else None
+        worth, condition = effective_value(value, maximum, charge)
         # Shop stock is owned by its merchant, so the owner is a vendor, not a victim.
         vendor = placement.get('ownerKey') if early['vendorOwnedPlacementsArePurchasable'] else None
         purchasable = bool(quality == RESTOCKING
