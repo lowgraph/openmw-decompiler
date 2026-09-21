@@ -10,9 +10,14 @@
     "TR_Firemoth_Vanilla_patch.esp", "Sky_Main.ESM",
     "ARCE - All Races and Classes Enabled (Vanilla and Tamriel_Data).ESP"
   ],
+  "ignoredPlugins": [],
   "versions": {
     "vanilla": "OpenMW 0.51.0",
     "tamriel_rebuilt": "Tamriel Rebuilt 26.08.23"
+  },
+  "versionEvidence": {
+    "vanilla": "openmw",
+    "tamriel_rebuilt": "TR_Mainland.esm"
   },
   "outputDirectory": "items",
   "locationCacheDirectory": "A:/Cache",

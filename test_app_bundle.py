@@ -7,7 +7,7 @@ import struct
 import tempfile
 import unittest
 
-from build_app_bundle import build as build_bundle, delta, pick_base
+from build_app_bundle import build as build_bundle, delta, differing_settings, pick_base
 from build_catalogs import build as build_catalogs
 from extract_foundation import build as build_foundation
 from export_items import ExportError
@@ -296,6 +296,29 @@ class DeltaUnitTests(unittest.TestCase):
         self.assertIsNone(pick_base(tr, [vanilla, tr, arce]))
         self.assertIsNone(pick_base(arce, [vanilla, arce]))
         self.assertIsNone(pick_base(arce | {'version': '26.09'}, [vanilla, tr, arce]))
+
+class GameSettingsTests(unittest.TestCase):
+    """The site hardcodes formulas built on game settings; the bundler says when they vary."""
+    def settings(self, **values):
+        return [{'key': key, 'value': value} for key, value in values.items()]
+
+    def test_identical_settings_report_nothing(self):
+        same = self.settings(ilevelup10mult=5, fencumbrancestrmult=5.0)
+        self.assertEqual(differing_settings({'vanilla': same, 'tr': same}), [])
+
+    def test_a_changed_value_is_named(self):
+        self.assertEqual(differing_settings({
+            'vanilla': self.settings(ilevelup10mult=5, fencumbrancestrmult=5.0),
+            'tr': self.settings(ilevelup10mult=4, fencumbrancestrmult=5.0)}),
+            ['ilevelup10mult'])
+
+    def test_a_setting_only_one_profile_has_counts_as_different(self):
+        self.assertEqual(differing_settings({'vanilla': self.settings(a=1),
+                                             'tr': self.settings(a=1, snewmodstring='x')}),
+                         ['snewmodstring'])
+
+    def test_nothing_to_compare_is_empty_not_an_error(self):
+        self.assertEqual(differing_settings({}), [])
 
 
 if __name__ == '__main__':

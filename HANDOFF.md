@@ -97,8 +97,8 @@ The app contract is in `catalog-types.ts`, `bundle-types.ts`, `policy-types.ts`,
 `best-in-slot-types.ts`. Keep them in step with the builders.
 
 To rebuild after a plugin, OpenMW, policy or site-build change, follow
-[REBUILD.md](REBUILD.md): the full run order, what each guard means, and the three
-engine transcriptions an OpenMW update needs checking by hand.
+[REBUILD.md](REBUILD.md): the full run order, what every refusal means, and the two
+engine transcriptions an OpenMW update stops the merchant build over.
 
 ### Numbers worth knowing
 

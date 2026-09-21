@@ -26,11 +26,19 @@ import time
 import autocalc
 from build_acquisition_index import metadata
 from export_items import ExportError
-from extract_foundation import ROOT, load_config
+from extract_foundation import ROOT, label_carries, load_config
 
 VERSION = '1.0.0'
 CLASS = re.compile(rb'CNAM.{4}([^\x00]*)\x00', re.S)
 RACE = re.compile(rb'RNAM.{4}([^\x00]*)\x00', re.S)
+
+# The OpenMW release both transcriptions below were checked against, line by line, at
+# tag openmw-0.51.0 (commit f4bec41444): these literals against getBarterOffer, and
+# autocalc.py against autoCalculateAttributes and autoCalculateSkills, including
+# npc.cpp's own round_ieee_754, which rounds ties to even as Python's round() does.
+# They are code, not data, so no rebuild can update them; check_transcription stops the
+# build when the extraction names another release.
+TRANSCRIBED_FROM = '0.51.0'
 
 # MechanicsManager::getBarterOffer, apps/openmw/mwmechanics/mechanicsmanagerimp.cpp.
 # Transcribed from the engine source, not from memory: the weights below are not the
@@ -38,6 +46,7 @@ RACE = re.compile(rb'RNAM.{4}([^\x00]*)\x00', re.S)
 # These are engine literals rather than game settings, so they are authored and marked.
 BARTER_FORMULA = {
     'source': 'authored',
+    'transcribedFrom': f'OpenMW {TRANSCRIBED_FROM}',
     'note': "OpenMW's getBarterOffer. Each side contributes capped Mercantile, Luck and "
             'Personality; disposition moves only the player side. The offer is a '
             'percentage of base value, truncated, then floored at 1 gold.',
@@ -200,6 +209,23 @@ def publish(payload, output, profile):
     return destination, len(body)
 
 
+def check_transcription(versions):
+    """Refuse to price with formulas copied from a different engine release.
+
+    `versions` maps each world to the label the extraction recorded; the vanilla one
+    names the OpenMW release, and extraction has already checked it against the binary.
+    """
+    labelled = versions.get('vanilla', '')
+    if not label_carries(labelled, TRANSCRIBED_FROM):
+        raise ExportError(
+            f'The barter formula and autocalc were transcribed from OpenMW '
+            f'{TRANSCRIBED_FROM}, but this extraction is for {labelled!r}.\n  Compare '
+            'MechanicsManager::getBarterOffer (apps/openmw/mwmechanics/mechanicsmanagerimp.cpp)'
+            ' and autoCalculateAttributes and autoCalculateSkills (apps/openmw/mwclass/npc.cpp)'
+            ' between the two releases. If they are unchanged, set TRANSCRIBED_FROM in '
+            'build_merchant_catalog.py to the new version; if not, transcribe them again.')
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--profile', action='append', choices=['vanilla', 'tr', 'tr_arce'])
@@ -230,6 +256,7 @@ def main(argv=None):
                 db.execute('PRAGMA temp_store=MEMORY')
                 dbs.append(db)
             services, game = dbs
+            check_transcription({p['world']: p['version'] for p in metadata(game)['profiles']})
             snapshot = metadata(services).get('snapshotId')
             for profile in profiles:
                 reference = None if args.no_autocalc else autocalc.reference(catalogs, profile)

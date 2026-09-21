@@ -281,7 +281,9 @@ def publish(rows, output, profile, policy, limits, snapshot, categories):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--profile', default='vanilla', choices=['vanilla', 'tr', 'tr_arce'])
+    parser.add_argument('--profile', action='append', choices=['vanilla', 'tr', 'tr_arce'],
+                        help='Repeat for several; every profile when omitted, like every '
+                             'other step. Each takes about twenty minutes.')
     parser.add_argument('--policy', type=Path)
     parser.add_argument('--catalogs', type=Path)
     parser.add_argument('--output', type=Path)
@@ -297,7 +299,15 @@ def main(argv=None):
         parser.add_argument('--'+name, type=Path)
     args = parser.parse_args(argv)
     categories = set(args.category or CATEGORIES)
+    profiles = args.profile or ['vanilla', 'tr', 'tr_arce']
     try:
+        # The bundler takes the newest rows per profile, and a partial run does not merge
+        # with the last full one, so published beside the real rows it would ship in
+        # their place. A --limit smoke run once did exactly that.
+        if (args.limit is not None or args.category) and args.output is None:
+            raise ExportError('A partial run (--limit or --category) would become the newest '
+                              'rows and be bundled in place of the full ones; pass --output '
+                              'with a scratch folder, such as A:/Cache/RowsPreview')
         root = load_config(ROOT/'foundation_config.json')[2]
         policy = load_policy(args.policy or ROOT/'policy/early-game.json')
         catalogs = args.catalogs
@@ -321,22 +331,23 @@ def main(argv=None):
             # The near-start places are authored substrings; check them against the real
             # cell keys before spending twenty minutes building rows around them.
             coverage = check_near_start(policy, profile_cells(services))
-            inert = sorted(place for place, seen in coverage.items() if args.profile not in seen)
-            if inert:
-                print(f'{args.profile}: near-start places that match nothing in this '
-                      f'profile: {", ".join(inert)}', flush=True)
             snapshot = metadata(world).get('snapshotId')
             limits = resolve_limits(world, policy)
-            started = time.time()
-            rows = build(world, acquisition, services, catalogs, args.profile, policy, categories,
-                         limits, args.max_placements, args.max_nodes, args.max_edges,
-                         args.max_depth, args.limit)
-            destination, size = publish(rows, args.output or root/'gear-rows', args.profile,
-                                        policy, limits, snapshot, categories)
-        filled = sum(1 for r in rows if r['primary'])
-        print(f'Gear rows complete: {destination}\n'
-              f'{len(rows)} rows, {filled} filled, {len(rows)-filled} empty, '
-              f'{size/1024:.0f} KB, {time.time()-started:.0f}s', flush=True)
+            for profile in profiles:
+                inert = sorted(place for place, seen in coverage.items() if profile not in seen)
+                if inert:
+                    print(f'{profile}: near-start places that match nothing in this '
+                          f'profile: {", ".join(inert)}', flush=True)
+                started = time.time()
+                rows = build(world, acquisition, services, catalogs, profile, policy,
+                             categories, limits, args.max_placements, args.max_nodes,
+                             args.max_edges, args.max_depth, args.limit)
+                destination, size = publish(rows, args.output or root/'gear-rows', profile,
+                                            policy, limits, snapshot, categories)
+                filled = sum(1 for r in rows if r['primary'])
+                print(f'Gear rows complete: {destination}\n'
+                      f'{len(rows)} rows, {filled} filled, {len(rows)-filled} empty, '
+                      f'{size/1024:.0f} KB, {time.time()-started:.0f}s', flush=True)
         return 0
     except KeyboardInterrupt:
         print('\nCancelled; no rows were published.')

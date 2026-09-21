@@ -2,8 +2,10 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
-from import_effect_flags import SUPPORTED_DUMPS, build, find_log, parse, validate
+from import_effect_flags import (SUPPORTED_DUMPS, build, dump_provenance, find_log, parse,
+                                 validate)
 from export_items import ExportError
 
 BASE = {'harmful': False, 'continuousVfx': False, 'hasDuration': True, 'hasMagnitude': True,
@@ -144,6 +146,36 @@ class ProfileTests(unittest.TestCase):
         destination, payload = build(log(*block([record('one', 'One')])), output)
         self.assertEqual(destination, output/'effect-flags.json')
         self.assertIsNone(payload['profile'])
+
+
+class ProvenanceTests(unittest.TestCase):
+    """A dump says which extraction and which engine it belongs to, or it is not taken."""
+    def provenance(self, running, labelled):
+        with mock.patch('import_effect_flags.extracted_snapshot', return_value='s'*64), \
+                mock.patch('import_effect_flags.openmw_version', return_value=running), \
+                mock.patch('import_effect_flags.extraction_versions',
+                           return_value={'vanilla': labelled}):
+            return dump_provenance(Path('root'), {}, {}, Path('openmw.exe'))
+
+    def test_the_dump_records_its_extraction_and_engine(self):
+        found = self.provenance('0.51.0', 'OpenMW 0.51.0')
+        self.assertEqual(found, {'snapshotId': 's'*64, 'openmwVersion': '0.51.0'})
+        _, payload = build(log(*block([record('one', 'One')])), Path(tempfile.mkdtemp()),
+                           'vanilla', found)
+        self.assertEqual(payload['source']['snapshotId'], 's'*64)
+        self.assertEqual(payload['source']['openmwVersion'], '0.51.0')
+
+    def test_an_engine_newer_than_the_extraction_is_refused_before_launching(self):
+        # Updating OpenMW and its label without extracting again passes every config
+        # check; only the label the extraction recorded shows the mismatch.
+        with self.assertRaises(ExportError) as caught:
+            self.provenance('0.52.0', 'OpenMW 0.51.0')
+        self.assertIn('0.52.0', str(caught.exception))
+        self.assertIn('extract_foundation.py', str(caught.exception))
+
+    def test_an_extraction_with_no_vanilla_label_is_refused(self):
+        with self.assertRaises(ExportError):
+            self.provenance('0.51.0', '')
 
 
 class LogDiscoveryTests(unittest.TestCase):

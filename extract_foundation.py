@@ -5,12 +5,15 @@ Uses Python's standard library only. No location-path expansion or game writes.
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sqlite3
 import struct
+import subprocess
 import sys
 import tempfile
 import time
@@ -19,6 +22,10 @@ from export_items import ExportError, config_value, decode
 
 ROOT = Path(__file__).resolve().parent
 SCHEMA_VERSION = 1
+# Everything OpenMW can load as content: plugins, and the Lua scripts TR registers with.
+CONTENT_SUFFIXES = frozenset({'.esm', '.esp', '.omwaddon', '.omwgame', '.omwscripts'})
+# How a release states its version in the plugin header: "Main File v. 26.08".
+HEADER_VERSION = re.compile(r'\bv\.?\s*(\d+(?:\.\d+)+[a-z]?)', re.IGNORECASE)
 NAMED = set('GMST GLOB CLAS FACT RACE SOUN REGN BSGN LTEX SPEL ACTI ALCH APPA ARMO BODY BOOK CLOT CONT CREA DOOR ENCH INGR LEVC LEVI LIGH LOCK MISC NPC_ PROB REPA STAT WEAP DIAL SNDG'.split())
 
 
@@ -197,17 +204,131 @@ def discover(config, source):
                 directories.append(directory)
         elif key == 'encoding':
             encoding = {'win1250':'cp1250', 'win1251':'cp1251', 'win1252':'cp1252'}.get(value, value)
-    available = {}
+    # A release that ships a new plugin would otherwise be extracted without it, quietly:
+    # nothing above can ask for a file nobody listed. Leaving one out has to be said.
+    accounted = wanted | {name.casefold() for p in config['profiles']
+                          for name in p.get('runtimeContent', ())} \
+        | {name.casefold() for name in source.get('ignoredPlugins', ())}
+    available, unlisted = {}, set()
     for directory in directories:
         if not directory.is_dir():
             raise ExportError(f'Approved data directory missing: {directory}')
         for path in directory.iterdir():
             if path.is_file() and path.name.casefold() in wanted:
                 available[path.name.casefold()] = path
+            elif (path.is_file() and path.suffix.casefold() in CONTENT_SUFFIXES
+                    and path.name.casefold() not in accounted):
+                unlisted.add(path.name)
+    if unlisted:
+        raise ExportError(
+            f'{len(unlisted)} content file(s) in approved folders belong to no profile: '
+            + ', '.join(sorted(unlisted))
+            + '\n  A new release may have added them. Add each to a profile in '
+              'foundation_config.json, or to ignoredPlugins in export_config.json to leave '
+              'it out on purpose.')
     if wanted - available.keys():
         raise ExportError('Missing approved profile plugins: ' + ', '.join(sorted(wanted-available.keys())))
     names = list(dict.fromkeys(name.casefold() for p in config['profiles'] for name in p['plugins']))
     return [available[name] for name in names], encoding
+
+
+def plugin_description(path):
+    """The description in a TES3 plugin's header, which is where a release names itself."""
+    with open(path, 'rb') as stream:
+        head = stream.read(320)
+    # Record header (16), then HEDR's own (8): version, flags, company[32], description[256].
+    if head[:4] != b'TES3' or head[16:20] != b'HEDR':
+        raise ExportError(f'{Path(path).name} has no TES3 header')
+    return ' '.join(head[64:320].split(b'\0')[0].decode('cp1252', 'replace').split())
+
+
+def openmw_version(executable):
+    """What the OpenMW binary says it is, e.g. '0.51.0'. It prints and exits; no window."""
+    run = subprocess.run([str(executable), '--version'], capture_output=True, text=True,
+                         encoding='utf-8', errors='replace', timeout=120)
+    found = re.search(r'OpenMW version (\S+)', run.stdout)
+    if not found:
+        raise ExportError(f'{executable} --version did not report a version')
+    return found.group(1)
+
+
+def label_carries(label, version):
+    """Whether a hand-typed label names this version: 'Tamriel Rebuilt 26.08.23' carries the
+    26.08 its header states, and does not carry 26.0 or 6.08."""
+    return re.search(rf'(?<![\d.]){re.escape(version)}(?!\d)', label) is not None
+
+
+def check_versions(source, paths, running=None):
+    """Refuse a version label the files themselves contradict.
+
+    The labels are typed by hand and every record carries one, so a stale label would
+    mislabel a whole extraction. Each world names its evidence in versionEvidence:
+    'openmw' for what the binary reports, or a plugin whose header states the release.
+    """
+    by_name = {Path(path).name.casefold(): Path(path) for path in paths}
+    problems = []
+    for world, evidence in source.get('versionEvidence', {}).items():
+        label = source['versions'][world]
+        if evidence == 'openmw':
+            stated = running or openmw_version(source['openmwExecutable'])
+            origin = f'{source["openmwExecutable"]} reports {stated}'
+        else:
+            plugin = by_name.get(evidence.casefold())
+            if plugin is None:
+                raise ExportError(f'versionEvidence names {evidence}, which no profile loads')
+            description = plugin_description(plugin)
+            found = HEADER_VERSION.search(description)
+            if not found:
+                raise ExportError(f'{plugin.name} states no version to check the '
+                                  f'{world} label against: {description!r}')
+            stated = found.group(1)
+            origin = f'{plugin.name} says {description[:60]!r}'
+        if not label_carries(label, stated):
+            problems.append(f'versions.{world} is {label!r}, but {origin}')
+    if problems:
+        raise ExportError('A version label in export_config.json is stale:\n  '
+                          + '\n  '.join(problems)
+                          + '\n  Every record carries this label; update it before extracting.')
+
+
+def extracted_snapshot(root, config, source):
+    """The snapshot of the current extraction, after checking that the plugins OpenMW would
+    load now are the very files it read. Anything taken from the running game — the effect
+    dump — is only comparable with an extraction of the same files."""
+    database = Path(root)/'game-data.sqlite'
+    if not database.is_file():
+        raise ExportError(f'No extraction at {database}; run extract_foundation.py first')
+    with closing(sqlite3.connect(database.resolve().as_uri()+'?mode=ro', uri=True)) as db:
+        snapshot = json.loads(db.execute(
+            "SELECT value FROM metadata WHERE key='snapshotId'").fetchone()[0])
+        extracted = {name.casefold(): (size, mtime, digest) for name, size, mtime, digest
+                     in db.execute('SELECT name, byte_size, mtime_ns, sha256 FROM plugins')}
+    changed = []
+    for path in discover(config, source)[0]:
+        stat = path.stat()
+        size, mtime, digest = extracted.get(path.name.casefold(), (None, None, None))
+        if (stat.st_size, stat.st_mtime_ns) == (size, mtime):
+            continue
+        # Copied or touched but identical is fine; the extraction hashed every byte.
+        if stat.st_size == size and hashlib.sha256(path.read_bytes()).hexdigest() == digest:
+            continue
+        changed.append(path.name)
+    if changed:
+        raise ExportError('These plugins changed since the last extraction: '
+                          + ', '.join(changed) + '\n  Run extract_foundation.py first.')
+    return snapshot
+
+
+def extraction_versions(root):
+    """The label each world was extracted under, as its records carry it. This, not the
+    config, is what to compare the running engine with: the config can be edited after."""
+    database = Path(root)/'game-data.sqlite'
+    if not database.is_file():
+        raise ExportError(f'No extraction at {database}; run extract_foundation.py first')
+    with closing(sqlite3.connect(database.resolve().as_uri()+'?mode=ro', uri=True)) as db:
+        profiles = json.loads(db.execute(
+            "SELECT value FROM metadata WHERE key='profiles'").fetchone()[0])
+    return {profile['world']: profile['version'] for profile in profiles}
 
 
 def archive_plugin(db, path, plugin_id, encoding):
@@ -364,6 +485,7 @@ def main(argv=None):
     try:
         config, source, output = load_config(args.config)
         paths, encoding = discover(config, source)
+        check_versions(source, paths)
         for profile in config['profiles']:
             print(f'{profile["id"]}: ' + ' -> '.join(profile['plugins']))
         if args.list_plugins:
@@ -376,7 +498,7 @@ def main(argv=None):
     except KeyboardInterrupt:
         print('\nCancelled; previously published foundation is unchanged.', flush=True)
         return 130
-    except (OSError, ValueError, KeyError, sqlite3.Error) as exc:
+    except (OSError, ValueError, KeyError, sqlite3.Error, subprocess.SubprocessError) as exc:
         print(f'Foundation extraction failed: {exc}', file=sys.stderr)
         return 1
 

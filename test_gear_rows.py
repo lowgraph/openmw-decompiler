@@ -1,9 +1,11 @@
+from contextlib import redirect_stdout
+import io
 from pathlib import Path
 import unittest
 
 from build_gear_rows import (ARMOR_CLASSES, ARMOR_SLOTS, BEAST_FORBIDDEN_PARTS,
                              CLOTHING_SLOTS, OBJECTIVES, WEAPON_ROWS, armor_class,
-                             assemble, beast_wearable, best, objectives_from, row_key,
+                             assemble, beast_wearable, best, main, objectives_from, row_key,
                              strength, toggle_sets, variant)
 from evaluate_policy import load_policy
 from export_items import ExportError
@@ -300,6 +302,29 @@ class AssembleTests(unittest.TestCase):
         self.assertEqual(best([candidate('dear', 10, True, price=400),
                                candidate('cheap', 10, True, price=27)])['name'], 'cheap')
         self.assertIsNone(best([]))
+
+
+class PartialRunTests(unittest.TestCase):
+    """A partial run must not land where the bundler takes the newest rows from."""
+    def refused(self, *argv):
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = main(list(argv))
+        return code, out.getvalue()
+
+    def test_a_smoke_run_without_its_own_folder_is_refused(self):
+        code, said = self.refused('--limit', '60')
+        self.assertEqual(code, 1)
+        self.assertIn('--output', said)
+
+    def test_a_limit_of_zero_is_still_a_partial_run(self):
+        # 0 is falsy; the guard asks "was a limit given", not "is it truthy".
+        self.assertEqual(self.refused('--limit', '0')[0], 1)
+
+    def test_a_category_run_is_partial_too_because_nothing_merges_it(self):
+        code, said = self.refused('--profile', 'vanilla', '--category', 'weapon')
+        self.assertEqual(code, 1)
+        self.assertIn('in place of the full ones', said)
 
 
 if __name__ == '__main__':

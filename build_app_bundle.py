@@ -158,6 +158,19 @@ def pick_base(profile, available):
     return None
 
 
+def differing_settings(settings_by_profile):
+    """Game settings whose value is not the same in every profile, missing counting as
+    different.
+
+    The site hardcodes formulas built on some of them — the level-up multipliers in
+    lib/level-math.mjs, armour, encumbrance — which hold in every profile only while this
+    is empty. The bundle is right either way, so a difference is reported, not refused.
+    """
+    values = [{row['key']: row['value'] for row in rows} for rows in settings_by_profile.values()]
+    keys = set().union(*values) if values else set()
+    return sorted(key for key in keys if len({repr(v.get(key)) for v in values}) > 1)
+
+
 def write_payload(path, payload):
     body = json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(',', ':')).encode('utf-8')
     path.write_bytes(body)
@@ -290,6 +303,9 @@ def build(source, output, profiles=None, include_book_text=False, extras=None):
                 manifest['profiles'].append({k: profile[k] for k in ('id', 'world', 'version', 'arce')}
                                             | {'base': base, 'files': files, 'inherits': inherits})
                 print(f'{profile_id}: {len(files)} files, {len(inherits)} inherited from {base or "-"}', flush=True)
+            # None when there is nothing to compare, so a one-profile build claims nothing.
+            differing = (differing_settings({p: records_for(p, 'GameSettings') for p in selected})
+                         if 'GameSettings' in names and len(selected) > 1 else None)
             manifest['totals'] = {
                 'files': sum(len(p['files']) for p in manifest['profiles']),
                 'bytes': sum(f['bytes'] for p in manifest['profiles'] for f in p['files'].values()),
@@ -304,6 +320,14 @@ def build(source, output, profiles=None, include_book_text=False, extras=None):
         print(f'Bundle complete: {destination}\n'
               f'{totals["files"]} files, {totals["bytes"]/1048576:.2f} MB raw, '
               f'{totals["gzipBytes"]/1048576:.2f} MB gzipped', flush=True)
+        if differing:
+            print(f'\nNotice: {len(differing)} game setting(s) differ between profiles: '
+                  + ', '.join(differing[:8]) + (' ...' if len(differing) > 8 else '')
+                  + '\n  The site hardcodes formulas built on some game settings '
+                    '(lib/level-math.mjs among them); tell the site agent which changed.',
+                  flush=True)
+        elif differing is not None:
+            print('Game settings are identical in every profile.', flush=True)
         return destination
     finally:
         lock.unlink(missing_ok=True)

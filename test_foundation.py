@@ -2,13 +2,15 @@ import contextlib
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import sqlite3
 import struct
 import tempfile
 import unittest
 
-from extract_foundation import build, record_identity, fields, discover
+from extract_foundation import (build, check_versions, discover, extracted_snapshot, fields,
+                                label_carries, plugin_description, record_identity)
 from export_items import ExportError
 from test_export_items import pack_record, plugin_file
 from test_export_locations import cell, reference
@@ -113,6 +115,95 @@ class FoundationTests(unittest.TestCase):
         paths,encoding = discover(self.config,source)
         self.assertEqual(paths,[self.base,self.mod,self.arce])
         self.assertEqual(encoding,'cp1252')
+
+    def source(self, **extra):
+        cfg = self.root/'openmw.cfg'
+        cfg.write_text(f'data="{self.root}"\n')
+        return {'openmwConfig': str(cfg), 'baseDataDirectory': str(self.root),
+                'modsDirectory': str(self.root/'mods'), 'allowedModPrefixes': [],
+                'allowedPlugins': ['base.esm', 'mod.esm', 'arce.esp'], **extra}
+
+    def test_a_plugin_a_release_added_and_nobody_listed_is_refused(self):
+        # The quiet failure: without this, extraction reads what it was told and never
+        # mentions the new file sitting beside the others.
+        (self.root/'TR_NewRegion.esp').write_bytes(b'')
+        (self.root/'new.omwscripts').write_text('', encoding='utf-8')
+        with self.assertRaises(ExportError) as caught:
+            discover(self.config, self.source())
+        self.assertIn('TR_NewRegion.esp', str(caught.exception))
+        self.assertIn('new.omwscripts', str(caught.exception))
+        self.assertIn('ignoredPlugins', str(caught.exception))
+
+    def test_ignored_plugins_and_runtime_content_are_accounted_for(self):
+        (self.root/'TR_NewRegion.esp').write_bytes(b'')
+        (self.root/'tr.omwscripts').write_text('', encoding='utf-8')
+        (self.root/'notes.txt').write_text('not content', encoding='utf-8')
+        config = json.loads(json.dumps(self.config))
+        config['profiles'][1]['runtimeContent'] = ['TR.omwscripts']
+        paths, _ = discover(config, self.source(ignoredPlugins=['tr_newregion.ESP']))
+        self.assertEqual(paths, [self.base, self.mod, self.arce])
+
+    def headed(self, name, description):
+        """A plugin whose TES3 header carries this description."""
+        body = struct.pack('<fI32s256sI', 1.3, 0, b'Team', description.encode('cp1252'), 0)
+        hedr = b'HEDR' + struct.pack('<I', len(body)) + body
+        path = self.root/name
+        path.write_bytes(b'TES3' + struct.pack('<III', len(hedr), 0, 0) + hedr)
+        return path
+
+    def test_a_label_carries_its_version_and_nothing_near_it(self):
+        self.assertTrue(label_carries('Tamriel Rebuilt 26.08.23', '26.08'))
+        self.assertTrue(label_carries('OpenMW 0.51.0', '0.51.0'))
+        self.assertFalse(label_carries('Tamriel Rebuilt 26.08.23', '26.0'))
+        self.assertFalse(label_carries('Tamriel Rebuilt 26.08.23', '6.08'))
+        self.assertFalse(label_carries('OpenMW 0.51.0', '0.52.0'))
+
+    def test_a_label_the_plugin_header_contradicts_is_refused(self):
+        plugin = self.headed('TR_Mainland.esm', 'Main File v. 26.11')
+        source = {'versions': {'tamriel_rebuilt': 'Tamriel Rebuilt 26.08.23'},
+                  'versionEvidence': {'tamriel_rebuilt': 'TR_Mainland.esm'}}
+        self.assertEqual(plugin_description(plugin), 'Main File v. 26.11')
+        with self.assertRaises(ExportError) as caught:
+            check_versions(source, [plugin])
+        self.assertIn('stale', str(caught.exception))
+        self.assertIn('TR_Mainland.esm', str(caught.exception))
+        self.headed('TR_Mainland.esm', 'Main File v. 26.08')
+        check_versions(source, [plugin])
+
+    def test_a_header_stating_no_version_is_refused_rather_than_passed(self):
+        plugin = self.headed('TR_Mainland.esm', 'The mainland, lovingly made')
+        with self.assertRaisesRegex(ExportError, 'states no version'):
+            check_versions({'versions': {'tamriel_rebuilt': 'Tamriel Rebuilt 26.08.23'},
+                            'versionEvidence': {'tamriel_rebuilt': 'TR_Mainland.esm'}}, [plugin])
+
+    def test_the_openmw_label_must_match_the_binary(self):
+        source = {'versions': {'vanilla': 'OpenMW 0.51.0'}, 'openmwExecutable': 'openmw.exe',
+                  'versionEvidence': {'vanilla': 'openmw'}}
+        check_versions(source, [], running='0.51.0')
+        with self.assertRaisesRegex(ExportError, 'reports 0.52.0'):
+            check_versions(source, [], running='0.52.0')
+
+    def test_evidence_naming_a_plugin_no_profile_loads_is_refused(self):
+        with self.assertRaisesRegex(ExportError, 'no profile loads'):
+            check_versions({'versions': {'tamriel_rebuilt': 'x'},
+                            'versionEvidence': {'tamriel_rebuilt': 'Gone.esm'}}, [])
+
+    def test_the_extraction_snapshot_is_refused_once_a_plugin_changes(self):
+        self.run_build()
+        source = self.source()
+        snapshot = extracted_snapshot(self.target.parent, self.config, source)
+        self.assertEqual(len(snapshot), 64)
+        # Touched but byte-identical still matches: the extraction hashed every byte.
+        os.utime(self.mod, (1_000_000_000, 1_000_000_000))
+        self.assertEqual(extracted_snapshot(self.target.parent, self.config, source), snapshot)
+        with self.mod.open('ab') as stream:
+            stream.write(b'\0')
+        with self.assertRaisesRegex(ExportError, 'mod.esm'):
+            extracted_snapshot(self.target.parent, self.config, source)
+
+    def test_no_extraction_is_refused(self):
+        with self.assertRaisesRegex(ExportError, 'No extraction'):
+            extracted_snapshot(self.root/'empty', self.config, self.source())
 
 
 if __name__ == '__main__':

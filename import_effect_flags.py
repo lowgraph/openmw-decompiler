@@ -15,11 +15,13 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import tempfile
 import time
 
 from export_items import ExportError
-from extract_foundation import ROOT, load_config
+from extract_foundation import (ROOT, extracted_snapshot, extraction_versions, label_carries,
+                                load_config, openmw_version)
 
 VERSION = '1.0.0'
 # Every version published id and name; only the numeric index was ever wrong, and
@@ -110,7 +112,21 @@ def validate(block):
     return by_id, sorted(n for n, count in names.items() if count > 1)
 
 
-def build(log, output, profile=None):
+def dump_provenance(root, config, source, openmw):
+    """What a dump about to be taken belongs to: the current extraction, and the engine that
+    will run. The rules step compares the first with its catalogs, so a dump left over from
+    an older extraction is refused there instead of quietly merged."""
+    snapshot = extracted_snapshot(root, config, source)
+    running = openmw_version(openmw)
+    labelled = extraction_versions(root).get('vanilla', '')
+    if not label_carries(labelled, running):
+        raise ExportError(f'OpenMW reports {running}, but the extraction is labelled '
+                          f'{labelled!r}.\n  Update versions.vanilla in export_config.json '
+                          'and run extract_foundation.py first.')
+    return {'snapshotId': snapshot, 'openmwVersion': running}
+
+
+def build(log, output, profile=None, provenance=None):
     blocks, errors = parse(Path(log).read_text(encoding='utf-8', errors='replace'))
     if not blocks:
         detail = ('\n  The mod reported: ' + '; '.join(errors)) if errors else (
@@ -122,7 +138,8 @@ def build(log, output, profile=None):
                'ambiguousNames': ambiguous,
                'source': {'tool': 'openmw_effect_dump', 'dumpVersion': block['dumpVersion'],
                           'context': block['context'], 'log': str(Path(log).resolve()),
-                          'blocksFound': len(blocks), 'capturedAtUnix': time.time()},
+                          'blocksFound': len(blocks), 'capturedAtUnix': time.time(),
+                          **(provenance or {})},
                'coverage': 'Read from the running engine through its Lua API, so these are '
                            'facts rather than inferences. Display units are not among them: '
                            'OpenMW decides those in its interface, not in the effect record. '
@@ -151,10 +168,12 @@ def main(argv=None):
                         help='Write <root>/effect-flags/<profile>.json for this profile')
     args = parser.parse_args(argv)
     try:
-        root = load_config(ROOT/'foundation_config.json')[2]
+        config, source, root = load_config(ROOT/'foundation_config.json')
         log = find_log(args.log)
         output = args.output or (root/'effect-flags' if args.profile else root)
-        destination, payload = build(log, output, args.profile)
+        # The log came from whichever OpenMW you ran; the configured one is assumed.
+        provenance = dump_provenance(root, config, source, source['openmwExecutable'])
+        destination, payload = build(log, output, args.profile, provenance)
         harmful = sum(1 for r in payload['records'] if r['harmful'])
         if payload['ambiguousNames']:
             print(f'{len(payload["ambiguousNames"])} effect names are used more than once and '
@@ -168,7 +187,7 @@ def main(argv=None):
               f'{sum(1 for r in payload["records"] if not r["hasDuration"])} without duration\n'
               f'Written: {destination}', flush=True)
         return 0
-    except (ValueError, KeyError, OSError) as exc:
+    except (ValueError, KeyError, OSError, subprocess.SubprocessError) as exc:
         print(f'Effect flag import failed: {exc}')
         return 1
 

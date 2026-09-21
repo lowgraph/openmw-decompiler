@@ -57,8 +57,8 @@ completion per character tracks against. See [QUESTS.md](QUESTS.md) and
 toggles for Mages Guild membership and Conjurer rank. See [TRAVEL.md](TRAVEL.md) and
 `travel-types.ts`.
 
-**Gear rows:** run `python build_gear_rows.py --profile vanilla` after the policy is
-settled. It writes one row per equipment slot per toggle combination, with the closest
+**Gear rows:** run `python build_gear_rows.py` after the policy is settled; it covers
+every profile unless given `--profile`. It writes one row per equipment slot per toggle combination, with the closest
 source first and a stronger "or" from farther away. See [ROWS.md](ROWS.md) and
 `gear-rows-types.ts`.
 

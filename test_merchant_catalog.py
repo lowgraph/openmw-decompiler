@@ -2,8 +2,29 @@ import json
 import sqlite3
 import unittest
 
-from build_merchant_catalog import (BARTER_FORMULA, assemble, barter_stats, build,
-                                    service_flags)
+from build_merchant_catalog import (BARTER_FORMULA, TRANSCRIBED_FROM, assemble, barter_stats,
+                                    build, check_transcription, service_flags)
+from export_items import ExportError
+
+
+class TranscriptionTests(unittest.TestCase):
+    """The formulas are code copied from one engine release; another one stops the build."""
+    def test_the_release_it_was_checked_against_passes(self):
+        check_transcription({'vanilla': f'OpenMW {TRANSCRIBED_FROM}',
+                             'tamriel_rebuilt': 'Tamriel Rebuilt 26.08.23'})
+
+    def test_a_newer_engine_stops_the_build_and_says_what_to_compare(self):
+        with self.assertRaises(ExportError) as caught:
+            check_transcription({'vanilla': 'OpenMW 0.52.0'})
+        for named in ('getBarterOffer', 'autoCalculateSkills', 'TRANSCRIBED_FROM', '0.52.0'):
+            self.assertIn(named, str(caught.exception))
+
+    def test_an_extraction_without_a_vanilla_label_is_refused(self):
+        with self.assertRaises(ExportError):
+            check_transcription({'tamriel_rebuilt': 'Tamriel Rebuilt 26.08.23'})
+
+    def test_the_published_formula_names_its_release(self):
+        self.assertEqual(BARTER_FORMULA['transcribedFrom'], f'OpenMW {TRANSCRIBED_FROM}')
 
 FLAGS = [(1, 'weapons', 'trade'), (2, 'armor', 'trade'), (2048, 'spells', 'service'),
          (16384, 'training', 'service')]

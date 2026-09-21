@@ -122,13 +122,33 @@ def engine_only(record):
 
 
 def load_dump(path):
-    """Every record in an import_effect_flags.py dump, in the id order it wrote them."""
+    """Every record in an import_effect_flags.py dump, in the id order it wrote them, and
+    what the dump says it was taken against."""
     if path is None or not Path(path).is_file():
-        return [], set()
+        return [], set(), {}
     payload = json.loads(Path(path).read_text(encoding='utf-8'))
     if payload.get('schemaVersion') != VERSION:
         raise ExportError(f'Unsupported effect flag schema {payload.get("schemaVersion")!r}')
-    return payload['records'], set(payload.get('ambiguousNames') or ())
+    return (payload['records'], set(payload.get('ambiguousNames') or ()),
+            payload.get('source') or {})
+
+
+def check_provenance(profile, path, dump, taken, snapshot):
+    """Refuse a dump that cannot be shown to belong to these catalogs.
+
+    check_alignment catches a dump missing an effect; this catches the one it cannot: a
+    dump from an older extraction with the same effects and different flags, which
+    would pass by name and quietly rewrite the rules with stale facts.
+    """
+    if not dump:
+        raise ExportError(f'No effect dump for {profile} at {path}.\n  Run dump_profiles.py, '
+                          'or pass --no-flags to infer from content alone.')
+    if taken.get('snapshotId') != snapshot:
+        was = (f'extraction {taken["snapshotId"][:12]}' if taken.get('snapshotId')
+               else 'no recorded extraction')
+        raise ExportError(f'The {profile} effect dump was taken against {was}, but these '
+                          f'catalogs come from extraction {snapshot[:12]}.\n  Run '
+                          'dump_profiles.py after extracting, then rebuild the rules.')
 
 
 def load_flags(path):
@@ -139,7 +159,7 @@ def load_flags(path):
     name. A name the dump repeats resolves to nothing rather than to one of them
     arbitrarily; those records still reach the output through engine_only, keyed by id.
     """
-    records, ambiguous = load_dump(path)
+    records, ambiguous, _ = load_dump(path)
     return {record['name']: record for record in records
             if record.get('name') and record['name'] not in ambiguous}
 
@@ -212,9 +232,16 @@ def rule(effect, seen, engine=None):
 
 def build(release, output, profiles, flags=None, flag_directory=None):
     pooled = observe(release, profiles)
+    snapshot = json.loads((Path(release)/'manifest.json').read_text(encoding='utf-8'))['snapshotId']
+    # No flags at all is --no-flags: content only, said so in the output. Asking for
+    # flags and finding none is a skipped dump, and that is refused.
+    wanted = flags is not None or flag_directory is not None
     published = []
     for profile in profiles:
-        dump, ambiguous = load_dump(flags_for(flag_directory, profile, flags))
+        path = flags_for(flag_directory, profile, flags)
+        dump, ambiguous, taken = load_dump(path)
+        if wanted:
+            check_provenance(profile, path, dump, taken, snapshot)
         engine = {r['name']: r for r in dump
                   if r.get('name') and r['name'] not in ambiguous}
         effects = catalog(release, profile, 'MagicEffects')
@@ -232,7 +259,7 @@ def build(release, output, profiles, flags=None, flag_directory=None):
         unexplained = [r['name'] for r in records if r['rangesUnexplained']]
         payload = {
             'schemaVersion': VERSION, 'profile': profile,
-            'snapshotId': json.loads((Path(release)/'manifest.json').read_text(encoding='utf-8'))['snapshotId'],
+            'snapshotId': snapshot,
             'derivation': {'method': 'pooled usage across every profile in the release',
                            'engineOnly': engine_added,
                            'profilesPooled': sorted(profiles), 'sources': list(SOURCES),

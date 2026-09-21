@@ -4,8 +4,10 @@ Run in this project's VS Code terminal, after the catalogs and the world, acquis
 and services databases exist:
 
 ```powershell
-python build_gear_rows.py --profile vanilla
+python build_gear_rows.py
 ```
+
+Every profile unless `--profile` names some, about twenty minutes each.
 
 A row answers "what should a level 1 character wear here" for one equipment slot
 under one setting of the site's three toggles. Rows are **derived, never authored**:
@@ -188,10 +190,15 @@ vanilla: 1,605 items -> 424 rows, 414 filled, 254 KB, 196s
 
 ```powershell
 python build_gear_rows.py --profile tr
-python build_gear_rows.py --profile vanilla --category weapon --category shield
+python build_gear_rows.py --profile vanilla --category weapon --category shield --output A:\Cache\RowsPreview
 python build_gear_rows.py --profile vanilla --limit 60 --output A:\Cache\RowsPreview
 python -m unittest test_gear_rows -v
 ```
+
+A partial run — `--limit` or `--category` — needs `--output`. It does not merge with
+the last full rows, and the bundler takes the newest file per profile, so published
+beside the real rows it would ship in their place. A smoke run once did exactly that;
+the builder now refuses it.
 
 `--limit` takes the first N records per category for a smoke run; it truncates in
 catalog order, so its picks are not representative. `--max-placements` (default 1500)

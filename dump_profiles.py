@@ -22,7 +22,7 @@ import time
 
 from export_items import ExportError
 from extract_foundation import ROOT, load_config
-from import_effect_flags import MARKER, build as import_flags
+from import_effect_flags import MARKER, build as import_flags, dump_provenance
 
 MOD = ROOT/'openmw_effect_dump'
 CONTENT = 'silt_effect_dump.omwscripts'
@@ -155,12 +155,16 @@ def main(argv=None):
                                      for part in command_for(openmw, profile, args.mod))
                 print(f'{profile["id"]}:\n  {printable}')
             return 0
-        print(f'Using {openmw}\nReading {log}\n', flush=True)
+        # Checked before anything launches: a dump is only worth taking against the
+        # extraction it will be merged with, under the engine that extraction names.
+        provenance = dump_provenance(root, config, source, openmw)
+        print(f'Using {openmw} ({provenance["openmwVersion"]})\nReading {log}\n'
+              f'Extraction {provenance["snapshotId"][:12]}\n', flush=True)
         for profile in chosen:
             print(f'{profile["id"]}: launching OpenMW with '
                   f'{len(content_for(profile))} content files...', flush=True)
             elapsed = run_profile(openmw, profile, log, args.timeout, args.mod)
-            destination, payload = import_flags(log, output, profile['id'])
+            destination, payload = import_flags(log, output, profile['id'], provenance)
             print(f'  {payload["effects"]} effects in {elapsed:.0f}s -> {destination.name}',
                   flush=True)
             if payload['ambiguousNames']:

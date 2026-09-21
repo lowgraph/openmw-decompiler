@@ -9,6 +9,11 @@ Both routines are transcribed from apps/openmw/mwclass/npc.cpp, autoCalculateAtt
 and autoCalculateSkills. See MERCHANTS.md for how they were checked against 49 real
 level-1 characters, where the (level - 1) terms vanish and the result is exactly what
 character creation produces.
+
+Level 1 never rounds, so that check could not reach the rounding. The source did: at tag
+openmw-0.51.0, npc.cpp defines its own round_ieee_754, which rounds ties to even exactly
+as Python's round() does. The release this was checked against is TRANSCRIBED_FROM in
+build_merchant_catalog.py, and the build stops when the extraction names another.
 """
 from __future__ import annotations
 

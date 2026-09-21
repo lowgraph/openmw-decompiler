@@ -74,7 +74,8 @@ class RulesFixture(unittest.TestCase):
         counted = Counter(r['name'] for r in written)
         path = Path(tempfile.mkdtemp())/'effect-flags.json'
         path.write_text(json.dumps(
-            {'schemaVersion': '1.0.0', 'effects': len(written), 'source': {'tool': 'test'},
+            {'schemaVersion': '1.0.0', 'effects': len(written),
+             'source': {'tool': 'test', 'snapshotId': SNAPSHOT},
              'ambiguousNames': sorted(n for n, c in counted.items() if c > 1),
              'records': written}), encoding='utf-8')
         return path
@@ -358,6 +359,34 @@ class ProfileFlagTests(RulesFixture):
             payload = json.loads(path.read_text(encoding='utf-8'))
             counts[payload['profile']] = payload['derivation']['engineOnly']
         self.assertEqual(counts, {'vanilla': 0, 'tr': 1})
+
+    def test_a_dump_from_an_older_extraction_is_refused_though_its_effects_match(self):
+        # The hole check_alignment leaves: every name lines up, so only the recorded
+        # extraction can tell these flags are stale.
+        flags = self.flags({'index': 1})
+        payload = json.loads(flags.read_text(encoding='utf-8'))
+        payload['source']['snapshotId'] = 'an-older-extraction'
+        flags.write_text(json.dumps(payload), encoding='utf-8')
+        with self.assertRaises(ExportError) as caught:
+            self.merged({'vanilla': {'Spells': [spell(use(1))]*3}}, flags)
+        self.assertIn('an-older-ext', str(caught.exception))
+        self.assertIn('dump_profiles.py', str(caught.exception))
+
+    def test_a_dump_recording_no_extraction_is_refused(self):
+        flags = self.flags({'index': 1})
+        payload = json.loads(flags.read_text(encoding='utf-8'))
+        del payload['source']['snapshotId']
+        flags.write_text(json.dumps(payload), encoding='utf-8')
+        with self.assertRaisesRegex(ExportError, 'no recorded extraction'):
+            self.merged({'vanilla': {'Spells': [spell(use(1))]*3}}, flags)
+
+    def test_asking_for_flags_and_finding_none_is_refused_not_downgraded(self):
+        # A skipped dump used to become "content only" without a word.
+        source = self.release({'vanilla': {}}, [effect(1, 'One')])
+        with self.assertRaisesRegex(ExportError, 'No effect dump for vanilla'):
+            with contextlib.redirect_stdout(io.StringIO()):
+                build(source, Path(tempfile.mkdtemp()), ['vanilla'], None,
+                      Path(tempfile.mkdtemp()))
 
     def test_agreement_labels(self):
         self.assertEqual(agreement(None, True), 'decided')
