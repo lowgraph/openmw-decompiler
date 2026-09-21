@@ -101,6 +101,7 @@ Keep that property in anything new.
 2. Review site UI implementation against CRPG design system and responsive mobile standards.
 3. Completed Phase 1 through Phase 11: Two-Pane Character Builder, Skill Matrix, Cross-Tool State, Challenge Runs Overhaul, 4 Specialized Workstations, Level Simulator & Build Progression Optimizer, Cloud Character Vault & OpenMW Binary Save Ingestion, Home Hub & Tool Directory Overhaul, Equipped Loadouts & Equipment Inspector, Bundle Rewiring & Live Game-Data Integration, and Faction Journal & Promotion Deficit Engine.
 4. ~~Phase 12: Modern App Shell & Architecture Decoupling~~ **Done.** (Phase 12A Pure Permalink Codec & Shell State Engine, Phase 12B Static Views & Challenge Engine Decoupling, Phase 12C Native AppShell Layout Mounting & Asset Ingestion, and Phase 12D Legacy Extraction Deprecation & Test Re-anchoring).
+5. ~~Phase 13: Legacy Cleanup & Architecture Archival~~ **Done.** Cleaned up and archived obsolete transition harnesses into `archive/legacy/`, decoupled entry points, and bundled styling natively.
 
 **Codex (Site agent)**
 
@@ -127,6 +128,9 @@ Keep that property in anything new.
      Implemented `components/app-shell.jsx`, `components/site-footer.jsx`, ingested Pelagiad font and procedural 9-slice textures into `public/fonts/` and `public/textures/`, updated `app/globals.css`, switched `app/page.jsx` to render `AppShell`, and authored unit/adversarial QA tests in `test/app-shell.test.js` (297 tests passing).
 12. ~~Phase 12D - Modern App Shell & Architecture Decoupling: Legacy Extraction Deprecation & Test Re-anchoring.~~ **Done.**
      Retired `scripts/extract-legacy.cjs` from `predev` and `prebuild` hooks in `package.json`, removed `manifest.json` dependency from `app/page.jsx`, verified Next.js production build succeeds cleanly (788ms compile time), and verified all 297 site tests pass.
+13. ~~Phase 13 - Legacy Cleanup & Architecture Archival.~~ **Done.**
+     Archived legacy adapters (`components/legacy-workbench.jsx`), extraction and dev scripts (`extract-legacy.cjs`, `connect-character-runtime.cjs`, `connect-alchemy-runtime.cjs`, `dev-server.cjs`), and migration bridges (`shell-bridge.js`, `character-bridge.js`) into `archive/legacy/`. Ingested baseline styling into native `app/legacy-compat.css`, removed `/legacy/legacy.css` link from `app/page.jsx`, decoupled `scripts/build-cloudflare.cjs`, cleaned `public/legacy/` from disk, and verified all 297 site tests pass.
+
 
 **Claude (Data agent)**
 

@@ -1365,3 +1365,25 @@ Transition the site's underlying infrastructure away from the legacy harness (`i
 - [x] **Step 4:** Verify all site test suites pass cleanly (297 tests passing).
 - [x] **Step 5:** Verify pipeline discovery tests pass cleanly (482 tests passing).
 - [x] **Step 6:** Synchronize `UI_TRANSFORMATION.md` and `COORDINATION.md` identically across both repositories.
+
+---
+
+## Phase 13: Legacy Cleanup & Architecture Archival
+
+### 19.1 Goal & Overview
+Permanently clean up obsolete transition harnesses, archive pre-decoupling scripts and components into `archive/legacy/` for historical record and regression verification, bundle baseline styling natively, and decouple all build scripts and entry points from `public/legacy/`.
+
+### 19.2 Execution Checklist for Codex (Phase 13)
+- [x] **Step 1:** Create `archive/legacy/` hierarchy (`components/`, `scripts/`, `migration/`) and author `archive/legacy/README.md`.
+- [x] **Step 2:** Archive obsolete DOM workbench `components/legacy-workbench.jsx` to `archive/legacy/components/legacy-workbench.jsx`.
+- [x] **Step 3:** Archive legacy scripts (`extract-legacy.cjs`, `connect-character-runtime.cjs`, `connect-alchemy-runtime.cjs`, `dev-server.cjs`) to `archive/legacy/scripts/`.
+- [x] **Step 4:** Archive legacy bridges (`shell-bridge.js`, `character-bridge.js`) to `archive/legacy/migration/`.
+- [x] **Step 5:** Ingest baseline legacy styling into `app/legacy-compat.css`, import in `app/layout.jsx`, and remove `<link rel="stylesheet" href="/legacy/legacy.css" />` from `app/page.jsx`.
+- [x] **Step 6:** Decouple `scripts/build-cloudflare.cjs` to remove `extract-legacy.cjs` execution.
+- [x] **Step 7:** Remove `"extract:legacy"` from `package.json` and repoint `"dev:legacy"` to archived dev server.
+- [x] **Step 8:** Delete temporary `public/legacy/` from disk while maintaining `.gitignore` rule.
+- [x] **Step 9:** Re-anchor regression test suites (`test/migration.test.js`, `test/character-catalogs.test.js`, `test/alchemy-catalogs.test.js`, `test/auth.test.js`) to archived script paths.
+- [x] **Step 10:** Verify all 297 site tests pass (`npm test`) and production build compiles cleanly (`npm run build`).
+- [x] **Step 11:** Verify all 482 pipeline tests pass (`unittest discover`).
+- [x] **Step 12:** Synchronize `UI_TRANSFORMATION.md` and `COORDINATION.md` identically across both repositories.
+
