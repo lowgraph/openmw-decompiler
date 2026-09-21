@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from build_loadout_catalog import (check_coverage, eligible, load_builds, load_late_policy,
+from build_best_in_slot_catalog import (check_coverage, eligible, load_builds, load_late_policy,
                                    rank, score, severity, skill_label, traits)
 from export_items import ExportError
 

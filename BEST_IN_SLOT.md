@@ -1,15 +1,15 @@
-# Late-game loadouts
+# Late-game best-in-slot gear
 
 Run in this project's VS Code terminal, after the acquisition and script-evidence
 databases exist:
 
 ```powershell
-python build_loadout_catalog.py
+python build_best_in_slot_catalog.py
 python build_app_bundle.py
 ```
 
-Output goes to `A:\Cache\OpenMWFoundation\loadouts\<profile>-<hash>.json`, and
-`build_app_bundle.py` publishes it as the `Loadouts` catalog. See `loadout-types.ts`
+Output goes to `A:\Cache\OpenMWFoundation\best-in-slot\<profile>-<hash>.json`, and
+`build_app_bundle.py` publishes it as the `BestInSlot` catalog. See `best-in-slot-types.ts`
 for the app contract.
 
 ## What it answers
@@ -139,10 +139,10 @@ hair rather than the head.
 ## Options and verification
 
 ```powershell
-python build_loadout_catalog.py --profile tr
-python build_loadout_catalog.py --builds builds.json
-python build_app_bundle.py --no-loadouts
-python -m unittest test_loadout_catalog -v
+python build_best_in_slot_catalog.py --profile tr
+python build_best_in_slot_catalog.py --builds builds.json
+python build_app_bundle.py --no-best-in-slot
+python -m unittest test_best_in_slot_catalog -v
 ```
 
 Tests cover the policy guards, coverage in both directions, trait derivation from a

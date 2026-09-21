@@ -38,9 +38,9 @@ EXTRA_CATALOGS = {
                'carry': ('regions', 'settlements', 'derivation', 'coverage')},
     'Factions': {'directory': 'factions', 'array': 'records',
                  'carry': ('derivation', 'coverage')},
-    'Loadouts': {'directory': 'loadouts', 'array': 'records',
-                 'carry': ('builds', 'toggles', 'model', 'items', 'derivation',
-                           'policyVersion', 'coverage')}}
+    'BestInSlot': {'directory': 'best-in-slot', 'array': 'records',
+                   'carry': ('builds', 'toggles', 'model', 'items', 'derivation',
+                             'policyVersion', 'coverage')}}
 
 
 def identity(record):

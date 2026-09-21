@@ -25,9 +25,10 @@ the plugin files omit — targeting, no-magnitude and no-duration — from how t
 content uses each effect. The spell cost formula branches on the last two. See
 [RULES.md](RULES.md) and `rules-types.ts`.
 
-**Late-game loadouts:** run `python build_loadout_catalog.py` to rank the items that
-already carry a constant effect, per premade build and equipment slot, by what that
-build actually values. See [LOADOUTS.md](LOADOUTS.md) and `loadout-types.ts`.
+**Late-game best-in-slot gear:** run `python build_best_in_slot_catalog.py` to
+rank the items that already carry a constant effect, per premade build and
+equipment slot, by what that build actually values. See
+[BEST_IN_SLOT.md](BEST_IN_SLOT.md) and `best-in-slot-types.ts`.
 
 **Factions:** run `python build_faction_catalog.py` to publish every faction, its
 ranks, and the attributes, skills and reputation each rank asks for. See

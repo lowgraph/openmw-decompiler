@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
   "policyVersion": "2026.09.21",
-  "name": "Silt Strider late-game loadout policy",
+  "name": "Silt Strider late-game best-in-slot policy",
   "notes": [
     "Authored rules, versioned independently of any extraction snapshot.",
     "Candidates are items that already carry a constant effect. Enchantment capacity and custom enchanting are deliberately out of scope.",

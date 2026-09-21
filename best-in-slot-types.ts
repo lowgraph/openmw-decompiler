@@ -1,5 +1,5 @@
 /**
- * Contract for loadouts schema 1.0.0 — the best constant-effect gear per build.
+ * Contract for best-in-slot schema 1.0.0 — the best constant-effect gear per build.
  *
  * A record answers one build, one toggle setting: for every equipment slot, the items
  * already carrying a constant effect that best serve that build. Candidates are items
@@ -8,12 +8,17 @@
  * Scores are comparable **within a slot for one build** and nowhere else. A helmet
  * scoring 19.5 for a Battlemage is not "better" than a ring scoring 9, and the same
  * helmet scores 12 for a build without Heavy Armor.
+ *
+ * Not to be confused with the site's *loadout*, which is a set of equipment the player
+ * has assembled and saved themselves, and which the cloud vault persists. This catalog
+ * is the recommendation a player builds a loadout from; the two words are kept apart
+ * deliberately, and nothing here should be renamed back.
  */
 import type { Profile } from "./catalog-types";
 
 /** Engine inventory slots. Gloves and bracers share a gauntlet slot, shoes share the
  *  boots slot, and both rings draw from `ring`. */
-export type LoadoutSlot =
+export type GearSlot =
   | "helmet" | "cuirass" | "greaves" | "boots" | "left_pauldron" | "right_pauldron"
   | "left_hand" | "right_hand" | "shield" | "weapon"
   | "shirt" | "pants" | "skirt" | "robe" | "belt" | "amulet" | "ring";
@@ -22,13 +27,13 @@ export type LoadoutSlot =
  *  and no script hands them over, so there is no evidence a player can get one. */
 export type SourceKind = "placed" | "quest" | "unconfirmed";
 
-export type LoadoutItem = {
+export type GearItem = {
   key: string;
   name: string;
   recordType: string;
   /** The record's own type, e.g. "cuirass", "left_bracer", "LB2H". */
   type: string;
-  slot: LoadoutSlot;
+  slot: GearSlot;
   value: number | null;
   /** False when an Argonian or Khajiit cannot equip it. Beast builds never see these. */
   beastWearable: boolean;
@@ -68,7 +73,8 @@ export type Pick = {
   warnings?: string[];
 };
 
-export type Loadout = {
+/** Everything recommended to one build, under one toggle setting. */
+export type BuildPicks = {
   /** `build/0` or `build/1`, the suffix being `allowFormidableSources`. */
   key: string;
   build: string;
@@ -84,10 +90,10 @@ export type Loadout = {
   /** Best picks per slot, best first. A slot is absent when nothing qualifies — which
    *  is a real answer: a Battlemage gets no shield, because the only strong candidate
    *  drains 100 magicka. */
-  slots: Partial<Record<LoadoutSlot, Pick[]>>;
+  slots: Partial<Record<GearSlot, Pick[]>>;
 };
 
-export type LoadoutCatalog = {
+export type BestInSlotCatalog = {
   schemaVersion: "1.0.0";
   profile: Profile["id"];
   snapshotId: string;
@@ -108,7 +114,7 @@ export type LoadoutCatalog = {
   /** The scoring model, shipped so a custom build can be scored client-side with the
    *  same weights these records were built from. */
   model: unknown;
-  items: Record<string, LoadoutItem>;
+  items: Record<string, GearItem>;
   derivation: {
     method: string;
     candidates: number;
@@ -117,15 +123,15 @@ export type LoadoutCatalog = {
     records: number;
   };
   coverage: string;
-  records: Loadout[];
+  records: BuildPicks[];
 };
 
 /** The record for one build under one toggle setting. */
-export function loadoutFor(
-  catalog: LoadoutCatalog,
+export function picksForBuild(
+  catalog: BestInSlotCatalog,
   build: string,
   allowFormidableSources = catalog.toggles.allowFormidableSources.default,
-): Loadout | undefined {
+): BuildPicks | undefined {
   return catalog.records.find(
     record => record.build === build
       && record.toggles.allowFormidableSources === allowFormidableSources);
@@ -133,19 +139,19 @@ export function loadoutFor(
 
 /** Resolve a slot's picks to their items, best first. */
 export function picksFor(
-  catalog: LoadoutCatalog,
-  loadout: Loadout,
-  slot: LoadoutSlot,
-): Array<{ pick: Pick; item: LoadoutItem }> {
-  return (loadout.slots[slot] ?? []).map(pick => ({ pick, item: catalog.items[pick.item] }));
+  catalog: BestInSlotCatalog,
+  record: BuildPicks,
+  slot: GearSlot,
+): Array<{ pick: Pick; item: GearItem }> {
+  return (record.slots[slot] ?? []).map(pick => ({ pick, item: catalog.items[pick.item] }));
 }
 
 /**
  * Both rings, which share one candidate pool. Returns up to two distinct items.
  */
 export function ringPair(
-  catalog: LoadoutCatalog,
-  loadout: Loadout,
-): Array<{ pick: Pick; item: LoadoutItem }> {
-  return picksFor(catalog, loadout, "ring").slice(0, 2);
+  catalog: BestInSlotCatalog,
+  record: BuildPicks,
+): Array<{ pick: Pick; item: GearItem }> {
+  return picksFor(catalog, record, "ring").slice(0, 2);
 }

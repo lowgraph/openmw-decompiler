@@ -454,7 +454,7 @@ def publish(payload, output, profile):
                       separators=(',', ':')).encode('utf-8')
     identifier = hashlib.sha256(body).hexdigest()[:24]
     destination = output/f'{profile}-{identifier}.json'
-    handle, staging = tempfile.mkstemp(prefix='.loadouts-', dir=output)
+    handle, staging = tempfile.mkstemp(prefix='.best-in-slot-', dir=output)
     os.close(handle)
     Path(staging).write_bytes(body)
     os.replace(staging, destination)
@@ -511,20 +511,20 @@ def main(argv=None):
             for profile, (ref, items) in prepared.items():
                 payload = assemble(profile, builds, items, ref, policy, snapshot,
                                    builds_source, digest)
-                destination, size = publish(payload, args.output or root/'loadouts', profile)
+                destination, size = publish(payload, args.output or root/'best-in-slot', profile)
                 counts = payload['derivation']
                 print(f'{profile}: {payload["builds"]["applied"]} builds, {counts["candidates"]} '
                       f'candidates {counts["bySource"]}, {counts["formidableOnly"]} formidable-only, '
                       f'{len(payload["builds"]["skipped"])} builds skipped, {size/1024:.0f} KB',
                       flush=True)
                 written.append(destination)
-        print('Loadout catalog complete:\n  ' + '\n  '.join(str(p) for p in written))
+        print('Best-in-slot catalog complete:\n  ' + '\n  '.join(str(p) for p in written))
         return 0
     except KeyboardInterrupt:
         print('\nCancelled; nothing was published.')
         return 130
     except (ValueError, KeyError, OSError, sqlite3.Error, subprocess.SubprocessError) as exc:
-        print(f'Loadout catalog build failed: {exc}')
+        print(f'Best-in-slot catalog build failed: {exc}')
         return 1
 
 

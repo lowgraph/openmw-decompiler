@@ -89,12 +89,12 @@ Every stage is built and tested. `python -m unittest discover -p "test_*.py"` ru
 | **Merchants** | `build_merchant_catalog.py` | MERCHANTS.md | 660 vanilla / 2575 TR providers |
 | **Places** | `build_places_catalog.py` | PLACES.md | 2887 vanilla / 10784 TR cells |
 | **Factions** | `build_faction_catalog.py` | FACTIONS.md | 27 vanilla / 103 TR factions |
-| **Late-game loadouts** | `build_loadout_catalog.py` | LOADOUTS.md | 61 / 103 builds, 141 / 644 items |
+| **Late-game best-in-slot** | `build_best_in_slot_catalog.py` | BEST_IN_SLOT.md | 61 / 103 builds, 141 / 644 items |
 
 The app contract is in `catalog-types.ts`, `bundle-types.ts`, `policy-types.ts`,
 `gear-rows-types.ts`, `rules-types.ts`, `travel-types.ts`, `quest-types.ts` and
-`merchant-types.ts`, `place-types.ts`, `faction-types.ts` and `loadout-types.ts`. Keep
-them in step with the builders.
+`merchant-types.ts`, `place-types.ts`, `faction-types.ts` and
+`best-in-slot-types.ts`. Keep them in step with the builders.
 
 ### Numbers worth knowing
 
@@ -110,7 +110,7 @@ beast-race gear               vanilla 18 rows differ, 32 have nothing (boots, sh
 gear row objectives           power vs enchantment differ on 94/352 vanilla, 148/424 tr
 places                        vanilla 2887   tr and tr_arce 10784   394 TR settlements
 factions                      vanilla 27     tr and tr_arce 103     Hlaalu owns 9746 in tr
-loadout candidates            vanilla 141    tr and tr_arce 644     127 unconfirmed in tr
+best-in-slot candidates       vanilla 141    tr and tr_arce 644     127 unconfirmed in tr
 merchants                     vanilla 382   tr and tr_arce 1530 traders; all priceable
 engine dump                   141 effects in 6s, 186 in 4s, one run per profile
 journal topics                tr 2,577  vanilla 758      326 have no resolvable title
