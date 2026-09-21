@@ -3,14 +3,18 @@
   "baseDataDirectory": "A:/SteamLibrary/steamapps/common/Morrowind/Data Files",
   "modsDirectory": "A:/Modlists/Morrowind",
   "openmwExecutable": "A:/OpenMW 0.51.0/openmw.exe",
-  "allowedModPrefixes": ["ARCE", "Cyr_Main", "Sky_Main", "Tamriel Data", "Tamriel Rebuilt"],
+  "allowedModPrefixes": ["ARCE", "Cyr_Main", "Official Plugins", "Sky_Main", "Tamriel Data",
+                         "Tamriel Rebuilt"],
   "allowedPlugins": [
-    "Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm", "Tamriel_Data.esm",
-    "Cyr_Main.ESM", "TR_Mainland.esm", "TR_Factions.esp",
-    "TR_Firemoth_Vanilla_patch.esp", "Sky_Main.ESM",
+    "Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm",
+    "Siege at Firemoth.esp", "LeFemmArmor.esp", "EBQ_Artifact.esp", "adamantiumarmor.esp",
+    "bcsounds.esp", "entertainers.esp", "master_index.esp", "AreaEffectArrows.esp",
+    "Tamriel_Data.esm", "Cyr_Main.ESM", "TR_Mainland.esm", "TR_Factions.esp",
+    "Sky_Main.ESM",
     "ARCE - All Races and Classes Enabled (Vanilla and Tamriel_Data).ESP"
   ],
-  "ignoredPlugins": [],
+  "_ignoredPluginsNote": "Left out on purpose. TR_Firemoth_Vanilla_patch.esp swaps TR's own Firemoth for the vanilla quest; the TR profiles use TR's version, so it belongs to no profile.",
+  "ignoredPlugins": ["TR_Firemoth_Vanilla_patch.esp"],
   "versions": {
     "vanilla": "OpenMW 0.51.0",
     "tamriel_rebuilt": "Tamriel Rebuilt 26.08.23"

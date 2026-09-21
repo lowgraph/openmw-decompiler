@@ -65,7 +65,25 @@ If the release added a plugin, extraction names it and stops: add it to a profil
 `foundation_config.json` (and to `allowedPlugins`), or to `ignoredPlugins` in
 `export_config.json` to leave it out on purpose.
 
-Then, in order:
+Then one command does the rest:
+
+```powershell
+python rebuild.py
+```
+
+It runs this repository's tests first, because broken code publishes broken data. Then
+it runs the steps below, in order, and last the checks under
+[Verify](#verify). It stops at the first step that refuses, and prints how to pick up
+again once you have fixed what it named:
+
+```powershell
+python rebuild.py --from rules
+python rebuild.py --list
+```
+
+Everything it prints also goes to `A:\Cache\OpenMWFoundation\rebuild-logs`, so a
+refusal an hour in is still there to read. The steps, which you can also run one at a
+time:
 
 ```powershell
 python extract_foundation.py
@@ -99,7 +117,9 @@ node A:\Claude\morrowind-tools\scripts\stage-game-data.mjs
 - The JSON exporters (`export_items.py`, `export_locations.py`) are earlier prototypes
   and play no part in the bundle.
 
-Then verify:
+### Verify
+
+`rebuild.py` ends with these; run by hand, they are:
 
 ```powershell
 python build_best_in_slot_catalog.py --check
