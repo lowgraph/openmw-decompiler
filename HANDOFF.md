@@ -96,6 +96,10 @@ The app contract is in `catalog-types.ts`, `bundle-types.ts`, `policy-types.ts`,
 `merchant-types.ts`, `place-types.ts`, `faction-types.ts` and
 `best-in-slot-types.ts`. Keep them in step with the builders.
 
+To rebuild after a plugin, OpenMW, policy or site-build change, follow
+[REBUILD.md](REBUILD.md): the full run order, what each guard means, and the three
+engine transcriptions an OpenMW update needs checking by hand.
+
 ### Numbers worth knowing
 
 ```

@@ -24,6 +24,7 @@ import tempfile
 import time
 
 from build_acquisition_index import metadata
+from build_app_bundle import newest
 from build_gear_rows import armor_class, beast_wearable
 from evaluate_policy import load_policy
 from export_items import ExportError
@@ -101,7 +102,10 @@ def load_builds(site, builds_file=None):
             raise ExportError(f'Build definitions not found: {module}; pass --builds or --site')
         script = (f"import({json.dumps(module.as_uri())}).then(m => console.log(JSON.stringify("
                   + '{' + ','.join(f'{name}: m.{name}' for name in BUILD_SETS) + '})))')
-        run = subprocess.run(['node', '-e', script], capture_output=True, text=True)
+        # Node writes UTF-8 whatever the console code page; without the encoding, Windows
+        # decodes it as cp1252 and every em dash in a build name arrives as "â€”".
+        run = subprocess.run(['node', '-e', script], capture_output=True, text=True,
+                             encoding='utf-8')
         if run.returncode:
             raise ExportError(f'Could not read {module}: {run.stderr.strip()[:300]}')
         data = json.loads(run.stdout)
@@ -461,6 +465,86 @@ def publish(payload, output, profile):
     return destination, len(body)
 
 
+# Where a builds digest is published, in the order a change to the builds travels.
+STAGES = ('catalog', 'bundle', 'site')
+
+
+def catalog_digests(directory, profiles):
+    """The builds digest in the file bundling would take next, per profile."""
+    found = {}
+    for profile in profiles:
+        path = newest(directory, profile)
+        found[profile] = None if path is None else (
+            json.loads(path.read_text(encoding='utf-8')).get('builds', {}).get('digest'))
+    return found
+
+
+def published_digests(directory):
+    """The builds digest per profile in the bundle a current.json points at, or None when
+    nothing is published there. A profile that inherits BestInSlot from its base reports
+    the base's digest, because that is what the site loads for it."""
+    pointer = Path(directory)/'current.json'
+    if not pointer.is_file():
+        return None
+    current = json.loads(pointer.read_text(encoding='utf-8'))
+    if not current.get('manifest'):
+        raise ExportError(f'{pointer} names no manifest')
+    manifest = Path(directory)/current['manifest']
+    profiles = {p['id']: p for p in json.loads(manifest.read_text(encoding='utf-8'))['profiles']}
+    found = {}
+    for profile_id, profile in profiles.items():
+        entry, seen = None, set()
+        while profile is not None and profile['id'] not in seen:
+            seen.add(profile['id'])
+            entry = profile['files'].get('BestInSlot')
+            if entry is not None:
+                break
+            profile = profiles.get(profile.get('base'))
+        found[profile_id] = None if entry is None else (
+            json.loads((manifest.parent/entry['path']).read_text(encoding='utf-8'))
+            .get('builds', {}).get('digest'))
+    return found
+
+
+def stale_from(digest, found):
+    """The first stage still carrying other builds than the site's, or None when every
+    stage matches. Nothing published, or a profile without a digest, counts as stale:
+    nothing there reflects the current builds."""
+    for stage in STAGES:
+        digests = found.get(stage)
+        if not digests or any(value != digest for value in digests.values()):
+            return stage
+    return None
+
+
+def rerun(stage, site):
+    """The commands that carry the current builds on from `stage`, in order."""
+    commands = ['python build_best_in_slot_catalog.py', 'python build_app_bundle.py',
+                f'node {Path(site)/"scripts/stage-game-data.mjs"}']
+    return commands[STAGES.index(stage):]
+
+
+def check(digest, source, found, site):
+    """Say how far the site's current builds have travelled; 0 when all the way."""
+    print(f'Builds in {source}: {digest[:12]}')
+    for stage in STAGES:
+        digests = found.get(stage)
+        if not digests:
+            print(f'  {stage:8} nothing published')
+            continue
+        print(f'  {stage:8} ' + '  '.join(
+            f'{profile} {"ok" if value == digest else "stale" if value else "missing"}'
+            for profile, value in digests.items()))
+    stage = stale_from(digest, found)
+    if stage is None:
+        print('Best-in-slot matches the current builds everywhere.')
+        return 0
+    print(f'Stale from the {stage} onward. To bring it up to date, run in order:')
+    for command in rerun(stage, site):
+        print('  ' + command)
+    return 1
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--profile', action='append', choices=['vanilla', 'tr', 'tr_arce'])
@@ -469,13 +553,22 @@ def main(argv=None):
     parser.add_argument('--site', type=Path, help='The site repository, for its premade builds')
     parser.add_argument('--catalogs', type=Path)
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--check', action='store_true',
+                        help="Build nothing: report whether the site's current builds have "
+                             'reached the catalog, the bundle and the site, and what to rerun')
     args = parser.parse_args(argv)
     try:
         _, source, root = load_config(ROOT/'foundation_config.json')
-        policy = load_late_policy(args.policy or ROOT/'policy/late-game.json')
-        early = load_policy(ROOT/'policy/early-game.json')
         site = args.site or source.get('siteRepository') or 'A:/Claude/morrowind-tools'
         builds, builds_source, digest = load_builds(site, args.builds)
+        if args.check:
+            found = {'catalog': catalog_digests(args.output or root/'best-in-slot',
+                                                args.profile or ['vanilla', 'tr', 'tr_arce']),
+                     'bundle': published_digests(root/'app-bundle'),
+                     'site': published_digests(Path(site)/'public/game-data')}
+            return check(digest, builds_source, found, site)
+        policy = load_late_policy(args.policy or ROOT/'policy/late-game.json')
+        early = load_policy(ROOT/'policy/early-game.json')
         release = args.catalogs
         if release is None:
             pointer = root/'catalogs/current.json'

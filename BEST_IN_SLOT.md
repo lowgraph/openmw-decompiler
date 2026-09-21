@@ -31,6 +31,18 @@ and is playable, which is how the ARCE builds stay out of vanilla without a spec
 case. The payload carries a digest of the definitions, so a catalog built against an
 older set of builds can be spotted.
 
+`--check` does the spotting. It builds nothing: it compares the site's current builds
+with the digest in the catalog, the bundle and the site's staged copy, exits 0 when all
+three match, and otherwise prints the commands still needed. Build names are the keys
+the site looks records up by, so a build that keeps its name and changes its skills is
+the case to fear — it would go on showing its old picks with nothing to say so.
+
+Names are read through node as UTF-8. They were not at first: Windows decoded node's
+output as cp1252, and every em dash arrived as `â€”`. That corrupted the names of all 20
+race builds and all 42 ARCE builds, so the site matched none of them and scored all 62
+in the browser instead. A test now loads the same builds through node and from a JSON
+file and requires the two to agree.
+
 ## Scoring is mostly derived, not authored
 
 The two commonest constant effects are `Fortify Skill` (270 items) and
@@ -141,6 +153,7 @@ hair rather than the head.
 ```powershell
 python build_best_in_slot_catalog.py --profile tr
 python build_best_in_slot_catalog.py --builds builds.json
+python build_best_in_slot_catalog.py --check
 python build_app_bundle.py --no-best-in-slot
 python -m unittest test_best_in_slot_catalog -v
 ```

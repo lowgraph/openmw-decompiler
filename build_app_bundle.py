@@ -108,13 +108,19 @@ def check_cell_references(extra, profile):
     return checked
 
 
+def newest(directory, profile):
+    """The file bundling takes for this profile: the newest. Anything asking what would
+    be bundled calls this, so it cannot disagree with the bundler."""
+    found = sorted(Path(directory).glob(profile+'-*.json'), key=lambda f: f.stat().st_mtime)
+    return found[-1] if found else None
+
+
 def load_extra(directory, profile, snapshot, name):
     """The newest file for this profile, pinned to the catalogs' own snapshot."""
     array = EXTRA_CATALOGS[name]['array']
-    found = sorted(Path(directory).glob(profile+'-*.json'), key=lambda f: f.stat().st_mtime)
-    if not found:
+    path = newest(directory, profile)
+    if path is None:
         return None
-    path = found[-1]
     payload = json.loads(path.read_text(encoding='utf-8'))
     if payload.get('snapshotId') != snapshot:
         raise ExportError(f'{path.name} was built from a different snapshot than the catalogs; '

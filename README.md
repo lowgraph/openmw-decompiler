@@ -5,6 +5,10 @@
 **Picking this up cold? Start with [HANDOFF.md](HANDOFF.md)** for the project scope,
 what exists, the rules that cost real debugging, and the ordered next steps.
 
+**Something changed upstream?** [REBUILD.md](REBUILD.md) says what to rerun after a
+Tamriel Rebuilt, OpenMW, policy or site-build change, in order, and what to do when
+a guard stops the run.
+
 **New foundation:** start with [FOUNDATION.md](FOUNDATION.md) and run
 `python extract_foundation.py`. It preserves plugin records and resolves Vanilla,
 TR, and TR + ARCE profiles in `A:\Cache\OpenMWFoundation\game-data.sqlite`.

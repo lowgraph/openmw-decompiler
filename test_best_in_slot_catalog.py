@@ -1,10 +1,15 @@
+from contextlib import redirect_stdout
+import io
 import json
+import os
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 
-from build_best_in_slot_catalog import (check_coverage, eligible, load_builds, load_late_policy,
-                                   rank, score, severity, skill_label, traits)
+from build_best_in_slot_catalog import (STAGES, catalog_digests, check, check_coverage, eligible,
+                                        load_builds, load_late_policy, published_digests, rank,
+                                        rerun, score, severity, skill_label, stale_from, traits)
 from export_items import ExportError
 
 POLICY = {
@@ -401,6 +406,123 @@ class BuildSourceTests(unittest.TestCase):
         self.assertEqual(len(builds), 1)
         self.assertEqual(len(digest), 64)
         self.assertIn('builds.json', source)
+
+    @unittest.skipUnless(shutil.which('node'), 'node reads the site builds')
+    def test_the_site_module_and_a_json_file_agree_on_the_same_builds(self):
+        # Build names are the catalog keys, and 62 of the site's carry an em dash. Node
+        # writes UTF-8; reading it back in the Windows code page turned "—" into "â€”",
+        # so the site's lookups by name missed every one of them.
+        name = 'High Elf male \u2014 Atronach mage'
+        sets = {'BUILDS': [build(name)]}
+        site = Path(tempfile.mkdtemp())
+        (site/'lib').mkdir()
+        (site/'lib/premade-data.mjs').write_text(
+            ''.join(f'export const {key} = {json.dumps(value, ensure_ascii=False)};\n'
+                    for key, value in sets.items()), encoding='utf-8')
+        (site/'builds.json').write_text(json.dumps(sets, ensure_ascii=False), encoding='utf-8')
+        from_node, _, node_digest = load_builds(site)
+        _, _, file_digest = load_builds(None, site/'builds.json')
+        self.assertEqual(from_node[0]['name'], name)
+        self.assertEqual(node_digest, file_digest)
+
+
+CURRENT = {'vanilla': 'new', 'tr': 'new', 'tr_arce': 'new'}
+
+
+def publish_bundle(digests, inherit=()):
+    """A published bundle with one BestInSlot file per profile. A profile in `inherit`
+    carries none and names tr as its base, the way tr_arce can."""
+    root = Path(tempfile.mkdtemp())
+    profiles = []
+    for profile, digest in digests.items():
+        entry = {'id': profile, 'base': 'tr' if profile in inherit else None, 'files': {}}
+        if profile not in inherit:
+            (root/'b1'/profile).mkdir(parents=True)
+            (root/'b1'/profile/'BestInSlot.json').write_text(
+                json.dumps({'builds': {'digest': digest}}), encoding='utf-8')
+            entry['files']['BestInSlot'] = {'path': f'{profile}/BestInSlot.json'}
+        profiles.append(entry)
+    (root/'b1').mkdir(exist_ok=True)
+    (root/'b1/manifest.json').write_text(json.dumps({'profiles': profiles}), encoding='utf-8')
+    (root/'current.json').write_text(
+        json.dumps({'bundleId': 'b1', 'manifest': 'b1/manifest.json'}), encoding='utf-8')
+    return root
+
+
+class FreshnessTests(unittest.TestCase):
+    def test_nothing_to_rerun_when_every_stage_carries_the_current_builds(self):
+        self.assertIsNone(stale_from('new', {stage: CURRENT for stage in STAGES}))
+
+    def test_the_first_stale_stage_decides_what_to_rerun(self):
+        old = dict(CURRENT, tr='old')
+        self.assertEqual(stale_from('new', {'catalog': old, 'bundle': old, 'site': old}), 'catalog')
+        self.assertEqual(stale_from('new', {'catalog': CURRENT, 'bundle': old, 'site': old}),
+                         'bundle')
+        self.assertEqual(stale_from('new', {'catalog': CURRENT, 'bundle': CURRENT, 'site': old}),
+                         'site')
+
+    def test_nothing_published_or_no_digest_is_stale_rather_than_current(self):
+        self.assertEqual(stale_from('new', {'catalog': CURRENT, 'bundle': CURRENT, 'site': None}),
+                         'site')
+        self.assertEqual(stale_from('new', {'catalog': dict(CURRENT, vanilla=None),
+                                            'bundle': CURRENT, 'site': CURRENT}), 'catalog')
+        self.assertEqual(stale_from('new', {'catalog': {}, 'bundle': CURRENT, 'site': CURRENT}),
+                         'catalog')
+
+    def test_rerun_starts_at_the_stale_stage(self):
+        self.assertEqual(len(rerun('catalog', 'A:/site')), 3)
+        self.assertEqual(rerun('bundle', 'A:/site')[0], 'python build_app_bundle.py')
+        only = rerun('site', 'A:/site')
+        self.assertEqual(len(only), 1)
+        self.assertIn('stage-game-data.mjs', only[0])
+
+    def test_an_inheriting_profile_reports_its_bases_digest(self):
+        root = publish_bundle({'vanilla': 'v', 'tr': 't', 'tr_arce': None}, inherit={'tr_arce'})
+        self.assertEqual(published_digests(root), {'vanilla': 'v', 'tr': 't', 'tr_arce': 't'})
+
+    def test_a_base_that_names_itself_ends_instead_of_looping(self):
+        self.assertEqual(published_digests(publish_bundle({'tr': None}, inherit={'tr'})),
+                         {'tr': None})
+
+    def test_no_pointer_is_nothing_published_and_a_broken_pointer_is_refused(self):
+        empty = Path(tempfile.mkdtemp())
+        self.assertIsNone(published_digests(empty))
+        (empty/'current.json').write_text('{"bundleId": "x"}', encoding='utf-8')
+        with self.assertRaises(ExportError):
+            published_digests(empty)
+
+    def test_a_bundle_built_without_best_in_slot_has_no_digest(self):
+        root = publish_bundle({'vanilla': 'v'})
+        manifest = root/'b1/manifest.json'
+        data = json.loads(manifest.read_text(encoding='utf-8'))
+        data['profiles'][0]['files'] = {}
+        manifest.write_text(json.dumps(data), encoding='utf-8')
+        self.assertEqual(published_digests(root), {'vanilla': None})
+
+    def test_the_catalog_stage_reads_the_file_bundling_would_take(self):
+        directory = Path(tempfile.mkdtemp())
+        for name, digest, when in (('tr-old.json', 'old', 1000), ('tr-new.json', 'new', 2000),
+                                   ('tr_arce-x.json', 'arce', 3000)):
+            (directory/name).write_text(json.dumps({'builds': {'digest': digest}}),
+                                        encoding='utf-8')
+            os.utime(directory/name, (when, when))
+        # The newest tr file, not the newest file: tr_arce's are not tr's.
+        self.assertEqual(catalog_digests(directory, ['tr', 'vanilla']),
+                         {'tr': 'new', 'vanilla': None})
+
+    def test_the_report_names_only_the_commands_still_needed(self):
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = check('new', 'builds.json', {'catalog': CURRENT,
+                                                'bundle': dict(CURRENT, tr='old'),
+                                                'site': None}, 'A:/site')
+        self.assertEqual(code, 1)
+        self.assertIn('Stale from the bundle onward', out.getvalue())
+        self.assertIn('python build_app_bundle.py', out.getvalue())
+        self.assertNotIn('python build_best_in_slot_catalog.py', out.getvalue())
+        self.assertRegex(out.getvalue(), r'site\s+nothing published')
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(check('new', 'b', {stage: CURRENT for stage in STAGES}, 'A:/s'), 0)
 
 
 class LabelTests(unittest.TestCase):
