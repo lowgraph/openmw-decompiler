@@ -128,10 +128,15 @@ $env:TEMP='A:\Cache'; $env:TMP='A:\Cache'; python -B -m unittest discover -s . -
 
 and `npm test` in the site. Read the bundler's last line too. The site hardcodes
 formulas built on game settings — the level-up multipliers in `lib/level-math.mjs`,
-armour, encumbrance — which hold in every profile only because, as of September 2026,
-no Tamriel plugin and not ARCE contains a single one. The bundler says
-`Game settings are identical in every profile` while that holds, and names the settings
-when it stops holding; tell Codex which.
+armour, encumbrance — using the values Morrowind, Tribunal and Bloodmoon set. The
+bundler compares every profile with those values, read from the extraction, and with
+each other. It says `Game settings match` while that holds, and names the settings when
+it stops holding; tell Codex which.
+
+Comparing profiles only with each other is not enough, and the first version of this
+check did only that. A plugin loaded in every profile changes a setting in all of them
+alike. Five official plugins carry twelve game settings each; as of September 2026 all
+sixty equal the base game's values, so nothing changes, but a later plugin could.
 
 ## When a step refuses
 

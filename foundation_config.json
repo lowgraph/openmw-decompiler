@@ -2,21 +2,21 @@
   "sourceConfig": "export_config.json",
   "outputDirectory": "A:/Cache/OpenMWFoundation",
   "_note": "runtimeContent lists the Lua content files that belong with a profile. They define no plugin records, so extraction ignores them, but Tamriel Rebuilt registers magic effects through them, so dump_profiles.py loads them to see those effects.",
-  "_officialPluginsNote": "Every profile carries Bethesda's official plugins, the original releases, in the order Modding OpenMW lists them. Siege at Firemoth.esp is vanilla only: TR_Mainland carries TR's own Firemoth, and TR says never to load the official plugin alongside it. The TR profiles use TR's version, so TR_Firemoth_Vanilla_patch.esp, which swaps it for the vanilla quest, is left out and named in ignoredPlugins.",
+  "_officialPluginsNote": "Every profile carries Bethesda's official plugins, the original releases, in the order the user's game loads them: two of them add lines to the same dialogue topic, and the first matching line wins. Siege at Firemoth.esp, which that game does not load, goes first, as Modding OpenMW lists it. Siege at Firemoth.esp is vanilla only: TR_Mainland carries TR's own Firemoth, and TR says never to load the official plugin alongside it. The TR profiles use TR's version, so TR_Firemoth_Vanilla_patch.esp, which swaps it for the vanilla quest, is left out and named in ignoredPlugins.",
   "profiles": [
     {
       "id": "vanilla", "world": "vanilla", "arce": false,
       "plugins": ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm",
-                  "Siege at Firemoth.esp", "LeFemmArmor.esp", "EBQ_Artifact.esp",
-                  "adamantiumarmor.esp", "bcsounds.esp", "entertainers.esp",
-                  "master_index.esp", "AreaEffectArrows.esp"],
+                  "Siege at Firemoth.esp", "LeFemmArmor.esp", "master_index.esp",
+                  "entertainers.esp", "EBQ_Artifact.esp", "bcsounds.esp",
+                  "AreaEffectArrows.esp", "adamantiumarmor.esp"],
       "runtimeContent": []
     },
     {
       "id": "tr", "world": "tamriel_rebuilt", "arce": false,
       "plugins": ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm",
-                  "LeFemmArmor.esp", "EBQ_Artifact.esp", "adamantiumarmor.esp",
-                  "bcsounds.esp", "entertainers.esp", "master_index.esp", "AreaEffectArrows.esp",
+                  "LeFemmArmor.esp", "master_index.esp", "entertainers.esp", "EBQ_Artifact.esp",
+                  "bcsounds.esp", "AreaEffectArrows.esp", "adamantiumarmor.esp",
                   "Tamriel_Data.esm", "Cyr_Main.ESM", "TR_Mainland.esm", "TR_Factions.esp",
                   "Sky_Main.ESM"],
       "runtimeContent": ["tamrielrebuilt.omwscripts", "Tamriel_Data.omwscripts"]
@@ -24,8 +24,8 @@
     {
       "id": "tr_arce", "world": "tamriel_rebuilt", "arce": true,
       "plugins": ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm",
-                  "LeFemmArmor.esp", "EBQ_Artifact.esp", "adamantiumarmor.esp",
-                  "bcsounds.esp", "entertainers.esp", "master_index.esp", "AreaEffectArrows.esp",
+                  "LeFemmArmor.esp", "master_index.esp", "entertainers.esp", "EBQ_Artifact.esp",
+                  "bcsounds.esp", "AreaEffectArrows.esp", "adamantiumarmor.esp",
                   "Tamriel_Data.esm", "Cyr_Main.ESM", "TR_Mainland.esm", "TR_Factions.esp",
                   "Sky_Main.ESM",
                   "ARCE - All Races and Classes Enabled (Vanilla and Tamriel_Data).ESP"],

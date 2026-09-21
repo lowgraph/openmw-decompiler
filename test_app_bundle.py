@@ -7,7 +7,8 @@ import struct
 import tempfile
 import unittest
 
-from build_app_bundle import build as build_bundle, delta, differing_settings, pick_base
+from build_app_bundle import (base_game_settings, build as build_bundle, delta, differing_settings,
+                              pick_base)
 from build_catalogs import build as build_catalogs
 from extract_foundation import build as build_foundation
 from export_items import ExportError
@@ -319,6 +320,76 @@ class GameSettingsTests(unittest.TestCase):
 
     def test_nothing_to_compare_is_empty_not_an_error(self):
         self.assertEqual(differing_settings({}), [])
+
+
+class BaseGameSettingsTests(unittest.TestCase):
+    """A plugin every profile loads changes a setting in all of them alike, so comparing
+    profiles with each other cannot see it. Five official plugins carry game settings."""
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        root = Path(cls.tmp.name)
+        raw = json.loads((Path(__file__).parent/'items/examples/sample-records.raw.json').read_text())
+        body = b''
+        for tag, sample in raw.items():
+            body += pack_record(tag, [(f['tag'], bytes.fromhex(f['hex'])) for f in sample['fields']])
+        for ident, name in NAMES.items():
+            body += pack_record('GMST', [('NAME', EFFECT_GMSTS[ident].encode()), ('STRV', name.encode())])
+        body += pack_record('GMST', [('NAME', b'fTestMult'), ('FLTV', struct.pack('<f', 1.0))])
+        body += race(0)
+        base, dirty = root/'Morrowind.esm', root/'dirty.esp'
+        plugin_file(base, body)
+        plugin_file(dirty, pack_record('GMST', [('NAME', b'fTestMult'),
+                                                ('FLTV', struct.pack('<f', 2.0))]), ('Morrowind.esm',))
+        plugins = [base.name, dirty.name]
+        config = {'profiles': [
+            {'id': 'vanilla', 'world': 'vanilla', 'version': VERSIONS['vanilla'], 'arce': False,
+             'plugins': plugins},
+            {'id': 'tr', 'world': 'tamriel_rebuilt', 'version': VERSIONS['tamriel_rebuilt'],
+             'arce': False, 'plugins': plugins},
+            {'id': 'tr_arce', 'world': 'tamriel_rebuilt', 'version': VERSIONS['tamriel_rebuilt'],
+             'arce': True, 'plugins': plugins}]}
+        cls.foundation = root/'foundation.sqlite'
+        with contextlib.redirect_stdout(io.StringIO()):
+            build_foundation(config, [base, dirty], 'cp1252', cls.foundation)
+            build_catalogs(cls.foundation, root/'catalogs')
+        cls.root = root
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def bundle(self, output, foundation):
+        said = io.StringIO()
+        with contextlib.redirect_stdout(said):
+            build_bundle(self.root/'catalogs', self.root/output, foundation=foundation)
+        return said.getvalue()
+
+    def test_comparing_profiles_only_with_each_other_misses_it(self):
+        said = self.bundle('without-base', None)
+        self.assertIn('each other only', said)
+        self.assertNotIn('ftestmult', said)
+
+    def test_comparing_with_the_base_game_names_it(self):
+        said = self.bundle('with-base', self.foundation)
+        self.assertIn('Notice: 1 game setting(s) differ', said)
+        self.assertIn('the base game and each other', said)
+        self.assertIn('ftestmult', said)
+
+    def test_base_values_decode_exactly_as_the_catalogs_do(self):
+        snapshot, rows = base_game_settings(self.foundation)
+        values = {row['key']: row['value'] for row in rows}
+        self.assertEqual(values['ftestmult'], 1.0)
+        self.assertEqual(len(snapshot), 64)
+        # Every other setting must compare equal, or the check would cry wolf on each.
+        catalog = {row['key']: row['value'] for row in json.loads(
+            next((self.root/'catalogs').glob('*/vanilla/GameSettings.json')).read_text(
+                encoding='utf-8'))['records']}
+        self.assertEqual({k for k in catalog if catalog[k] != values.get(k)}, {'ftestmult'})
+
+    def test_no_extraction_means_no_base_comparison_rather_than_a_guess(self):
+        self.assertIsNone(base_game_settings(self.root/'absent.sqlite'))
+        self.assertIsNone(base_game_settings(None))
 
 
 if __name__ == '__main__':

@@ -2,17 +2,23 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import gzip
 import hashlib
 import json
 import os
 from pathlib import Path
+import sqlite3
+import struct
 import tempfile
 import time
 
 from build_catalogs import BOOK_TEXT
-from extract_foundation import ROOT, load_config
-from export_items import ExportError
+from extract_foundation import ROOT, fields, load_config
+from export_items import ExportError, decode
+
+# What the site's hardcoded game-setting formulas assume: these three, nothing after them.
+BASE_MASTERS = ('Morrowind.esm', 'Tribunal.esm', 'Bloodmoon.esm')
 
 VERSION = '1.0.0'
 SUPPORTED_CATALOGS = {'1.0.0', '1.1.0'}
@@ -171,6 +177,39 @@ def differing_settings(settings_by_profile):
     return sorted(key for key in keys if len({repr(v.get(key)) for v in values}) > 1)
 
 
+def base_game_settings(database):
+    """Every game setting as the base game leaves it, from the extraction, in the catalogs'
+    own shape: (snapshotId, rows), or None when there is no extraction.
+
+    Comparing profiles only with each other misses a plugin loaded in all of them. The
+    official plugins are exactly that, and five carry twelve game settings each, so the
+    comparison has to include what Morrowind, Tribunal and Bloodmoon alone would set.
+    """
+    if database is None or not Path(database).is_file():
+        return None
+    with closing(sqlite3.connect(Path(database).resolve().as_uri()+'?mode=ro', uri=True)) as db:
+        meta = {key: json.loads(value) for key, value in db.execute('SELECT key, value FROM metadata')}
+        plugins = {name.casefold(): ident for ident, name in db.execute('SELECT id, name FROM plugins')}
+        settings = {}
+        for master in BASE_MASTERS:
+            ident = plugins.get(master.casefold())
+            if ident is None:
+                continue
+            for key, deleted, payload in db.execute(
+                    "SELECT record_key, deleted, payload FROM record_versions "
+                    "WHERE plugin_id=? AND record_type='GMST' ORDER BY ordinal", (ident,)):
+                if deleted:
+                    settings.pop(key, None)
+                    continue
+                data = {tag: bytes(view) for tag, view, _, _ in fields(payload)}
+                kind = next((k for k in ('STRV', 'INTV', 'FLTV') if k in data), None)
+                # Decoded exactly as build_catalogs decodes them, so equal means equal.
+                settings[key] = (decode(data[kind], meta['encoding']) if kind == 'STRV'
+                                 else struct.unpack('i' if kind == 'INTV' else 'f', data[kind])[0]
+                                 if kind else None)
+    return meta['snapshotId'], [{'key': key, 'value': value} for key, value in settings.items()]
+
+
 def write_payload(path, payload):
     body = json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(',', ':')).encode('utf-8')
     path.write_bytes(body)
@@ -193,7 +232,7 @@ def load_release(source):
     return release, json.loads(manifest.read_text(encoding='utf-8'))
 
 
-def build(source, output, profiles=None, include_book_text=False, extras=None):
+def build(source, output, profiles=None, include_book_text=False, extras=None, foundation=None):
     release, catalogs = load_release(source)
     if catalogs.get('schemaVersion') not in SUPPORTED_CATALOGS:
         raise ExportError(f'Unsupported catalog schema {catalogs.get("schemaVersion")!r}')
@@ -303,9 +342,15 @@ def build(source, output, profiles=None, include_book_text=False, extras=None):
                 manifest['profiles'].append({k: profile[k] for k in ('id', 'world', 'version', 'arce')}
                                             | {'base': base, 'files': files, 'inherits': inherits})
                 print(f'{profile_id}: {len(files)} files, {len(inherits)} inherited from {base or "-"}', flush=True)
-            # None when there is nothing to compare, so a one-profile build claims nothing.
-            differing = (differing_settings({p: records_for(p, 'GameSettings') for p in selected})
-                         if 'GameSettings' in names and len(selected) > 1 else None)
+            # None when there is nothing to compare, so a build claims nothing it did not check.
+            differing, compared = None, {}
+            if 'GameSettings' in names:
+                compared = {p: records_for(p, 'GameSettings') for p in selected}
+                base = base_game_settings(foundation)
+                if base is not None and base[0] == catalogs['snapshotId']:
+                    compared['the base game'] = base[1]
+                if len(compared) > 1:
+                    differing = differing_settings(compared)
             manifest['totals'] = {
                 'files': sum(len(p['files']) for p in manifest['profiles']),
                 'bytes': sum(f['bytes'] for p in manifest['profiles'] for f in p['files'].values()),
@@ -320,14 +365,17 @@ def build(source, output, profiles=None, include_book_text=False, extras=None):
         print(f'Bundle complete: {destination}\n'
               f'{totals["files"]} files, {totals["bytes"]/1048576:.2f} MB raw, '
               f'{totals["gzipBytes"]/1048576:.2f} MB gzipped', flush=True)
+        against = ('the base game and each other' if 'the base game' in compared
+                   else 'each other only; no extraction of this snapshot to compare the base '
+                        'game with')
         if differing:
-            print(f'\nNotice: {len(differing)} game setting(s) differ between profiles: '
-                  + ', '.join(differing[:8]) + (' ...' if len(differing) > 8 else '')
+            print(f'\nNotice: {len(differing)} game setting(s) differ, comparing the profiles with '
+                  f'{against}: ' + ', '.join(differing[:8]) + (' ...' if len(differing) > 8 else '')
                   + '\n  The site hardcodes formulas built on some game settings '
                     '(lib/level-math.mjs among them); tell the site agent which changed.',
                   flush=True)
         elif differing is not None:
-            print('Game settings are identical in every profile.', flush=True)
+            print(f'Game settings match, comparing the profiles with {against}.', flush=True)
         return destination
     finally:
         lock.unlink(missing_ok=True)
@@ -354,7 +402,8 @@ def main(argv=None):
               {name: None if getattr(args, 'no_'+spec['directory'].replace('-', '_'))
                      else (getattr(args, spec['directory'].replace('-', '_'))
                            or root/spec['directory'])
-               for name, spec in EXTRA_CATALOGS.items()})
+               for name, spec in EXTRA_CATALOGS.items()},
+              foundation=root/'game-data.sqlite')
         return 0
     except KeyboardInterrupt:
         print('\nCancelled; previous active bundle is unchanged.')
