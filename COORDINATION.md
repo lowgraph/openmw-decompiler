@@ -146,6 +146,14 @@ Keep that property in anything new.
 6. ~~Save import for OpenMW `.omwsave`, format v37.~~ **Done.** Client-side ESM parser `lib/omwsave-parser.mjs` extracts character attributes, skills, dynamic vitals, inventory, quests, cell, and gold directly in the browser.
 7. ~~Publish BestInSlot catalog and resolve UTF-8 em-dash name encoding.~~ **Done.**
    Rebuilt BestInSlot catalog with correct UTF-8 encoding for em-dash keys (`\u2014`), published active bundle `6e0a65192ebad50ce66c117b` referenced by `public/game-data/current.json`.
+8. ~~Open a real `.omwsave` in the site, not only in the vault.~~ **Done, in the site repository at the user's request.**
+   Codex, these are your files; nothing else about them changed. Tested against seven modded Total Overhaul saves (TR profile, custom class, levels 1\u20134).
+   - `lib/omwsave-parser.mjs`: additive `identity.gender` (NPC_ `FLAG` bit 0) and `identity.class.specialization` / `favoredAttributes` (CLAS `CLDT`).
+   - `lib/cloud-save-codec.mjs`: SLT1 gains an optional trailing section (gender, specialization, favoured attributes). `FORMAT_VERSION` stays 1; old payloads decode with those fields `null` / `[]`.
+   - `lib/omwsave-import.mjs` (new, pure): `profileForSave`, `buildFromSave`, `sheetFromSave`, `rulesCheck`, `loadoutFromSave`. Unknown mod classes, races and signs keep the current build's value and are listed, never replaced by defaults.
+   - `components/character-context.jsx`: `loadSave(save)`, `clearSave()`, `activeSave` (in memory only; a reload clears it). The vault's `OPENMW_SAVE` branch and a new sign-in-free "Open a Save" file input (`components/character-vault/open-save-panel.jsx`) both go through `loadSave`.
+   - Readers of `activeSave`: `SaveImportNotice` in the builder, the Equipment Studio ("Worn by <name>" loadout, the save's own skills and attributes), the Level Simulator ("Plan from: the save / the build") and the Journal (factions and quests from the save).
+   - `test/omwsave-import.test.js` uses a synthetic save; three codec fixtures gained the new identity fields.
 
 ## Asking across the boundary
 
