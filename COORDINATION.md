@@ -161,6 +161,13 @@ Keep that property in anything new.
    - Header (`components/site-header.jsx`): the nav row is Build Optimizer, Level Simulator, Alchemy, Travel, Faction Journal; Challenge Runs moved to More; Calculators holds Enchanting and Spellmaking; the Cloud Vault is an account button (`.vault-trigger`) after search. Phone tabs: Home, Build, Level, Alchemy, Menu.
    - `lib/omwsave-import.mjs` `readSaveFile(file)` is the one path for picked and dropped saves (the vault uses it too); it refuses a Morrowind.exe `.ess` by name.
    - Styles in `app/globals.css` and `app/theme-ashfall.css`, both themes.
+10. ~~Nine fixes from the user's testing.~~ **Done, in the site repository at the user's request.**
+    - `components/challenge-run-context.jsx` (new): `ChallengeRunProvider` in `app-shell.jsx` holds the run, locks and roll settings above the views, stores the run (`silt-challenge-run`) and the preferred settings (`silt-challenge-settings`), and opens `#challenge&run=` links.
+    - `lib/challenge-engine.mjs`: `generateSeededRun`, `formatRunSeed` / `parseRunSeed` (seeds carry world, bands and counts: `K7Q2M-TR-EM-R3O2`), `sanitizeRun` for links, `GRIND_MAJORS` banding of "Reach level 50".
+    - `lib/permalink-codec.mjs`: Web base64 APIs before `Buffer`; the browser's Buffer polyfill has no `base64url`, so links failed in browsers only.
+    - `lib/bundle-loader.mjs`: the `gear` feature also loads `GameSettings` (for `fEnchantmentMult`). Additive; a bundle without it fails `loadFeature('gear')`, as for any feature catalog.
+    - `window.siltShell` and `window.writeShareHash` are never set since Phase 13: buttons that used them now use the shell context. The remaining `window.siltShell` fallbacks in the vault are unreachable.
+    - Header: the world switch has three buttons, `#react-world-vanilla`, `#react-world-tr`, `#react-world-arce`; `#react-arce` is gone.
 
 ## Asking across the boundary
 
