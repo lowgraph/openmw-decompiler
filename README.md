@@ -1,189 +1,540 @@
-# OpenMW inventory exporter
+Silt Strider Data Pipeline
 
-> **Three-agent project:** Three agents collaborate across Silt Strider. **Claude** owns this data pipeline repository, **Codex** owns the site frontend (`A:\Claude\morrowind-tools`), and **Antigravity** leads UI transformation architecture. See [COORDINATION.md](COORDINATION.md) and [AGENTS.md](AGENTS.md).
+A reproducible data pipeline that extracts, normalizes, validates, and derives structured datasets from OpenMW/Morrowind game data for "Silt Strider Tools" (https://siltstrider.tools/).
 
-**Picking this up cold? Start with [HANDOFF.md](HANDOFF.md)** for the project scope,
-what exists, the rules that cost real debugging, and the ordered next steps.
+Application: "lowgraph/siltstrider.tools" (https://github.com/lowgraph/siltstrider.tools)
+Live product: "siltstrider.tools" (https://siltstrider.tools/)
 
-**Something changed upstream?** `python rebuild.py` rebuilds everything, stopping at
-the first step that refuses. [REBUILD.md](REBUILD.md) says what each change needs, the
-order the runner follows, and what every refusal means.
+---
 
-**New foundation:** start with [FOUNDATION.md](FOUNDATION.md) and run
-`python extract_foundation.py`. It preserves plugin records and resolves Vanilla,
-TR, and TR + ARCE profiles in `A:\Cache\OpenMWFoundation\game-data.sqlite`.
-The JSON exporters documented below are earlier prototypes, not prerequisites.
+Overview
 
-**After the foundation:** run `python build_catalogs.py` to create the typed
-profile catalogs. See [CATALOGS.md](CATALOGS.md) for the output layout and
-`catalog-types.ts` for the application contract.
+This repository is the data-engineering side of Silt Strider.
 
-**Effect flags from the engine:** run `python dump_profiles.py`. It launches OpenMW
-once per profile with [openmw_effect_dump](openmw_effect_dump/README.md) on `--data`,
-so nothing is installed, and imports each result. This turns the inferences below into
-facts, adds `harmful` and definitive targeting, which content cannot reveal, and picks
-up the 45 effects Tamriel Rebuilt registers through Lua and no plugin file defines.
+It reads approved Morrowind, OpenMW, Tamriel Rebuilt, Project Tamriel, and related plugin data and transforms those heterogeneous source files into normalized, profile-specific datasets used by the web application.
 
-**Effect rules:** run `python build_rules_library.py` to derive the per-effect behaviour
-the plugin files omit — targeting, no-magnitude and no-duration — from how the game's own
-content uses each effect. The spell cost formula branches on the last two. See
-[RULES.md](RULES.md) and `rules-types.ts`.
+The pipeline does more than extraction.
 
-**Late-game best-in-slot gear:** run `python build_best_in_slot_catalog.py` to
-rank the items that already carry a constant effect, per premade build and
-equipment slot, by what that build actually values. See
-[BEST_IN_SLOT.md](BEST_IN_SLOT.md) and `best-in-slot-types.ts`.
+It also models relationships between game entities, derives analytical datasets, evaluates configurable policies, records provenance, validates cross-stage consistency, and packages immutable browser-facing releases.
 
-**Factions:** run `python build_faction_catalog.py` to publish every faction, its
-ranks, and the attributes, skills and reputation each rank asks for. See
-[FACTIONS.md](FACTIONS.md) and `faction-types.ts`.
+At a high level:
 
-**Places:** run `python build_places_catalog.py` to publish every cell with its name,
-region and grid position, plus settlements grouped from the exterior cells that share a
-name. It is the join that turns any other catalog's `cellKey` into somewhere. See
-[PLACES.md](PLACES.md) and `place-types.ts`.
+Game / plugin files
+        │
+        ▼
+validated extraction
+        │
+        ▼
+normalized SQLite foundation
+        │
+        ├──────────────┐
+        ▼              ▼
+typed catalogs     world models
+                       │
+        ┌──────────────┼────────────────┐
+        ▼              ▼                ▼
+ acquisition       services         journals
+ evidence          & travel         & quests
+        │
+        └──────────────┼────────────────┘
+                       ▼
+              analytical policies
+                       │
+                       ▼
+              derived datasets
+                       │
+                       ▼
+              validated app bundle
+                       │
+                       ▼
+                Silt Strider
 
-**Merchants and barter:** run `python build_merchant_catalog.py` to publish every
-service provider with the stats the haggling formula reads, and the formula's own
-engine literals. See [MERCHANTS.md](MERCHANTS.md) and `merchant-types.ts`.
+The repository name reflects its origins, but the current project is better understood as an ETL and analytical data pipeline than as a simple decompiler.
 
-**Journal quests:** run `python build_quest_catalog.py` to publish every journal
-topic with its title, its stages, and which of those finish it — what journal
-completion per character tracks against. See [QUESTS.md](QUESTS.md) and
-`quest-types.ts`.
+---
 
-**Fast travel:** run `python build_travel_catalog.py` to publish the transport network
-— silt striders, boats, gondolas, riverstriders and guild guides — with the two site
-toggles for Mages Guild membership and Conjurer rank. See [TRAVEL.md](TRAVEL.md) and
-`travel-types.ts`.
+Design goals
 
-**Gear rows:** run `python build_gear_rows.py` after the policy is settled; it covers
-every profile unless given `--profile`. It writes one row per equipment slot per toggle combination, with the closest
-source first and a stronger "or" from farther away. See [ROWS.md](ROWS.md) and
-`gear-rows-types.ts`.
+The pipeline is built around several principles.
 
-**Ship to the site:** run `python build_app_bundle.py` after the catalogs to write
-the browser-facing bundle. See [BUNDLE.md](BUNDLE.md) and `bundle-types.ts`. It excludes
-book prose and publishes ARCE as a delta over TR, and reads no extraction databases.
+Preserve provenance
 
-**World data:** run `python build_world_catalog.py` to produce the normalized
-world database on A:. See [WORLD_CATALOG.md](WORLD_CATALOG.md). It stores linked
-inventories, lists, cells, actors and placements without expanding acquisition paths.
+Derived data should remain traceable to the extraction snapshot, game-data profile, source plugin, policy version, and—where relevant—the OpenMW engine version that produced it.
 
-**Services and travel:** run `python build_services_catalog.py` after the world
-builder. See [SERVICES_CATALOG.md](SERVICES_CATALOG.md) for service flags, provider
-locations, transport destinations, directed teleport doors, and coverage limits.
+Separate evidence from judgment
 
-**Quests, dialogue and scripts:** run `python build_journal_catalog.py` to decode
-journal stages, quest markers, dialogue filters/conditions and script source.
-See [JOURNAL_CATALOG.md](JOURNAL_CATALOG.md). Full extraction runs are performed
-locally by the user in VS Code; development verification uses synthetic fixtures.
+Raw facts and relationships are modeled separately from authored analytical policy.
 
-**Acquisition evidence:** run `python build_acquisition_index.py`, then query with
-`python inspect_acquisition_index.py --item katana_goldbrand_unique`.
-See [ACQUISITION_INDEX.md](ACQUISITION_INDEX.md) for bounded reverse queries through
-inventories and leveled lists, without expanding location paths.
+For example:
 
-**Script acquisition evidence:** run `python build_script_evidence.py`, then
-`python inspect_script_evidence.py --item katana_goldbrand_unique`.
-See [SCRIPT_EVIDENCE.md](SCRIPT_EVIDENCE.md) for command coverage and uncertainty.
+Evidence
+────────
+item value
+location
+owner
+acquisition path
+hostiles
+lock level
+merchant availability
 
-**Acquisition policy:** add `--policy` to `query_item_sources.py` to fill in the
-`assessment` block: obtainability, theft, sale status, price and early-game eligibility.
-See [POLICY.md](POLICY.md) and `policy-types.ts`. The rules are authored in
-[policy/early-game.json](policy/early-game.json) and versioned separately from any
-extraction snapshot, so a rule change never costs a re-extraction. Without `--policy`
-the assessment stays null.
+Policy
+──────
+maximum purchase price
+whether theft is allowed
+acceptable danger
+near-start locations
+whether endgame gear is allowed early
 
-**Unified item sources:** run `python query_item_sources.py --item katana_goldbrand_unique`.
-This combines the existing static index and script evidence with bounded context
-location lookups. No new database build is needed. See [ITEM_SOURCES.md](ITEM_SOURCES.md).
+Derived result
+──────────────
+early-game eligibility
 
-Exports the 12 inventory item categories into the existing `items/*.json` files.
-Python 3.10+ is required. The game and mods do not need to be running.
+Changing a policy therefore does not require pretending that the underlying game data changed.
 
-## Run in Visual Studio Code
+Preserve uncertainty
 
-Open this project folder in VS Code. In its terminal, run:
+Failure to find evidence is not automatically converted into evidence of absence.
 
-```powershell
+Bounded or truncated searches can return an explicit unknown state rather than an unjustified negative conclusion.
+
+Refuse stale or inconsistent builds
+
+Known failure conditions should stop publication rather than remain warnings someone must remember to check manually.
+
+Reproduce releases
+
+Generated catalogs and application bundles are tied to the extraction snapshot from which they were derived.
+
+Artifacts from incompatible snapshots cannot silently be combined.
+
+---
+
+Pipeline stages
+
+The full rebuild currently covers the major stages below.
+
+1. Foundation extraction
+
+"extract_foundation.py"
+
+Reads approved plugins and stores the source records and their provenance in a normalized SQLite foundation.
+
+The extraction preserves original record bytes and resolves game profiles using the same ordered override model expected by the project.
+
+Current profiles include:
+
+- "vanilla"
+- "tr"
+- "tr_arce"
+
+The foundation is described in "FOUNDATION.md" (FOUNDATION.md).
+
+---
+
+2. Typed catalogs
+
+"build_catalogs.py"
+
+Transforms resolved foundation data into application-oriented typed catalogs.
+
+These cover core entities such as:
+
+- races
+- classes
+- skills
+- attributes
+- spells
+- magic effects
+- weapons
+- armor
+- clothing
+- ingredients
+- apparatus
+- books
+- enchantments
+- game settings
+
+See "CATALOGS.md" (CATALOGS.md) and "catalog-types.ts".
+
+---
+
+3. World model
+
+"build_world_catalog.py"
+
+Builds normalized world relationships including:
+
+- cells
+- actors
+- inventories
+- placements
+- leveled lists
+- linked references
+
+The world representation preserves relationships rather than eagerly expanding every possible acquisition path.
+
+See "WORLD_CATALOG.md" (WORLD_CATALOG.md).
+
+---
+
+4. Journals, quests, and script evidence
+
+The pipeline separately models journal and script information through stages such as:
+
+- "build_journal_catalog.py"
+- "build_quest_catalog.py"
+- "build_script_evidence.py"
+
+These datasets preserve quest stages, completion markers, dialogue/script evidence, and uncertainty around scripted acquisition.
+
+See:
+
+- "JOURNAL_CATALOG.md" (JOURNAL_CATALOG.md)
+- "QUESTS.md" (QUESTS.md)
+- "SCRIPT_EVIDENCE.md" (SCRIPT_EVIDENCE.md)
+
+---
+
+5. Acquisition evidence
+
+"build_acquisition_index.py"
+
+Builds bounded reverse-query structures for determining how an item can be acquired through:
+
+- direct placements
+- inventories
+- leveled lists
+- merchants
+- scripted grants
+- ownership relationships
+
+"query_item_sources.py" combines static and scripted evidence into a unified view.
+
+The distinction between evidence and policy is intentional: the evidence layer reports what is known before deciding whether a route is acceptable.
+
+See:
+
+- "ACQUISITION_INDEX.md" (ACQUISITION_INDEX.md)
+- "ITEM_SOURCES.md" (ITEM_SOURCES.md)
+
+---
+
+6. Services, merchants, places, factions, and travel
+
+Dedicated builders derive higher-level domain datasets:
+
+- "build_services_catalog.py"
+- "build_merchant_catalog.py"
+- "build_places_catalog.py"
+- "build_faction_catalog.py"
+- "build_travel_catalog.py"
+
+These convert lower-level world relationships into application-ready models for service providers, barter calculations, named places, faction progression, and transport networks.
+
+See:
+
+- "SERVICES_CATALOG.md" (SERVICES_CATALOG.md)
+- "MERCHANTS.md" (MERCHANTS.md)
+- "PLACES.md" (PLACES.md)
+- "FACTIONS.md" (FACTIONS.md)
+- "TRAVEL.md" (TRAVEL.md)
+
+---
+
+Engine-derived rules
+
+Some behavior cannot be recovered reliably from plugin files alone.
+
+The project therefore distinguishes between:
+
+- information present in source data;
+- behavior inferred from how content uses that data;
+- behavior observed directly from OpenMW.
+
+For magic effects, for example, content usage can provide evidence about magnitude, duration, and targeting.
+
+Where the content is insufficient, the pipeline can retain "null" rather than invent a value.
+
+"dump_profiles.py" launches OpenMW with the included Lua effect dumper and records runtime effect metadata that plugin files do not expose.
+
+The rules layer then compares inference with engine-observed behavior.
+
+This allows results to be classified as confirmed, corrected, or otherwise resolved instead of silently replacing one source with another.
+
+See:
+
+- "RULES.md" (RULES.md)
+- "build_rules_library.py"
+- "openmw_effect_dump/"
+
+---
+
+Analytical policy
+
+Policy files live separately from extracted facts.
+
+Examples include:
+
+policy/
+├── early-game.json
+├── late-game.json
+├── travel.json
+└── journal-titles.json
+
+This distinction matters because statements such as:
+
+«“This item exists at location X.”»
+
+and:
+
+«“This item is reasonable to recommend to a new character.”»
+
+are different kinds of information.
+
+The first is extracted evidence.
+
+The second is an analytical judgment derived from evidence under an explicit policy.
+
+Policy is independently versioned, so changing a recommendation rule does not require re-extracting unchanged game data.
+
+See "POLICY.md" (POLICY.md).
+
+---
+
+Derived gear recommendations
+
+"build_gear_rows.py" produces recommendation rows for combinations of:
+
+- equipment slot
+- armor class or weapon skill
+- policy toggles
+- optimization objective
+
+Candidate acquisition routes are discovered and evaluated once, then reused across policy combinations where possible.
+
+Recommendations can distinguish between objectives such as:
+
+- raw equipment power
+- enchantment potential
+
+The system can also expose a nearby primary option and a stronger alternative available farther away when appropriate.
+
+See "ROWS.md" (ROWS.md).
+
+For late-game constant-effect equipment, "build_best_in_slot_catalog.py" ranks available candidates against the priorities of each premade build.
+
+See "BEST_IN_SLOT.md" (BEST_IN_SLOT.md).
+
+---
+
+Data-quality philosophy
+
+One of the core goals of the project is to move known operational mistakes from documentation into executable guards.
+
+The pipeline refuses conditions such as:
+
+- stale version labels
+- unlisted plugin files in approved directories
+- stale engine dumps
+- artifacts produced from another extraction snapshot
+- partial gear runs targeting normal production output
+- authored policy references that match no real entity
+- unsupported engine versions for transcribed formulas
+- inconsistent profile/catalog coverage
+- incompatible application-bundle inputs
+
+This turns:
+
+"Remember to check this"
+
+into:
+
+"The pipeline cannot publish unless this is valid"
+
+That behavior is documented in "REBUILD.md" (REBUILD.md).
+
+---
+
+Example: catching semantic data corruption
+
+The project has uncovered several cases where syntactically valid data produced semantically incorrect downstream results.
+
+One example involved the "INTV" field on placed references.
+
+A loose equipment reference can use the value as the item's condition.
+
+A container reference, however, carries the container's value—not the condition of every item stored inside it.
+
+Treating both cases identically caused expensive equipment inside some containers to appear broken:
+
+container INTV = 0
+        │
+        ▼
+incorrectly applied to contained equipment
+        │
+        ▼
+equipment appears broken
+        │
+        ▼
+effective value becomes 0
+        │
+        ▼
+incorrect early-game recommendation
+
+The fix corrected the interpretation and added regression tests for both loose-item and container cases.
+
+This kind of end-to-end data lineage is a major focus of the repository: a bad source interpretation should be traceable through every downstream transformation it affects.
+
+---
+
+Application bundle
+
+"build_app_bundle.py"
+
+Packages the pipeline's output into the versioned contract consumed by Silt Strider.
+
+The browser-facing bundle:
+
+- contains application-relevant catalogs only
+- excludes unnecessary large payloads such as book prose
+- records snapshot and profile provenance
+- stores file byte counts and SHA-256 hashes
+- supports inheritance between profiles
+- supports record-level deltas
+- has a content-derived bundle identity
+
+For example, the "tr_arce" profile can inherit unchanged Tamriel Rebuilt catalogs while shipping only the records ARCE actually changes.
+
+The frontend reconstructs the profile and independently validates the manifest and payloads.
+
+See "BUNDLE.md" (BUNDLE.md).
+
+---
+
+Rebuilding
+
+When upstream inputs change, the full pipeline can be run with:
+
+python rebuild.py
+
+The rebuild runner:
+
+1. executes the pipeline's test suite first;
+2. runs the extraction and transformation stages in dependency order;
+3. stops immediately when a stage refuses its inputs;
+4. records build output in rebuild logs;
+5. packages the application bundle;
+6. stages the bundle into the application repository;
+7. performs downstream verification.
+
+List the stages with:
+
+python rebuild.py --list
+
+Resume from a specific stage after fixing a refusal:
+
+python rebuild.py --from rules
+
+See "REBUILD.md" (REBUILD.md) before running a full rebuild against real game data.
+
+---
+
+Testing
+
+Install Python dependencies with:
+
 python -m pip install -r requirements.txt
-python export_items.py --list-plugins
-python export_items.py
-```
 
-The first command installs the JSON Schema validator. The second previews the
-approved active plugin paths without parsing them or writing files. The third
-performs the full export and replaces the 12 category JSON files. It also writes
-`items/export-report.json` with the load order, excluded content, and item counts.
+Run the complete Python suite:
 
-Use the same Python interpreter for installation and export. With VS Code's
-Python debugger available, select **Export all inventory JSONs** in Run and Debug
-and press F5. A separate launch configuration previews the approved plugins.
+python -m unittest discover -s . -p "test_*.py"
 
-Paths and version labels are already set for this PC in `export_config.json`.
-When installing a new approved plugin, add its filename to `allowedPlugins` and
-enable it in `openmw.cfg`. Only active plugins in both the file allowlist and the
-approved data directories are read. Other mods and `.omwscripts` are excluded.
+The tests rely heavily on synthetic fixtures so core extraction and transformation behavior can be validated without repeatedly rebuilding the full installed game dataset.
 
-To save a separate export:
+Coverage includes areas such as:
 
-```powershell
-python export_items.py --output output
-```
+- binary/plugin extraction
+- override behavior
+- catalog generation
+- app-bundle reconstruction
+- hashes and manifests
+- policy validation
+- acquisition paths
+- condition/value calculations
+- danger modeling
+- travel
+- factions
+- merchants
+- journal data
+- rules derivation
+- gear recommendations
+- snapshot consistency
+- rebuild orchestration
 
-Each output directory receives schemas alongside its tables. Game-data paths
-are opened for reading only. Output inside the base-data or mods tree is rejected.
+The application repository has its own downstream contract and regression tests as an additional consumer-side validation layer.
 
-## Data rules
+---
 
-- `vanilla` has version `OpenMW 0.51.0`.
-- `tamriel_rebuilt` has version `Tamriel Rebuilt 26.08.23`.
-- The second world is the requested two-world grouping for all five approved mod
-  families, including Tamriel_Data, Cyr_Main, Sky_Main, and ARCE. These are dataset
-  version labels, not assertions about those individual mods' release versions.
-- An item's world is determined by the earliest loaded definition of that item.
-  Overrides keep that origin while `sourcePlugin` identifies the winning plugin.
-- Plugins load in `content=` order. Later approved data directories resolve file
-  collisions. Later records replace earlier records, and deleted records are removed.
-- Master dependencies must already appear in the approved load order. The program
-  fails instead of silently reading an unapproved dependency.
-- Enchantments resolve against the final winning ENCH records, including overrides.
-  Effect display names resolve from the final GMST records. There are no network
-  lookups while exporting.
-- Base item stats are exported; player-dependent prices, auto-calculated costs,
-  running scripts, and saved-game inventory instances are not evaluated.
-- All inventory definitions are included, including unnamed/script-use records;
-  world-placed lights are excluded unless their carry flag is set.
-- Every dataset must pass its JSON Schema before publication. Missing enchantments,
-  missing effect names, malformed binary data, and unsupported enum values cause a
-  descriptive failure. Existing tables survive parsing or validation failures.
-- Files are staged before publication, with an atomic replacement per file.
-  Replacement of the entire set is not a single transaction; a disk failure or
-  process interruption during publication can leave a mixed set. Rerun to complete.
+Local requirements
 
-The config reader supports this PC's flat `openmw.cfg`, including quoted data
-paths, `content`, and `encoding`. Chained `config=` and `replace=` directives are
-rejected explicitly; supply a flattened configuration in that case.
+Running the unit tests does not require rebuilding the complete local game dataset.
 
-See [items/README.md](items/README.md) for field conventions and categories.
+A full production data rebuild requires a configured local environment containing the relevant Morrowind/OpenMW and approved mod data.
 
-## Verify the code
+Machine-specific source locations and version labels are defined in the repository's configuration files.
 
-```powershell
-python -m unittest test_export_items -v
-```
+The pipeline reads source game data and writes generated outputs to separate locations rather than modifying installed game files.
 
-Tests use the already-saved examples and temporary synthetic plugins. They cover
-all 12 record types, enchantment overrides, deletion, dependency errors, directory
-priority, scope exclusions, malformed records, carryable lights, and JSON output.
-They do not parse the installed game/mod files or populate your full tables.
+---
 
-The full export has deliberately not been run as part of creating this code.
+Human-directed, AI-assisted development
 
-## Locations
+This repository is part of a multi-agent development workflow.
 
-After populating the item tables, run `python export_locations.py` to generate
-`A:\Cache\ItemLocations.json`. Temporary location data also goes to `A:\Cache`.
-See [LOCATIONS.md](LOCATIONS.md) for ownership,
-leveled-list, script-reference, and coverage details. This does not modify item tables.
+Current responsibilities are separated between:
+
+- Claude — extraction, transformation, analytical pipeline, and data contracts
+- Codex — consuming web application
+- Antigravity — UI/UX transformation architecture
+
+The agents do not share unrestricted ownership of the codebase.
+
+The integration boundary between the data pipeline and application is the versioned bundle contract, which is independently validated on both sides.
+
+The human-directed layer is responsible for product requirements, analytical criteria, system boundaries, research decisions, validation, and whether generated implementations are accepted and released.
+
+See:
+
+- "COORDINATION.md" (COORDINATION.md)
+- "AGENTS.md" (AGENTS.md)
+- "HANDOFF.md" (HANDOFF.md)
+
+---
+
+Why this repository exists separately
+
+The application should not need to understand TES3 binary formats, plugin precedence, SQLite extraction internals, or the reasoning used to derive analytical datasets.
+
+Likewise, the data pipeline should not need to manipulate React components or browser UI state.
+
+The repositories therefore communicate through one explicit interface:
+
+openmw-decompiler
+        │
+        │ validated application bundle
+        ▼
+siltstrider.tools
+
+That separation allows extraction and application development to proceed independently while contract tests catch integration drift.
+
+---
+
+Related project
+
+The application consuming this data is:
+
+"lowgraph/siltstrider.tools" (https://github.com/lowgraph/siltstrider.tools)
+
+Live at:
+
+"siltstrider.tools" (https://siltstrider.tools/)
