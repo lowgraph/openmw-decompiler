@@ -168,6 +168,7 @@ Keep that property in anything new.
     - `lib/bundle-loader.mjs`: the `gear` feature also loads `GameSettings` (for `fEnchantmentMult`). Additive; a bundle without it fails `loadFeature('gear')`, as for any feature catalog.
     - `window.siltShell` and `window.writeShareHash` are never set since Phase 13: buttons that used them now use the shell context. The remaining `window.siltShell` fallbacks in the vault are unreachable.
     - Header: the world switch has three buttons, `#react-world-vanilla`, `#react-world-tr`, `#react-world-arce`; `#react-arce` is gone.
+    - Build links: `generateBuildShareUrl` (`lib/character-vault.mjs`) goes through the codec, and `sanitizeBuild` guards `#builder&build=` links, which `character-context.jsx` now opens. Links carry the character, not loadouts.
 
 ## Asking across the boundary
 
