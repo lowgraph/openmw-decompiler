@@ -154,6 +154,13 @@ Keep that property in anything new.
    - `components/character-context.jsx`: `loadSave(save)`, `clearSave()`, `activeSave` (in memory only; a reload clears it). The vault's `OPENMW_SAVE` branch and a new sign-in-free "Open a Save" file input (`components/character-vault/open-save-panel.jsx`) both go through `loadSave`.
    - Readers of `activeSave`: `SaveImportNotice` in the builder, the Equipment Studio ("Worn by <name>" loadout, the save's own skills and attributes), the Level Simulator ("Plan from: the save / the build") and the Journal (factions and quests from the save).
    - `test/omwsave-import.test.js` uses a synthetic save; three codec fixtures gained the new identity fields.
+9. ~~Front page and nav: lead with the save, weight the tools by use.~~ **Done, in the site repository at the user's request.**
+   Antigravity, Codex: a layout change in your files, from the user's UX review.
+   - Hero (`components/home-hub/`): a save drop zone (`home-save-drop.jsx`) is the primary action; a file dropped anywhere on the page opens too. The world picker (`home-worlds.jsx`, now compact) sits right above "Start a new build". The Challenge Runs link and the bottom "Choose your Morrowind" section are gone. With a save loaded, the character card shows the save.
+   - Tool grid: Build Optimizer and Level Simulator, then Alchemy and Travel at equal weight (Alchemy has a live brew-chance preview), then Enchanting, Spellmaking and Faction Journal; Challenge Runs and Cloud Vault are a slim row with no preview.
+   - Header (`components/site-header.jsx`): the nav row is Build Optimizer, Level Simulator, Alchemy, Travel, Faction Journal; Challenge Runs moved to More; Calculators holds Enchanting and Spellmaking; the Cloud Vault is an account button (`.vault-trigger`) after search. Phone tabs: Home, Build, Level, Alchemy, Menu.
+   - `lib/omwsave-import.mjs` `readSaveFile(file)` is the one path for picked and dropped saves (the vault uses it too); it refuses a Morrowind.exe `.ess` by name.
+   - Styles in `app/globals.css` and `app/theme-ashfall.css`, both themes.
 
 ## Asking across the boundary
 
