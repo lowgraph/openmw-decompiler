@@ -178,3 +178,27 @@ it. If a change is breaking, both sides bump and land it together — never one 
 
 When either side finishes something the other can use, say so explicitly with the
 artifact name. Silence reads as "not ready yet".
+
+## Alchemy correction, 23 September 2026
+
+No exported schema change. The site's alchemy feature now also requires the existing
+EffectRules catalog. Native alchemy joins rules by canonical effect ID, preserves
+attribute/skill targets and effect-slot order, and passes catalog GameSettings into
+OpenMW 0.51.0 potion calculations. Missing rules/settings block calculation. Profile
+changes remount the workstation and clear ingredients/apparatus; no static fallback
+is presented as live data. The retired AlchemyDataBridge is no longer mounted.
+
+Next agent: first run `npm test` in `A:\Claude\morrowind-tools`, then `npm run build`.
+Browser visual verification remains pending because automatic browser approval review
+reported a usage-limit failure. No extraction or bundle rebuild is required.
+
+## Portfolio presentation, 23 September 2026
+
+The site README now leads with the product, human contribution and disclosed AI
+assistance, current native React architecture, source evidence, setup, and limitations.
+`docs/CASE_STUDY.md` documents acquisition representation and alchemy integration
+tradeoffs; `docs/DEMO.md` provides a five-minute walkthrough and release checklist.
+Old migration/backend setup notes are explicitly marked historical. No dataset schema
+or runtime invariant changed in this documentation batch. Next agent: first run
+`npm test` in the site repository, then `npm run build`; rehearse and visually verify
+the intended release before adding screenshots or claiming deployment readiness.
