@@ -82,7 +82,7 @@ Keep that property in anything new.
 ### 4. Two-Failure Revert & Escalation Policy
 * If an automated test fails twice consecutively during a fix attempt:
   1. Immediately abort code edits.
-  2. Revert the working directory to the last clean git commit (`git restore .` / `git checkout .`).
+  2. Revert only the agent's own modified files for that task (e.g. `git restore <modified-files>` or `git checkout -- <modified-files>`), preserving unrelated uncommitted modifications or other agents' work. Never perform blanket rollbacks (`git restore .` / `git checkout .`).
   3. Emit a concise root-cause analysis showing the failing stack trace and the exact breaking invariant.
   4. Stop and request a `/boost` escalation run. Do not accumulate speculative patches.
 
