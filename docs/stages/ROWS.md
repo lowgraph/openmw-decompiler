@@ -12,7 +12,7 @@ Every profile unless `--profile` names some, about twenty minutes each.
 A row answers "what should a level 1 character wear here" for one equipment slot
 under one setting of the site's three toggles. Rows are **derived, never authored**:
 candidates come from the catalogs, verdicts from the policy layer, and nothing here
-decides what is obtainable. Change a rule in [policy/early-game.json](policy/early-game.json)
+decides what is obtainable. Change a rule in [policy/early-game.json](../../policy/early-game.json)
 and rebuild; no re-extraction is involved.
 
 Output goes to `A:\Cache\OpenMWFoundation\gear-rows\<profile>-<hash>.json`.

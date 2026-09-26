@@ -241,7 +241,7 @@ packed SLT1 blob and a few queryable metadata columns beside it. **There is stil
 journal table**: quest progress lives inside that blob, with only `quest_count` and
 `topic_count` exposed, so "which of my characters finished this quest" cannot be asked.
 The field requirements for that table are now written up in
-[JOURNAL_PROGRESS.md](JOURNAL_PROGRESS.md), with the measurements behind them and a
+[JOURNAL_PROGRESS.md](docs/stages/JOURNAL_PROGRESS.md), with the measurements behind them and a
 proposal in Codex's own house style that has been executed against SQLite. Codex owns
 the migration. The headline: every quest id in all 96 real saves resolves to the
 `Quests` catalog, but 469 of 757 only after lowercasing, so case folding is mandatory

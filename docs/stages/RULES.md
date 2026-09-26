@@ -40,7 +40,7 @@ onSelf    onTouch       onTarget       isAppliedOnce   casterLinked
 nonRecastable   unreflectable   continuousVfx   negativeLight
 ```
 
-[openmw_effect_dump](openmw_effect_dump/README.md) is a small mod that prints that
+[openmw_effect_dump](../../openmw_effect_dump/README.md) is a small mod that prints that
 table to `openmw.log`; the Lua sandbox has no `io` and `openmw.vfs` is read-only, so
 the log is the only way out. `dump_profiles.py` launches the game once per profile,
 passing the mod folder as `--data` so nothing has to be installed, watches the log, and

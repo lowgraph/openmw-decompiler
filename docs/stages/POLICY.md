@@ -6,7 +6,7 @@ Run in this project's VS Code terminal:
 python query_item_sources.py --item ring_mentor_unique --profile vanilla --policy
 ```
 
-`--policy` with no path uses [policy/early-game.json](policy/early-game.json). Without
+`--policy` with no path uses [policy/early-game.json](../../policy/early-game.json). Without
 it, `assessment` stays null exactly as before: **evidence never implies a verdict on
 its own.** No database is rebuilt, and no new one is written.
 
