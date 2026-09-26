@@ -84,7 +84,7 @@ def build(world_database,output,profiles=None):
                 stage=Path(tmp)/'acquisition.sqlite'
                 with closing(sqlite3.connect(stage)) as out:
                     out.execute('PRAGMA cache_size=-16384');out.execute('PRAGMA temp_store=MEMORY')
-                    out.executescript((ROOT/'acquisition_schema.sql').read_text())
+                    out.executescript((ROOT/'schemas'/'acquisition_schema.sql').read_text())
                     meta={'schemaVersion':VERSION,'snapshotId':wm['snapshotId'],'worldSchemaVersion':wm['schemaVersion'],
                         'worldBuiltAtUnix':wm['builtAtUnix'],'worldDatabase':str(path),'profiles':selected,'builtAtUnix':time.time(),
                         'coverage':'Static inventory/list evidence graph. Placements read on demand from world. No scripts, sale status, probabilities, safety or acquisition paths evaluated.'}

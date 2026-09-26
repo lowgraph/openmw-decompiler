@@ -168,7 +168,7 @@ def build(database,world_database,output,profiles=None):
                 stage=Path(temp)/'services.sqlite'
                 with closing(sqlite3.connect(stage)) as out:
                     out.execute('PRAGMA cache_size=-16384');out.execute('PRAGMA temp_store=MEMORY')
-                    out.executescript((ROOT/'services_schema.sql').read_text())
+                    out.executescript((ROOT/'schemas'/'services_schema.sql').read_text())
                     meta={'schemaVersion':VERSION,'snapshotId':fm['snapshotId'],'profiles':selected,'builtAtUnix':time.time(),
                         'worldSchemaVersion':wm['schemaVersion'],'worldBuiltAtUnix':wm.get('builtAtUnix'),
                         'coverage':'Static service flags, actor destinations, and teleport doors. No dialogue/script evaluation, prices, walkability, route safety, merchant stock, or pathfinding.'}

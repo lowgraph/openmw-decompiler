@@ -71,8 +71,8 @@ Keep that property in anything new.
 
 ### 2. Cross-Repo Boundary Enforcement
 * **Strict Boundary:** The Pipeline agent (`OpenMW Decompiler`) must NEVER directly modify files inside `A:\Claude\morrowind-tools`.
-* **Contract Sync:** Changes to game parsing outputs or schemas pass exclusively via exported JSON bundles to `public/legacy/` and synchronized updates to `COORDINATION.md` and `UI_TRANSFORMATION.md`.
-* **Legacy HTML Sync Hook:** Whenever `index.html` is modified, immediately run `npm run extract:legacy` to regenerate `public/legacy/body.html` before running tests or visual verification. Never leave Next.js running against stale extracted markup.
+* **Contract Sync:** Changes to game parsing outputs or schemas pass exclusively via exported JSON bundles to `public/game-data/` and synchronized updates to `COORDINATION.md` and `UI_TRANSFORMATION.md`.
+* **Legacy HTML Extraction (Retired):** The former prebuild hook (`extract:legacy`) was retired in Phase 13; the application is fully native React. `index.html` is retained strictly as a regression fixture for `test/site.test.js` and `archive/legacy/scripts/dev-server.cjs`.
 
 ### 3. Verification & Adversarial QA Protocols
 * **Pipeline Tests (233 suites):** Must pass cleanly with zero uncaught warnings. Output should be summarized; do not flood context with raw passing test logs.

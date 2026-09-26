@@ -317,7 +317,7 @@ def build(database,output,profiles=None):
                 stage=Path(temp)/'world.sqlite'
                 with closing(sqlite3.connect(stage)) as out:
                     out.execute('PRAGMA cache_size=-32768');out.execute('PRAGMA temp_store=MEMORY')
-                    out.executescript((ROOT/'world_schema.sql').read_text())
+                    out.executescript((ROOT/'schemas'/'world_schema.sql').read_text())
                     for k,v in {'schemaVersion':VERSION,'snapshotId':meta['snapshotId'],'profiles':selected,'builtAtUnix':time.time(),
                         'coverage':'Static plugin data; no scripts, danger, sale status, auto-calculated actor stats, or paths evaluated'}.items():
                         out.execute('INSERT INTO metadata VALUES (?,?)',(k,js(v)))

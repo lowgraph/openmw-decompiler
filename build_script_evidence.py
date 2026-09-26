@@ -104,7 +104,7 @@ def build(journal_database,world_database,output,profiles=None):
                 stage=Path(tmp)/'script-evidence.sqlite'
                 with closing(sqlite3.connect(stage)) as out:
                     out.execute('PRAGMA cache_size=-16384');out.execute('PRAGMA temp_store=MEMORY')
-                    out.executescript((ROOT/'script_evidence_schema.sql').read_text())
+                    out.executescript((ROOT/'schemas'/'script_evidence_schema.sql').read_text())
                     meta={'schemaVersion':'1.0.0','builderVersion':'1.0.1','snapshotId':jm['snapshotId'],'profiles':selected,'builtAtUnix':time.time(),
                         'journalBuiltAtUnix':jm['builtAtUnix'],'worldBuiltAtUnix':wm['builtAtUnix'],'commands':sorted(COMMANDS),
                         'coverage':'Lexical MWScript evidence only. No execution, path-condition evaluation, guaranteed rewards, script-call traversal or inferred locations.'}

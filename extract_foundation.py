@@ -447,7 +447,7 @@ def build(config, paths, encoding, target):
         db.execute('PRAGMA cache_size=-32768')
         db.execute('PRAGMA temp_store=MEMORY')
         db.execute('PRAGMA journal_mode=DELETE')
-        db.executescript((ROOT / 'foundation_schema.sql').read_text())
+        db.executescript((ROOT / 'schemas' / 'foundation_schema.sql').read_text())
         for plugin_id, path in enumerate(paths, 1):
             archive_plugin(db, path, plugin_id, encoding)
         resolve_profiles(db, config['profiles'])

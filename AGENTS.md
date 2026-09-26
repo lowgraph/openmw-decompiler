@@ -1,7 +1,8 @@
 # Three agents work on this project
 
 Read [COORDINATION.md](COORDINATION.md) before starting, and [HANDOFF.md](HANDOFF.md)
-if you are picking this up cold.
+if you are picking this up cold. For canonical repository paths and recent
+restructuring, read [docs/AGENT_PATH_MIGRATION.md](docs/AGENT_PATH_MIGRATION.md).
 
 1. **Claude (Data Agent):** Owns this data pipeline repository (`lowgraph/openmw-decompiler`).
    Extracts game files, maintains normalized SQLite in `A:\Cache\OpenMWFoundation`,
@@ -25,8 +26,8 @@ if you are picking this up cold.
 
 ### 2. Cross-Repo Boundary Enforcement
 - **Strict Boundary:** The Pipeline agent (`OpenMW Decompiler`) must NEVER directly modify files inside `A:\Claude\morrowind-tools`.
-- **Contract Sync:** Changes to game parsing outputs or schemas pass exclusively via exported JSON bundles to `public/legacy/` and synchronized updates to `COORDINATION.md` and `UI_TRANSFORMATION.md`.
-- **Legacy HTML Sync Hook:** Whenever `index.html` in the site repo is modified, immediately run `npm run extract:legacy` to regenerate `public/legacy/body.html` before running tests or visual verification. Never leave Next.js running against stale extracted markup.
+- **Contract Sync:** Changes to game parsing outputs or schemas pass exclusively via exported JSON bundles to `public/game-data/` and synchronized updates to `COORDINATION.md` and `UI_TRANSFORMATION.md`.
+- **Canonical Schema Paths:** All SQL schemas reside in `schemas/`. Never recreate schema files in the repository root.
 
 ### 3. Verification & Adversarial QA Protocols
 - **Pipeline Tests (233 suites):** Must pass cleanly with zero uncaught warnings. Summarize output; do not flood context with raw passing test logs.

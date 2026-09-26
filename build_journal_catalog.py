@@ -192,7 +192,7 @@ def build(database,output,profiles=None):
                 stage=Path(tmp)/'journal.sqlite'
                 with closing(sqlite3.connect(stage)) as out:
                     out.execute('PRAGMA cache_size=-16384');out.execute('PRAGMA temp_store=MEMORY')
-                    out.executescript((ROOT/'journal_schema.sql').read_text())
+                    out.executescript((ROOT/'schemas'/'journal_schema.sql').read_text())
                     metadata={'schemaVersion':VERSION,'snapshotId':meta['snapshotId'],'profiles':selected,'encoding':meta['encoding'],
                         'builtAtUnix':time.time(),'coverage':'Static journal markers, dialogue filters, raw conditions and script sources. No dialogue order replay, condition evaluation, script execution, quest availability or character completion.'}
                     out.executemany('INSERT INTO metadata VALUES (?,?)',[(k,js(v)) for k,v in metadata.items()])

@@ -127,7 +127,7 @@ Current profiles include:
 - "tr"
 - "tr_arce"
 
-The foundation is described in "FOUNDATION.md" (FOUNDATION.md).
+The foundation is described in "FOUNDATION.md" (docs/stages/FOUNDATION.md).
 
 ---
 
@@ -154,7 +154,7 @@ These cover core entities such as:
 - enchantments
 - game settings
 
-See "CATALOGS.md" (CATALOGS.md) and "catalog-types.ts".
+See "CATALOGS.md" (docs/stages/CATALOGS.md) and "contracts/catalog-types.ts".
 
 ---
 
@@ -173,7 +173,7 @@ Builds normalized world relationships including:
 
 The world representation preserves relationships rather than eagerly expanding every possible acquisition path.
 
-See "WORLD_CATALOG.md" (WORLD_CATALOG.md).
+See "WORLD_CATALOG.md" (docs/stages/WORLD_CATALOG.md).
 
 ---
 
@@ -189,9 +189,9 @@ These datasets preserve quest stages, completion markers, dialogue/script eviden
 
 See:
 
-- "JOURNAL_CATALOG.md" (JOURNAL_CATALOG.md)
-- "QUESTS.md" (QUESTS.md)
-- "SCRIPT_EVIDENCE.md" (SCRIPT_EVIDENCE.md)
+- "JOURNAL_CATALOG.md" (docs/stages/JOURNAL_CATALOG.md)
+- "QUESTS.md" (docs/stages/QUESTS.md)
+- "SCRIPT_EVIDENCE.md" (docs/stages/SCRIPT_EVIDENCE.md)
 
 ---
 
@@ -214,8 +214,8 @@ The distinction between evidence and policy is intentional: the evidence layer r
 
 See:
 
-- "ACQUISITION_INDEX.md" (ACQUISITION_INDEX.md)
-- "ITEM_SOURCES.md" (ITEM_SOURCES.md)
+- "ACQUISITION_INDEX.md" (docs/stages/ACQUISITION_INDEX.md)
+- "ITEM_SOURCES.md" (docs/stages/ITEM_SOURCES.md)
 
 ---
 
@@ -233,11 +233,11 @@ These convert lower-level world relationships into application-ready models for 
 
 See:
 
-- "SERVICES_CATALOG.md" (SERVICES_CATALOG.md)
-- "MERCHANTS.md" (MERCHANTS.md)
-- "PLACES.md" (PLACES.md)
-- "FACTIONS.md" (FACTIONS.md)
-- "TRAVEL.md" (TRAVEL.md)
+- "SERVICES_CATALOG.md" (docs/stages/SERVICES_CATALOG.md)
+- "MERCHANTS.md" (docs/stages/MERCHANTS.md)
+- "PLACES.md" (docs/stages/PLACES.md)
+- "FACTIONS.md" (docs/stages/FACTIONS.md)
+- "TRAVEL.md" (docs/stages/TRAVEL.md)
 
 ---
 
@@ -263,7 +263,7 @@ This allows results to be classified as confirmed, corrected, or otherwise resol
 
 See:
 
-- "RULES.md" (RULES.md)
+- "RULES.md" (docs/stages/RULES.md)
 - "build_rules_library.py"
 - "openmw_effect_dump/"
 
@@ -297,7 +297,7 @@ The second is an analytical judgment derived from evidence under an explicit pol
 
 Policy is independently versioned, so changing a recommendation rule does not require re-extracting unchanged game data.
 
-See "POLICY.md" (POLICY.md).
+See "POLICY.md" (docs/stages/POLICY.md).
 
 ---
 
@@ -319,11 +319,11 @@ Recommendations can distinguish between objectives such as:
 
 The system can also expose a nearby primary option and a stronger alternative available farther away when appropriate.
 
-See "ROWS.md" (ROWS.md).
+See "ROWS.md" (docs/stages/ROWS.md).
 
 For late-game constant-effect equipment, "build_best_in_slot_catalog.py" ranks available candidates against the priorities of each premade build.
 
-See "BEST_IN_SLOT.md" (BEST_IN_SLOT.md).
+See "BEST_IN_SLOT.md" (docs/stages/BEST_IN_SLOT.md).
 
 ---
 
@@ -407,7 +407,7 @@ For example, the "tr_arce" profile can inherit unchanged Tamriel Rebuilt catalog
 
 The frontend reconstructs the profile and independently validates the manifest and payloads.
 
-See "BUNDLE.md" (BUNDLE.md).
+See "BUNDLE.md" (docs/stages/BUNDLE.md).
 
 ---
 
@@ -507,6 +507,7 @@ See:
 
 - "COORDINATION.md" (COORDINATION.md)
 - "AGENTS.md" (AGENTS.md)
+- "AGENT_PATH_MIGRATION.md" (docs/AGENT_PATH_MIGRATION.md)
 - "HANDOFF.md" (HANDOFF.md)
 
 ---
