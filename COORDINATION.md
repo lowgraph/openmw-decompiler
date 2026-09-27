@@ -320,3 +320,39 @@ Validation: 553 site tests passed (`npm test` in `A:\Claude\morrowind-tools`); 5
 
 Next agent: first run `npm test` in `A:\Claude\morrowind-tools`. No extraction or bundle rebuild required.
 
+## Early-game gear from testing, 27 September 2026
+
+Additive to gear-row schema 1.0.0; see `contracts/gear-rows-types.ts`. Policy
+`2026.09.27` in `policy/early-game.json`. Pipeline commits through `14db1a3`, site
+commits through `49d01a5`.
+
+Policy and verdicts (pipeline):
+- `assumeFactionAccess` is false: faction-owned vault and chapel gear is theft.
+- `uniformScripts` drops the Ordinator helmets and cuirasses (OrdinatorUniform).
+- `endgame.boundSummons`: Devil/Demon/Fiend weapons are endgame and rank on the Bound
+  piece they conjure. Picks carry `baseStrength` and `summons`.
+- `door_access.py` reads interior pathgrids from `game-data.sqlite`. Routes carry
+  `doorLock`, and a locked door is refused like a locked chest.
+- Merchants sell only what they own in the active cells around them, as OpenMW's
+  trade window does. Stock anywhere else is theft. `holdingCellPrefixes` refuses
+  Tamriel Rebuilt's `TR_Hold_` cells.
+- Picks carry `place` and `seller`.
+
+Rows (pipeline) and site:
+- `earlyGame.ambushes` adds Dark Brotherhood rows, `toggles: {darkBrotherhood: true}`,
+  keyed like `armor/helmet/light/darkBrotherhood/power`, only where the level 1
+  assassin wears something. The site's `rowMatches` shows them only under the new
+  toggle. A site matching only the three policy toggles never selects them.
+- Picks carry `enchanted` (effects and worth in enchant points). Clothing `power`
+  ranks enchanted pieces first, and `enchantment` ranks blank pieces first. The site's
+  `pickRank` merges slots the same way, and `enchantmentNote` shows the effects.
+- Travel edges name pack guar, sky lamp and carriage modes.
+
+Rebuild before release. The gear rows now need the rules library and
+`game-data.sqlite`, both already earlier in `rebuild.py`. Run
+`python build_gear_rows.py` (about 20 minutes per profile), then the travel stage,
+the bundle and `npm run data:stage`. Until then the live rows lack the new fields
+and the site behaves as before.
+
+Validation: 555 pipeline tests and 559 site tests passed (the site count includes
+another session's uncommitted shell changes). No deployment in this batch.
