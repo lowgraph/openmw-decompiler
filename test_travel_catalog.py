@@ -30,6 +30,7 @@ class Databases(unittest.TestCase):
     """The builder reads two databases, so the fixtures are two databases."""
     def services(self, providers, cells=()):
         db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
         db.executescript("""
           CREATE TABLE profile_providers(profile_id,actor_key,version_id,origin_plugin);
           CREATE TABLE providers(version_id,actor_key,record_type,name,plugin,script_key,
@@ -59,6 +60,7 @@ class Databases(unittest.TestCase):
 
     def game(self, classes):
         db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
         db.executescript("""
           CREATE TABLE resolved_records(profile_id,record_type,record_key,origin_plugin_id,winner_id);
           CREATE TABLE record_versions(id,plugin_id,ordinal,file_offset,record_type,record_key,
@@ -260,6 +262,105 @@ class PayloadTests(Databases):
         services = self.services([('guide', 'Guide', 'NPC_', GUILD, [OTHER_GUILD])])
         payload = assemble(services, self.game({'guide': 'Guild Guide'}), 'tr', policy(), 'snap')
         self.assertTrue(all(isinstance(e.get('key'), str) and e['key'] for e in payload['edges']))
+
+
+VEHICLES = {'classes': ['Caravaner'], 'radius': 2500, 'markers': [
+    {'mode': 'sky_lamp', 'models': ['skylamp']},
+    {'mode': 'silt_strider', 'models': ['siltstrider.nif']},
+    {'mode': 'pack_guar', 'models': ['guar_withpack.nif', 'guar_harness.nif']}]}
+
+
+class VehicleTests(Databases):
+    """Tamriel Rebuilt calls every overland operator a Caravaner; the vehicle says what they drive."""
+
+    def world(self, placed):
+        db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
+        db.executescript("""
+          CREATE TABLE objects(version_id,record_type,object_key,editor_id,name,plugin,script_key,model);
+          CREATE TABLE profile_objects(profile_id,object_key,version_id);
+          CREATE TABLE placements(version_id,reference_key,object_key,source_cell_key,cell_key,plugin,
+                                  record_id,payload_offset,payload_length,moved,x,y,z,count_raw,
+                                  owner_key,faction_key,details);
+          CREATE TABLE profile_placements(profile_id,reference_key,version_id,origin_plugin);""")
+        models = {}
+        for index, (key, model, cell, x, y) in enumerate(placed, 1):
+            if key not in models:
+                models[key] = len(models) + 1
+                db.execute('INSERT INTO objects VALUES(?,?,?,?,?,?,?,?)',
+                           (models[key], 'STAT', key, key, key, 'p', None, model))
+                db.execute('INSERT INTO profile_objects VALUES(?,?,?)', ('tr', key, models[key]))
+            db.execute('INSERT INTO placements VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                       (index, f'ref{index}', key, cell, cell, 'p', index, 0, 0, 0, x, y, 0, 1, None, None, None))
+            db.execute('INSERT INTO profile_placements VALUES(?,?,?,?)', ('tr', f'ref{index}', index, 'p'))
+        db.commit()
+        return db
+
+    def modes(self, placed, klass='Caravaner'):
+        services = self.services([('op', 'Operator', 'NPC_', TOWN, ['exterior:9,9'])])
+        network = build(services, self.game({'op': klass}), 'tr',
+                        policy(modes={'byClass': {'Caravaner': 'silt_strider'}, 'byVehicle': VEHICLES}),
+                        self.world(placed))
+        return network['edges'][0]['mode'], network
+
+    def test_a_sky_lamp_at_the_stop_makes_it_a_sky_lamp(self):
+        mode, network = self.modes([('op', None, TOWN, 100, 100),
+                                    ('lamp', r'tr\cr\tr_SkyLamp_03.nif', TOWN, 900, 100)])
+        self.assertEqual(mode, 'sky_lamp')
+        self.assertEqual(network['providers']['op']['vehicle'], r'tr\cr\tr_skylamp_03.nif')
+        self.assertEqual(network['verification']['vehicleModes'], {'sky_lamp': 1})
+
+    def test_a_pack_guar_with_no_strider_makes_it_a_caravan(self):
+        mode, _ = self.modes([('op', None, TOWN, 0, 0), ('guar', r'r\Guar_withpack.NIF', TOWN, 400, 0)])
+        self.assertEqual(mode, 'pack_guar')
+
+    def test_a_strider_port_with_a_guar_beside_it_is_still_a_strider_port(self):
+        mode, _ = self.modes([('op', None, TOWN, 0, 0), ('guar', r'r\Guar_withpack.NIF', TOWN, 300, 0),
+                              ('strider', r'r\Siltstrider.NIF', TOWN, 600, 0)])
+        self.assertEqual(mode, 'silt_strider', 'markers are tried in the order listed')
+
+    def test_a_vehicle_across_the_cell_border_counts(self):
+        mode, _ = self.modes([('op', None, 'exterior:-2,-9', -8190, -73700),
+                              ('lamp', 'skylamp.nif', 'exterior:-1,-9', -8000, -73700)])
+        self.assertEqual(mode, 'sky_lamp')
+
+    def test_a_vehicle_out_of_reach_does_not(self):
+        mode, network = self.modes([('op', None, TOWN, 0, 0), ('lamp', 'skylamp.nif', TOWN, 4000, 0)])
+        self.assertEqual(mode, 'silt_strider', 'the class mode stands')
+        self.assertEqual(network['verification']['operatorsWithoutVehicle'], ['op'])
+
+    def test_other_classes_keep_their_class_mode(self):
+        mode, network = self.modes([('op', None, TOWN, 0, 0), ('lamp', 'skylamp.nif', TOWN, 100, 0)],
+                                   klass='Shipmaster')
+        self.assertIsNone(mode, 'a Shipmaster is not reclassified, and has no mode in this policy')
+        self.assertEqual(network['verification']['operatorsWithoutVehicle'], [])
+
+    def test_without_a_world_the_class_decides_as_before(self):
+        services = self.services([('op', 'Operator', 'NPC_', TOWN, ['exterior:9,9'])])
+        network = build(services, self.game({'op': 'Caravaner'}), 'tr',
+                        policy(modes={'byClass': {'Caravaner': 'silt_strider'}, 'byVehicle': VEHICLES}))
+        self.assertEqual(network['edges'][0]['mode'], 'silt_strider')
+
+
+class VehiclePolicyTests(unittest.TestCase):
+    def write(self, payload):
+        path = Path(tempfile.mkdtemp())/'travel.json'
+        path.write_text(json.dumps(payload), encoding='utf-8')
+        return path
+
+    def test_a_malformed_vehicle_rule_is_refused(self):
+        for broken in ({'classes': ['Caravaner'], 'radius': 0, 'markers': VEHICLES['markers']},
+                       {'classes': ['Caravaner'], 'radius': 2500, 'markers': []},
+                       {'classes': ['Caravaner'], 'radius': 2500, 'markers': [{'mode': 'x', 'models': []}]},
+                       {'radius': 2500, 'markers': VEHICLES['markers']}):
+            with self.assertRaises(ExportError, msg=repr(broken)):
+                load_travel_policy(self.write(policy(modes={'byClass': {}, 'byVehicle': broken})))
+
+    def test_the_shipped_policy_reads_vehicles_for_caravaners(self):
+        loaded = load_travel_policy(Path(__file__).parent/'policy/travel.json')
+        rule = loaded['modes']['byVehicle']
+        self.assertEqual(rule['classes'], ['Caravaner'])
+        self.assertEqual([m['mode'] for m in rule['markers']], ['sky_lamp', 'silt_strider', 'pack_guar', 'carriage'])
 
 
 if __name__ == '__main__':

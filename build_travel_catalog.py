@@ -48,6 +48,16 @@ def load_travel_policy(path):
                 raise ExportError(f'Conjurer edge names {edge.get(end)!r}, which is not a city')
     if not isinstance(policy.get('modes', {}).get('byClass'), dict):
         raise ExportError('Travel policy has no modes.byClass')
+    vehicle = policy['modes'].get('byVehicle')
+    if vehicle is not None:
+        markers = vehicle.get('markers')
+        if not (isinstance(vehicle.get('classes'), list) and isinstance(vehicle.get('radius'), (int, float))
+                and vehicle['radius'] > 0 and isinstance(markers, list) and markers
+                and all(isinstance(m, dict) and isinstance(m.get('mode'), str) and m['mode']
+                        and isinstance(m.get('models'), list) and m['models']
+                        and all(isinstance(x, str) and x for x in m['models']) for m in markers)):
+            raise ExportError('Travel policy modes.byVehicle needs classes, a positive radius and '
+                              'markers, each a mode with a non-empty models list')
     if not isinstance(policy.get('excludedCells'), list):
         raise ExportError('Travel policy excludedCells must be a list, possibly empty')
     return policy
@@ -138,6 +148,57 @@ def classify(providers, classes, policy):
     return sorted(disagreement, key=lambda d: d['key'])
 
 
+GRID = re.compile(r'^exterior:(-?\d+),(-?\d+)$')
+
+
+def nearby_models(world, profile, cell, x, y, radius):
+    """Models placed within radius of a point. An exterior stop can sit on a cell border,
+    so the eight neighbouring cells are searched too."""
+    grid = GRID.match(cell)
+    cells = ([f'exterior:{int(grid[1])+dx},{int(grid[2])+dy}' for dx in (-1, 0, 1) for dy in (-1, 0, 1)]
+             if grid else [cell])
+    marks = ','.join('?'*len(cells))
+    return [model or '' for model, in world.execute(
+        f'SELECT o.model FROM placements p '
+        f'JOIN profile_placements pp ON pp.reference_key = p.reference_key AND pp.version_id = p.version_id '
+        f'JOIN profile_objects po ON po.profile_id = pp.profile_id AND po.object_key = p.object_key '
+        f'JOIN objects o ON o.version_id = po.version_id '
+        f'WHERE pp.profile_id = ? AND p.cell_key IN ({marks}) '
+        f'AND (p.x - ?)*(p.x - ?) + (p.y - ?)*(p.y - ?) < ?',
+        (profile, *cells, x, x, y, y, radius*radius))]
+
+
+def vehicle_modes(world, profile, providers, rule):
+    """What each operator of the listed classes actually drives, from the vehicle at their stop.
+
+    Returns {actor: {'mode', 'model'}} for every operator a marker matched. The markers
+    are tried in the policy's order, so a strider port with a guar cart beside it is
+    still a strider port.
+    """
+    if world is None or not rule:
+        return {}
+    classes = set(rule['classes'])
+    found = {}
+    for actor, entry in providers.items():
+        if entry.get('class') not in classes:
+            continue
+        spots = world.execute(
+            'SELECT p.cell_key, p.x, p.y FROM placements p '
+            'JOIN profile_placements pp ON pp.reference_key = p.reference_key '
+            ' AND pp.version_id = p.version_id '
+            'WHERE pp.profile_id = ? AND p.object_key = ?', (profile, actor)).fetchall()
+        for cell, x, y in spots:
+            if x is None or y is None:
+                continue
+            models = [m.casefold() for m in nearby_models(world, profile, cell, x, y, rule['radius'])]
+            match = next(((marker['mode'], model) for marker in rule['markers'] for model in models
+                          if any(part.casefold() in model for part in marker['models'])), None)
+            if match:
+                found[actor] = {'mode': match[0], 'model': match[1]}
+                break
+    return found
+
+
 def conjurer_edges(policy, profile):
     """The authored rank-gated journeys, as concrete cell pairs."""
     rank = policy['conjurerRank']
@@ -148,9 +209,17 @@ def conjurer_edges(policy, profile):
             for edge in rank['edges']}
 
 
-def build(services, game, profile, policy):
+def build(services, game, profile, policy, world=None):
     providers, unplaced, skipped = collect(services, profile, policy)
     disagreement = classify(providers, actor_classes(game, profile), policy)
+    rule = policy['modes'].get('byVehicle')
+    vehicles = vehicle_modes(world, profile, providers, rule)
+    for actor, vehicle in vehicles.items():
+        providers[actor]['mode'] = vehicle['mode']
+        providers[actor]['vehicle'] = vehicle['model']
+    without = sorted(a for a, e in providers.items()
+                     if rule and world is not None and e.get('class') in set(rule['classes'])
+                     and a not in vehicles and e['cells'])
     gated = conjurer_edges(policy, profile)
     edges, used = [], set()
     for actor in sorted(providers):
@@ -188,6 +257,9 @@ def build(services, game, profile, policy):
                 'conjurerEdges': len(used),
                 'providersWithUnknownMode': sorted(a for a, e in providers.items()
                                                    if e['mode'] is None),
+                'vehicleModes': {mode: sum(1 for v in vehicles.values() if v['mode'] == mode)
+                                 for mode in sorted({v['mode'] for v in vehicles.values()})},
+                'operatorsWithoutVehicle': without,
                 'unplacedProviders': unplaced,
                 'destinationsSkipped': skipped}}
 
@@ -222,8 +294,8 @@ def publish(payload, output, profile):
     return destination, len(body)
 
 
-def assemble(services, game, profile, policy, snapshot):
-    network = build(services, game, profile, policy)
+def assemble(services, game, profile, policy, snapshot, world=None):
+    network = build(services, game, profile, policy, world)
     return {
         'schemaVersion': VERSION, 'profile': profile, 'snapshotId': snapshot,
         'policyVersion': policy['policyVersion'],
@@ -231,7 +303,8 @@ def assemble(services, game, profile, policy, snapshot):
             'mageGuildMember': {
                 'default': True, 'appliesTo': 'all',
                 'note': 'Off removes every edge with requiresMageGuild. Silt striders, '
-                        'boats, gondolas and riverstriders are untouched.'},
+                        'pack guars, sky lamps, carriages, boats, gondolas and riverstriders '
+                        'are untouched.'},
             'conjurerRank': {
                 'default': False, 'appliesTo': policy['conjurerRank']['profiles'],
                 'note': 'Off removes every edge with requiresConjurer. These are edges, '
@@ -256,13 +329,16 @@ def main(argv=None):
     parser.add_argument('--output', type=Path)
     parser.add_argument('--services-database', type=Path)
     parser.add_argument('--foundation-database', type=Path)
+    parser.add_argument('--world-database', type=Path,
+                        help='Where the vehicles at each stop are read from; world/world.sqlite')
     args = parser.parse_args(argv)
     try:
         root = load_config(ROOT/'foundation_config.json')[2]
         policy = load_travel_policy(args.policy or ROOT/'policy/travel.json')
         profiles = args.profile or ['vanilla', 'tr', 'tr_arce']
         paths = (args.services_database or root/'services/services.sqlite',
-                 args.foundation_database or root/'game-data.sqlite')
+                 args.foundation_database or root/'game-data.sqlite',
+                 args.world_database or root/'world/world.sqlite')
         written = []
         with ExitStack() as stack:
             dbs = []
@@ -271,15 +347,26 @@ def main(argv=None):
                     sqlite3.connect(path.resolve().as_uri()+'?mode=ro', uri=True)))
                 db.execute('PRAGMA temp_store=MEMORY')
                 dbs.append(db)
-            services, game = dbs
+            services, game, world = dbs
             snapshot = metadata(services).get('snapshotId')
+            # Vehicles come from the world catalog; a mismatched one would describe some
+            # other extraction's stops.
+            world_snapshot = metadata(world).get('snapshotId')
+            if snapshot and world_snapshot and snapshot != world_snapshot:
+                raise ExportError(f'services ({snapshot[:12]}) and world ({world_snapshot[:12]}) '
+                                  'come from different extractions; rebuild the older one first')
             for profile in profiles:
-                payload = assemble(services, game, profile, policy, snapshot)
+                payload = assemble(services, game, profile, policy, snapshot, world)
                 destination, size = publish(payload, args.output or root/'travel', profile)
                 check = payload['verification']
                 print(f'{profile}: {check["edges"]} edges, {check["nodes"]} cells, '
                       f'{check["providers"]} providers ({check["guildGuides"]} guild guides, '
                       f'{check["conjurerEdges"]} Conjurer edges), {size/1024:.0f} KB', flush=True)
+                if check['vehicleModes']:
+                    print('  by vehicle: ' + ', '.join(f'{n} {mode}' for mode, n in check['vehicleModes'].items())
+                          + (f'; no vehicle at {len(check["operatorsWithoutVehicle"])} stop(s): '
+                             + ', '.join(check['operatorsWithoutVehicle']) if check['operatorsWithoutVehicle'] else ''),
+                          flush=True)
                 if check['classDisagreement']:
                     for row in check['classDisagreement']:
                         print(f'  by destination {row["byDestination"]} but class '

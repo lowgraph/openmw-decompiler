@@ -10,10 +10,14 @@
  */
 import type { Profile } from "./catalog-types";
 
-/** The provider's class decides this. Null is a real answer: a one-off transport that
- *  belongs to no network — a slave, a fisherman, a Telvanni retainer doing a favour. */
+/** The provider's class decides this, except for Caravaners, where the vehicle at their
+ *  stop does: Tamriel Rebuilt gives sky lamp, pack guar and carriage operators the same
+ *  class as silt strider ones. Null is a real answer: a one-off transport that belongs to
+ *  no network — a slave, a fisherman, a Telvanni retainer doing a favour. The new modes
+ *  are additive to schema 1.0.0; a reader should treat any unknown mode as a transport. */
 export type TravelMode =
-  | "silt_strider" | "boat" | "gondola" | "riverstrider" | "guild_guide" | null;
+  | "silt_strider" | "pack_guar" | "sky_lamp" | "carriage"
+  | "boat" | "gondola" | "riverstrider" | "guild_guide" | null;
 
 export type TravelEdge = {
   /** `provider|from|to`. Unique within a profile; the bundle enforces that. */
@@ -51,6 +55,8 @@ export type TravelProvider = {
   /** Cells this provider stands in. Normally one. */
   cells: string[];
   guildGuide: boolean;
+  /** The vehicle model that decided `mode`, when one did. */
+  vehicle?: string;
 };
 
 /** Both default to the value here, not to false. */
@@ -82,6 +88,10 @@ export type TravelCatalog = {
     }>;
     conjurerEdges: number;
     providersWithUnknownMode: string[];
+    /** How many operators each vehicle marker classified. */
+    vehicleModes?: Record<string, number>;
+    /** Placed operators of a vehicle-read class with no vehicle near; they keep the class mode. */
+    operatorsWithoutVehicle?: string[];
     unplacedProviders: string[];
     destinationsSkipped: number;
   };

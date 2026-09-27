@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "policyVersion": "2026.09.20",
+  "policyVersion": "2026.09.27",
   "name": "Silt Strider fast travel policy",
   "notes": [
     "Authored rules, versioned independently of any extraction snapshot.",
@@ -46,6 +46,17 @@
       "Gondolier": "gondola",
       "T_Mw_RiverstriderService": "riverstrider",
       "Guild Guide": "guild_guide"
+    },
+    "byVehicle": {
+      "note": "Tamriel Rebuilt and its sister projects give every overland operator the Caravaner class, whatever they drive, so the class alone called Ald Iuval's sky lamps and Narsis's pack guars silt striders. The vehicle standing at the stop says which it is: the first marker whose model is placed within the radius of the operator wins, in the order listed. A Caravaner with no vehicle near keeps the class mode and is listed in verification.",
+      "classes": ["Caravaner"],
+      "radius": 2500,
+      "markers": [
+        {"mode": "sky_lamp", "models": ["skylamp"]},
+        {"mode": "silt_strider", "models": ["siltstrider.nif"]},
+        {"mode": "pack_guar", "models": ["guar_withpack.nif", "guar_harness.nif"]},
+        {"mode": "carriage", "models": ["pc_horsesdl", "sky_horse"]}
+      ]
     }
   },
   "excludedCells": [

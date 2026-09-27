@@ -115,6 +115,30 @@ Travel mode is authored the same way, as a class-to-mode table. An unlisted clas
 publishes `mode: null` rather than a guess — 23 TR providers are one-off transports
 owned by no network, and saying so beats inventing a category for them.
 
+## Caravaners: read the vehicle, not the class
+
+Tamriel Rebuilt and its sister projects give every overland operator the class
+`Caravaner`, whatever they drive, so the class alone called Ald Iuval's sky lamps and
+the Narsis caravans silt striders. For the classes listed in `modes.byVehicle`, the
+builder reads what stands at the stop from `world/world.sqlite`: the first marker model
+placed within 2,500 units of the operator (neighbouring exterior cells included, since a
+stop can sit on a cell border) decides, in the order listed.
+
+```
+tr   34 silt_strider   6 pack_guar   5 carriage   2 sky_lamp
+     sky_lamp    Ald Marak <-> Ald Iuval               tr_skylamp_03.nif
+     pack_guar   Narsis, Shipal-Sharai, Stormgate,     guar_withpack.nif
+                 Septim's Gate, Hlerynhul -> Shipal-Sharai, Ushu-Kur -> Arvud
+     carriage    Anvil's marina, Brina Cross, Hal Sadek (Project Cyrodiil);
+                 Dragonstar East <-> Karthwasten (Skyrim)
+vanilla   9 silt_strider
+```
+
+The strider marker comes before the guar one, so a strider port with a guar cart parked
+beside it stays a strider port. A placed operator no marker matches keeps the class mode
+and is listed in `verification.operatorsWithoutVehicle`. The world database must come
+from the same extraction as the services one; the builder refuses a mismatch.
+
 ## Options and verification
 
 ```powershell
