@@ -118,7 +118,20 @@ class PolicyDocumentTests(unittest.TestCase):
         self.assertEqual(policy['earlyGame']['maxGoldPerItem'], 500)
         self.assertFalse(policy['earlyGame']['allowTheft'])
         self.assertTrue(policy['earlyGame']['allowBrokenItems'], 'broken gear is free and repairable')
+        self.assertFalse(policy['earlyGame']['assumeFactionAccess'],
+                         'a level 1 character belongs to no faction; vault gear is theft')
+        self.assertIn('ordinatoruniform', policy['earlyGame']['uniformScripts'])
         self.assertTrue(policy['earlyGame']['vendorOwnedPlacementsArePurchasable'])
+
+    def test_uniform_scripts_must_be_a_list_of_ids(self):
+        for bad in ('ordinatoruniform', [''], [3]):
+            broken = copy.deepcopy(POLICY)
+            broken['earlyGame']['uniformScripts'] = bad
+            with self.assertRaises(ExportError, msg=repr(bad)):
+                load_policy(self.write(broken))
+        absent = copy.deepcopy(POLICY)
+        absent['earlyGame'].pop('uniformScripts', None)
+        self.assertEqual(load_policy(self.write(absent))['earlyGame'].get('uniformScripts', []), [])
 
     def test_schema_and_field_validation(self):
         for broken, message in [
@@ -329,6 +342,56 @@ class AssessmentTests(unittest.TestCase):
         permissive = copy.deepcopy(POLICY)
         permissive['earlyGame']['allowTheft'] = True
         self.assertTrue(self.assess(graph, policy=permissive)['earlyGameEligible'])
+
+    def test_the_shipped_policy_treats_faction_property_as_theft(self):
+        """Redoran's vaults and the Imperial Cult's chapels are faction-owned, not free."""
+        shipped = load_policy(Path(__file__).parent/'policy/early-game.json')
+        self.world.object('pauldron', 'ARMO')
+        self.world.object('vault shelf', 'CONT')
+        graph = static([node(1, 'pauldron', 'ARMO'), node(2, 'vault shelf', 'CONT')],
+                       [edge(2, 1)], [placement(2, 'tomb', faction='redoran')])
+        route = self.assess(graph, policy=shipped)['routes'][0]
+        self.assertTrue(route['theftRequired'])
+        self.assertEqual(route['acquisition'], 'theft')
+        self.assertIn('requires theft', ' '.join(route['reasons']))
+        thief = copy.deepcopy(shipped)
+        thief['earlyGame']['allowTheft'] = True
+        self.assertTrue(self.assess(graph, policy=thief)['routes'][0]['earlyGameEligible'],
+                        'with theft allowed it is a route like any other owned shelf')
+
+    def uniform_piece(self, script, policy=None):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        catalogs = Path(directory.name)
+        (catalogs/'p').mkdir()
+        (catalogs/'p/Armor.json').write_text(json.dumps({'records': [
+            {'key': 'helm', 'value': 300, 'armorRating': 20, 'health': 100, 'script': script}]}),
+            encoding='utf-8')
+        world = World()
+        self.addCleanup(world.close)
+        world.object('helm', 'ARMO')
+        world.object('urn', 'CONT')
+        graph = static([node(1, 'helm', 'ARMO'), node(2, 'urn', 'CONT')], [edge(2, 1)],
+                       [placement(2, 'tomb')])
+        rules = copy.deepcopy(policy or POLICY)
+        rules['earlyGame'].setdefault('uniformScripts', ['ordinatoruniform'])
+        return assess(world.db, world.services, catalogs, 'p', graph, {'events': []}, rules,
+                      self.limits, False)
+
+    def test_an_ordinator_uniform_is_never_recommended(self):
+        for script in ('OrdinatorUniform', 'ordinatoruniform'):
+            result = self.uniform_piece(script)
+            self.assertTrue(result['uniform'], script)
+            self.assertFalse(result['earlyGameEligible'], 'script ids are case-insensitive')
+            self.assertIn('impostor', ' '.join(result['routes'][0]['reasons']))
+        everything = copy.deepcopy(POLICY)
+        everything['earlyGame'].update(allowTheft=True, allowEndgameEarly=True)
+        self.assertFalse(self.uniform_piece('ordinatoruniform', everything)['earlyGameEligible'],
+                         'no toggle makes a uniform safe to wear')
+        for script in (None, 'bittercupscript'):
+            result = self.uniform_piece(script)
+            self.assertFalse(result['uniform'])
+            self.assertTrue(result['earlyGameEligible'], 'the rest of an Indoril set is fine')
 
     def test_faction_ownership_is_waived_when_access_is_assumed(self):
         self.world.object('sword', 'WEAP')

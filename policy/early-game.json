@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "policyVersion": "2026.09.18",
+  "policyVersion": "2026.09.27",
   "name": "Silt Strider default acquisition policy",
   "notes": [
     "Authored rules, versioned independently of any extraction snapshot.",
@@ -11,6 +11,8 @@
     "The gold cap applies to purchases only. Theft that clears the danger and lock rules has no price limit, because nothing is being paid.",
     "Site toggles: allowTheft, allowEndgameEarly, nearStart.required.",
     "Samarys is a starting-area place: the benchmark item must pass its own benchmark.",
+    "Faction-owned items are theft for a level 1 character, who belongs to no faction yet: Redoran's vaults and the Imperial Cult's chapels hold plenty of loose gear, and taking it is a crime until you join and rise far enough. assumeFactionAccess was true until 2026-09-27, which offered those as free.",
+    "uniformScripts name item scripts that make the wearer an impostor. OrdinatorUniform sets WearingOrdinatorUni on equip, and Ordinators react to it (Tamriel Rebuilt exempts members of T_Mw_Ordinators). Only the helmets and cuirasses that carry the script are excluded; the rest of an Indoril set is safe to wear.",
     "excludedCells lists exact keys: a substring match on 'test' would wrongly drop Nchuleftingth's Test of Pattern and Atestas' Pawn & Loan."
   ],
   "hostileFightThreshold": 70,
@@ -23,7 +25,8 @@
     "characterLevel": 1,
     "maxGoldPerItem": 500,
     "allowTheft": false,
-    "assumeFactionAccess": true,
+    "assumeFactionAccess": false,
+    "uniformScripts": ["ordinatoruniform"],
     "requireGuaranteedSource": true,
     "countRestockingMerchantsAsGuaranteed": true,
     "danger": {

@@ -59,6 +59,9 @@ def load_policy(path):
         raise ExportError('Policy earlyGame.nearStart needs required and a non-empty places list')
     if not isinstance(early.get('excludedCells'), list):
         raise ExportError('Policy earlyGame.excludedCells must be a list, possibly empty')
+    uniforms = early.get('uniformScripts', [])
+    if not isinstance(uniforms, list) or not all(isinstance(s, str) and s for s in uniforms):
+        raise ExportError('Policy earlyGame.uniformScripts must be a list of script ids, possibly empty')
     return policy
 
 
@@ -304,6 +307,10 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
     excluded = {key.casefold() for key in early['excludedCells']}
     record = catalog_record(catalogs, profile, root['recordType'], root['key']) or {}
     endgame = is_endgame(record, early['endgame'])
+    # Wearing a uniform the character has no right to is trouble wherever it came from:
+    # OrdinatorUniform sets WearingOrdinatorUni on equip, and Ordinators react to it.
+    uniform = str(record.get('script') or '').casefold() in {
+        s.casefold() for s in early.get('uniformScripts', [])}
     enchanted = bool(record.get('enchantmentId'))
     value = record.get('value')
     maximum = record.get(CONDITION_MAX.get(root['recordType'], ''))
@@ -338,6 +345,9 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
         reasons = []
         if placement['cellKey'].casefold() in excluded:
             reasons.append('developer test cell, not reachable in normal play')
+        if uniform:
+            reasons.append(f'wearing it marks you as an impostor (script {record["script"]}); '
+                           'Ordinators react to their uniform on anyone outside the order')
         if lock and early['requireUnlocked']:
             reasons.append(f'locked (level {lock})')
         if endgame and not early['allowEndgameEarly']:
@@ -402,6 +412,7 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
         'limits': limits,
         'obtainable': obtainable,
         'endgame': endgame,
+        'uniform': uniform,
         'theftRequired': None if not routes else all(r['theftRequired'] for r in routes),
         'evidenceTruncated': bool(truncated),
         'saleStatus': 'restocking' if restocks else 'stocked' if purchases else 'not_sold',
