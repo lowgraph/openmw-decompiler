@@ -501,3 +501,25 @@ Rebuild before release: `python build_teleport_catalog.py` (seconds), then
 Validation: 638 pipeline tests and 590 site tests passed. A preview bundle from the
 real data was staged, Mournhold, Master Index, index-chain, amulet and TR Propylon
 routes checked in the browser at desktop and 375 px, and unstaged.
+
+## Travel from the loaded save, and shareable routes, 27 September 2026
+
+No exported dataset or schema changes; site only. No rebuild needed.
+
+- `lib/omwsave-parser.mjs`: additive `identity.position` (the player's own `POS_`,
+  local coordinates indoors) and `identity.lastExteriorPosition` (`LKEP`). Read from
+  all 141 saves in the user's corpus. The standalone `A:\Claude\omwsave-to-json.js`
+  carries the same change. The SLT1 cloud codec does not store them.
+- `lib/travel-walk.mjs` `placeFromSave`: indoors the save's room; outdoors the grid
+  square from the position; a cloud save with no position, a town by its name.
+- `lib/travel-graph.mjs` `guildFromSave` and `CONJURER_RANK` (4, as the Factions
+  catalog counts): a loaded save sets the Mages Guild and Conjurer toggles.
+- The workstation starts from where the save's character stands (once per load, with a
+  button back to it), and warns when a route's fares exceed the gold the save carries.
+- `lib/travel-link.mjs`: `from`, `to`, `plan`, `walk=0` and `quest=1` in the travel
+  page's query, beside the shell's `world` and `arce`, written only while `/travel` is
+  on screen; a "Copy route link" button. A link wins over the save's starting point.
+
+Validation: 598 site tests passed. Checked in the browser with two real saves (a
+Mages Guild associate standing in the Ascadian Isles, and an 87-gold character whose
+route with a follower costs 165) and with a shared link through a world switch.
