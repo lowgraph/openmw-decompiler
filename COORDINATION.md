@@ -356,3 +356,41 @@ and the site behaves as before.
 
 Validation: 555 pipeline tests and 559 site tests passed (the site count includes
 another session's uncommitted shell changes). No deployment in this batch.
+
+## Fast travel: towns, fares and hours, 27 September 2026
+
+Additive to travel schema 1.0.0; see `contracts/travel-types.ts`. Policy
+`2026.09.27.2` in `policy/travel.json`. Uncommitted in both repositories at the time
+of writing; the user decides when it lands.
+
+Data (pipeline):
+- Nodes carry `town`, `district` and `townRule`. "Old Ebonheart, Docks" and "Old
+  Ebonheart, Guild of Mages" are both Old Ebonheart; an unnamed dock joins the town
+  beside it (`towns.radius` 1, ties join nothing, `towns.overrides` decide first).
+  TR has 90 towns from 137 stops; `exterior:-3,-14` (Teyn or Fort Ancylis) has none.
+- Edges carry `price` (before barter and followers), `hours`, `distance`, `fromPos`
+  and `toPos`, from OpenMW 0.51.0's travel window, transcribed and pinned like the
+  barter formula. Providers carry `barter` (record or autocalc). The payload carries
+  `travelFormula` and `barterFormula`; `build_app_bundle.py` publishes both.
+- `build_travel_catalog.py` now needs the catalog release (`--catalogs`, default
+  `catalogs/current.json`) and stops on another OpenMW release.
+
+Site:
+- `FEATURE_CATALOGS.travel` also loads `GameSettings`.
+- `lib/travel-graph.mjs`: `stopNameFor` (town first, then the old name folding, then
+  region and grid for an unnamed stop), `journeyGold` (getBarterOffer at full
+  fatigue), `travelDisposition` (base, shared race, Personality; no faction terms),
+  `planRoute` (fewest legs, cheapest or fastest, ties broken by the other two).
+  `adaptTravelGraph` keeps one edge per provider and adds its fare, hours and
+  districts only when the release has them, so older bundles route as before.
+- A null-mode edge is "Other Transport", not "Boat". `lib/travel-map.mjs` names stops
+  through `stopNameFor`, so the map and the router agree.
+- The workstation offers the three objectives and a followers count, and shows each
+  leg's provider, fare, hours and where to board.
+
+Rebuild before release: `python build_travel_catalog.py` (about four minutes), then
+`python build_app_bundle.py` and `npm run data:stage`. Until then the site plans by
+legs only, as before.
+
+Validation: 583 pipeline tests and 571 site tests passed. A preview bundle built from
+the real data was staged, checked in the browser at desktop and 375 px, and unstaged.

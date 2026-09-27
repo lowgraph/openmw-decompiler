@@ -4,8 +4,10 @@ import sqlite3
 import tempfile
 import unittest
 
-from build_travel_catalog import (assemble, build, classify, collect, conjurer_edges,
-                                  guild_cell, load_travel_policy)
+from build_travel_catalog import (TRANSCRIBED_FROM, assemble, assign_towns, build,
+                                  check_travel_transcription, classify, collect,
+                                  conjurer_edges, guild_cell, journey, load_travel_policy,
+                                  split_town)
 from export_items import ExportError
 
 GUILD = 'interior:vivec, guild of mages'
@@ -28,7 +30,9 @@ def policy(conjurer=False, **overrides):
 
 class Databases(unittest.TestCase):
     """The builder reads two databases, so the fixtures are two databases."""
-    def services(self, providers, cells=()):
+    def services(self, providers, cells=(), points=None, stats=None):
+        """`points` maps an actor to its (x, y, z) and a destination cell to where it lands."""
+        points = points or {}
         db = sqlite3.connect(':memory:')
         self.addCleanup(db.close)
         db.executescript("""
@@ -39,22 +43,30 @@ class Databases(unittest.TestCase):
                                           provider_version_id,cell_key,x,y,z);
           CREATE TABLE profile_destinations(profile_id,provider_version_id,entry_index,
                                             cell_key,status);
+          CREATE TABLE transport_destinations(provider_version_id,entry_index,cell_name,
+                                              x,y,z,rx,ry,rz);
           CREATE TABLE cells(profile_id,cell_key,name,interior,grid_x,grid_y,region_key,synthetic);
           CREATE TABLE metadata(key,value);""")
         db.execute("INSERT INTO metadata VALUES('snapshotId','\"snap\"')")
         for index, (actor, name, record_type, home, destinations) in enumerate(providers, 1):
             db.execute('INSERT INTO profile_providers VALUES(?,?,?,?)', ('tr', actor, index, 'p'))
             db.execute('INSERT INTO providers VALUES(?,?,?,?,?,?,?,?,?)',
-                       (index, actor, record_type, name, 'p', None, 0, 0, '{}'))
+                       (index, actor, record_type, name, 'p', None, 0, 0,
+                        json.dumps((stats or {}).get(actor, {}))))
             if home:
                 db.execute('INSERT INTO provider_locations VALUES(?,?,?,?,?,?,?,?)',
-                           ('tr', 'r', 1, index, home, 0, 0, 0))
+                           ('tr', 'r', 1, index, home, *points.get(actor, (0, 0, 0))))
             for entry, destination in enumerate(destinations):
                 db.execute('INSERT INTO profile_destinations VALUES(?,?,?,?,?)',
                            ('tr', index, entry, destination, 'resolved'))
-        for key, name, interior, region in cells:
+                if destination in points:
+                    db.execute('INSERT INTO transport_destinations VALUES(?,?,?,?,?,?,?,?,?)',
+                               (index, entry, None, *points[destination], 0, 0, 0))
+        for cell in cells:
+            key, name, interior, region = cell[:4]
+            grid = cell[4] if len(cell) > 4 else (0, 0)
             db.execute('INSERT INTO cells VALUES(?,?,?,?,?,?,?,?)',
-                       ('tr', key, name, interior, 0, 0, region, 0))
+                       ('tr', key, name, interior, *grid, region, 0))
         db.commit()
         return db
 
@@ -361,6 +373,203 @@ class VehiclePolicyTests(unittest.TestCase):
         rule = loaded['modes']['byVehicle']
         self.assertEqual(rule['classes'], ['Caravaner'])
         self.assertEqual([m['mode'] for m in rule['markers']], ['sky_lamp', 'silt_strider', 'pack_guar', 'carriage'])
+
+
+SETTINGS = {'fTravelMult': 4000.0, 'fTravelTimeMult': 16000.0, 'fMagesGuildTravel': 10.0}
+
+
+class JourneyTests(unittest.TestCase):
+    """TravelWindow::addDestination and onTravelButtonClick, openmw-0.51.0."""
+
+    def test_price_is_the_distance_over_ftravelmult_truncated(self):
+        cost = journey([((0, 0, 0), (0, 53999, 0))], False, SETTINGS)
+        self.assertEqual(cost['price'], 13, '53999 / 4000 = 13.49..., truncated')
+        self.assertEqual(cost['hours'], 3, '53999 / 16000 = 3.37..., truncated')
+        self.assertEqual(cost['distance'], 53999)
+
+    def test_price_counts_height_but_time_does_not(self):
+        cost = journey([((0, 0, 0), (0, 15999, 16000))], False, SETTINGS)
+        self.assertEqual(cost['price'], 5, 'three-dimensional distance 22626')
+        self.assertEqual(cost['hours'], 0, 'flat distance 15999 is under an hour')
+
+    def test_a_short_hop_still_costs_one_gold(self):
+        self.assertEqual(journey([((0, 0, 0), (10, 0, 0))], False, SETTINGS)['price'], 1)
+
+    def test_a_provider_indoors_charges_the_flat_guild_fee_and_takes_no_time(self):
+        cost = journey([((0, 0, 0), (900000, 0, 0))], True, SETTINGS)
+        self.assertEqual((cost['price'], cost['hours']), (10, 0))
+
+    def test_a_zero_travel_mult_charges_the_raw_distance_as_the_engine_does(self):
+        cost = journey([((0, 0, 0), (250.9, 0, 0))], False, SETTINGS | {'fTravelMult': 0})
+        self.assertEqual(cost['price'], 250)
+
+    def test_a_zero_time_mult_does_not_divide_by_zero(self):
+        cost = journey([((0, 0, 0), (50000, 0, 0))], False, SETTINGS | {'fTravelTimeMult': 0})
+        self.assertEqual(cost['hours'], 0)
+
+    def test_the_shortest_of_several_placements_decides(self):
+        cost = journey([((0, 0, 0), (0, 40000, 0)), ((0, 20000, 0), (0, 40000, 0))], False, SETTINGS)
+        self.assertEqual((cost['price'], cost['fromPos']), (5, [0, 20000]))
+
+    def test_no_position_or_no_settings_gives_nothing_rather_than_a_guess(self):
+        self.assertIsNone(journey([], False, SETTINGS))
+        self.assertIsNone(journey(None, False, SETTINGS))
+        self.assertIsNone(journey([((0, 0, 0), (1, 1, 1))], False, None))
+
+    def test_a_missing_or_non_numeric_setting_is_refused(self):
+        for broken in ({'fTravelMult': 4000.0}, SETTINGS | {'fTravelMult': None},
+                       SETTINGS | {'fMagesGuildTravel': True}):
+            with self.assertRaises(ExportError, msg=repr(broken)):
+                journey([((0, 0, 0), (1, 1, 1))], False, broken)
+
+    def test_the_transcription_is_pinned_to_one_engine_release(self):
+        check_travel_transcription({'vanilla': f'OpenMW {TRANSCRIBED_FROM}'})
+        with self.assertRaises(ExportError) as caught:
+            check_travel_transcription({'vanilla': 'OpenMW 0.52.0'})
+        self.assertIn('travelwindow.cpp', str(caught.exception))
+
+
+class PricedNetworkTests(Databases):
+    def network(self, record_type='NPC_', stats=None, reference=None):
+        services = self.services([('driver', 'Driver', record_type, TOWN, ['exterior:1,1', 'exterior:2,2'])],
+                                 points={'driver': (0, 0, 0), 'exterior:1,1': (0, 8000, 0)},
+                                 stats={'driver': stats or {}})
+        return build(services, self.game({'driver': 'Caravaner'}), 'tr', policy(),
+                     settings=SETTINGS, reference=reference)
+
+    def test_each_edge_carries_its_price_hours_and_both_ends(self):
+        edge = next(e for e in self.network()['edges'] if e['to'] == 'exterior:1,1')
+        self.assertEqual((edge['price'], edge['hours'], edge['toPos']), (2, 0, [0, 8000]))
+
+    def test_an_edge_with_no_destination_position_is_null_and_listed(self):
+        network = self.network()
+        edge = next(e for e in network['edges'] if e['to'] == 'exterior:2,2')
+        self.assertIsNone(edge['price'])
+        self.assertEqual(network['verification']['edgesWithoutPrice'], [edge['key']])
+
+    def test_stored_barter_stats_are_read_from_the_record(self):
+        barter = self.network(stats={'skills': {'mercantile': 30}, 'level': 5, 'disposition': 60,
+                                     'attributes': {'personality': 40, 'luck': 45}})['providers']['driver']['barter']
+        self.assertEqual((barter['mercantile'], barter['statsSource'], barter['disposition']), (30, 'record', 60))
+        self.assertTrue(barter['priceable'])
+
+    def test_an_autocalculated_driver_with_nothing_to_derive_from_is_unpriceable(self):
+        network = self.network(stats={'level': 5, 'autocalcFlag': True})
+        barter = network['providers']['driver']['barter']
+        self.assertIsNone(barter['statsSource'])
+        self.assertFalse(barter['priceable'])
+        self.assertEqual(network['verification']['providersWithoutBarterStats'], ['driver'])
+
+    def test_a_creature_is_priceable_because_it_never_haggles(self):
+        barter = self.network(record_type='CREA')['providers']['driver']['barter']
+        self.assertFalse(barter['haggles'])
+        self.assertTrue(barter['priceable'])
+
+    def test_without_settings_nothing_is_priced(self):
+        services = self.services([('driver', 'Driver', 'NPC_', TOWN, ['exterior:1,1'])])
+        network = build(services, self.game({'driver': 'Caravaner'}), 'tr', policy())
+        self.assertNotIn('price', network['edges'][0])
+        self.assertNotIn('barter', network['providers']['driver'])
+
+    def test_the_payload_publishes_the_formula_with_this_profiles_settings(self):
+        services = self.services([('driver', 'Driver', 'NPC_', TOWN, ['exterior:1,1'])])
+        payload = assemble(services, self.game({'driver': 'Caravaner'}), 'tr', policy(), 'snap',
+                           settings=SETTINGS | {'fUnrelated': 1.0})
+        self.assertEqual(payload['travelFormula']['settings'], SETTINGS)
+        self.assertEqual(payload['travelFormula']['source'], 'authored')
+        self.assertEqual(payload['barterFormula']['source'], 'authored')
+
+
+class TownTests(Databases):
+    def towns(self, nodes, cells=(), rule=None):
+        services = self.services([], cells=cells)
+        table = {key: {'key': key, 'name': name, 'interior': key.startswith('interior:'), 'region': None}
+                 for key, name in nodes.items()}
+        left = assign_towns(services, 'tr', table, rule or {'radius': 1, 'overrides': {}})
+        return table, left
+
+    def test_a_name_splits_into_town_and_district_at_the_first_comma(self):
+        self.assertEqual(split_town('Old Ebonheart, Docks'), ('Old Ebonheart', 'Docks'))
+        self.assertEqual(split_town("Sadrith Mora, Wolverine Hall: Mage's Guild"),
+                         ('Sadrith Mora', "Wolverine Hall: Mage's Guild"))
+        self.assertEqual(split_town('Balmora'), ('Balmora', None))
+        self.assertEqual(split_town('Balmora,'), ('Balmora', None), 'a trailing comma names no district')
+
+    def test_a_town_s_docks_and_guild_hall_share_the_town(self):
+        table, left = self.towns({'exterior:7,-18': 'Old Ebonheart, Docks',
+                                  'interior:old ebonheart, guild of mages': 'Old Ebonheart, Guild of Mages'})
+        self.assertEqual({n['town'] for n in table.values()}, {'Old Ebonheart'})
+        self.assertEqual(table['exterior:7,-18']['district'], 'Docks')
+        self.assertEqual(left, [])
+
+    def test_an_unnamed_stop_joins_the_only_town_beside_it(self):
+        table, _ = self.towns({'exterior:15,4': None},
+                              cells=[('exterior:15,5', 'Tel Aruhn', 0, None, (15, 5)),
+                                     ('exterior:17,4', 'Sadrith Mora', 0, None, (17, 4))])
+        self.assertEqual((table['exterior:15,4']['town'], table['exterior:15,4']['townRule']),
+                         ('Tel Aruhn', 'nearest'), 'Sadrith Mora is two cells off, out of radius 1')
+
+    def test_the_majority_of_the_nearest_cells_wins(self):
+        table, _ = self.towns({'exterior:8,-51': None},
+                              cells=[('exterior:7,-51', 'Narsis, Old Quarter', 0, None, (7, -51)),
+                                     ('exterior:7,-50', 'Narsis, Waterfront', 0, None, (7, -50)),
+                                     ('exterior:9,-51', 'Vedas Plantation', 0, None, (9, -51))])
+        self.assertEqual(table['exterior:8,-51']['town'], 'Narsis')
+
+    def test_a_tie_joins_no_town_and_is_listed(self):
+        table, left = self.towns({'exterior:-3,-14': None},
+                                 cells=[('exterior:-4,-14', 'Teyn', 0, None, (-4, -14)),
+                                        ('exterior:-2,-14', 'Fort Ancylis', 0, None, (-2, -14))])
+        self.assertIsNone(table['exterior:-3,-14']['town'])
+        self.assertIsNone(table['exterior:-3,-14']['townRule'])
+        self.assertEqual(left, ['exterior:-3,-14'])
+
+    def test_nothing_within_the_radius_joins_nothing(self):
+        _, left = self.towns({'exterior:0,0': None},
+                             cells=[('exterior:5,5', 'Far Away', 0, None, (5, 5))])
+        self.assertEqual(left, ['exterior:0,0'])
+
+    def test_radius_zero_never_guesses(self):
+        _, left = self.towns({'exterior:15,4': None},
+                             cells=[('exterior:15,5', 'Tel Aruhn', 0, None, (15, 5))],
+                             rule={'radius': 0, 'overrides': {}})
+        self.assertEqual(left, ['exterior:15,4'])
+
+    def test_an_override_decides_before_the_name_and_keeps_the_district(self):
+        table, _ = self.towns({'exterior:1,1': 'Kaushasiralis, Pier', 'exterior:2,2': 'Somewhere'},
+                              rule={'radius': 1, 'overrides': {'EXTERIOR:1,1': 'Othrenis',
+                                                               'exterior:2,2': None}})
+        self.assertEqual((table['exterior:1,1']['town'], table['exterior:1,1']['district'],
+                          table['exterior:1,1']['townRule']), ('Othrenis', 'Pier', 'override'))
+        self.assertIsNone(table['exterior:2,2']['town'], 'null keeps a stop out of every town')
+
+    def test_the_network_reports_its_towns(self):
+        services = self.services([('driver', 'Driver', 'NPC_', TOWN, [GUILD])],
+                                 cells=[(TOWN, 'Seyda Neen', 0, None, (-2, -9)),
+                                        (GUILD, 'Vivec, Guild of Mages', 1, None, (None, None))])
+        network = build(services, self.game({'driver': 'Caravaner'}), 'tr',
+                        policy(towns={'radius': 1, 'overrides': {}}))
+        self.assertEqual(network['verification']['towns'], 2)
+        self.assertEqual(network['nodes'][GUILD]['town'], 'Vivec')
+
+
+class TownPolicyTests(unittest.TestCase):
+    def write(self, payload):
+        path = Path(tempfile.mkdtemp())/'travel.json'
+        path.write_text(json.dumps(payload), encoding='utf-8')
+        return path
+
+    def test_a_malformed_town_rule_is_refused(self):
+        for broken in ({'radius': -1, 'overrides': {}}, {'radius': 1.5, 'overrides': {}},
+                       {'radius': True, 'overrides': {}}, {'radius': 1},
+                       {'radius': 1, 'overrides': {'balmora': 'Balmora'}},
+                       {'radius': 1, 'overrides': {'exterior:1,1': ' '}}, 'towns'):
+            with self.assertRaises(ExportError, msg=repr(broken)):
+                load_travel_policy(self.write(policy(towns=broken)))
+
+    def test_the_shipped_policy_merges_towns_within_one_cell(self):
+        loaded = load_travel_policy(Path(__file__).parent/'policy/travel.json')
+        self.assertEqual(loaded['towns']['radius'], 1)
 
 
 if __name__ == '__main__':

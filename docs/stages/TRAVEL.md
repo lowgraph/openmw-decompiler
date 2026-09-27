@@ -139,11 +139,67 @@ beside it stays a strider port. A placed operator no marker matches keeps the cl
 and is listed in `verification.operatorsWithoutVehicle`. The world database must come
 from the same extraction as the services one; the builder refuses a mismatch.
 
+## Prices and hours
+
+Every edge carries what the travel window asks before barter (`price`), the whole hours
+that pass (`hours`), the distance, and both ends' positions. These are worked out as
+OpenMW 0.51.0 does it, transcribed from `TravelWindow::addDestination` and
+`onTravelButtonClick` in `apps/openmw/mwgui/travelwindow.cpp` and published as
+`travelFormula`, with this profile's game settings beside it:
+
+- **A provider standing indoors charges a flat `fMagesGuildTravel` (10), and no time
+  passes.** Every guild guide works this way, and so would any other indoor provider.
+  The engine checks where the provider stands, not where you land.
+- **Anyone else charges the 3D distance divided by `fTravelMult` (4000), truncated,
+  with a minimum of 1.** The journey takes the flat 2D distance divided by
+  `fTravelTimeMult` (16000), truncated.
+- **Then followers and barter.** The price is multiplied by one plus the followers
+  travelling with you, then goes through `getBarterOffer`. Each provider carries its
+  seller side as `barter`, read from the record or rerun through `autocalc.py` (97 of
+  TR's 174 providers store no stats). `journeyPrice` in `travel-types.ts` is the
+  reference implementation.
+
+The engine measures from where the player stands, and this builder measures from where
+the provider stands, a few steps away. So a price that sits right on a boundary can
+differ by one gold piece. Measured on the real data:
+
+```
+vanilla   Seyda Neen -> Balmora, strider      13 gold before barter   3 hours
+          Ebonheart -> Sadrith Mora, boat     46 gold                11 hours
+          any guild guide                     10 gold                 0 hours
+```
+
+The transcription is pinned the same way as the barter formula: the build stops
+while the extraction names an OpenMW release other than `TRANSCRIBED_FROM`.
+
+## Towns
+
+A town is several stops. Old Ebonheart has its docks and its guild hall; Narsis has
+five districts. Every node carries `town`, `district` and `townRule`:
+
+- **By name.** A named stop's town is its name up to the first comma, so "Old
+  Ebonheart, Docks" is the Docks of Old Ebonheart and "Sadrith Mora, Wolverine Hall:
+  Mage's Guild" belongs to Sadrith Mora.
+- **Nearest.** An unnamed exterior stop joins the town that owns most of the named
+  cells nearest to it, within `towns.radius` cells (1). A tie joins nothing.
+- **Override.** `towns.overrides` in `policy/travel.json` decides before either rule.
+  A null override keeps a stop out of every town.
+
+```
+vanilla   22 towns from 35 stops, all placed
+tr        90 towns from 137 stops; exterior:-3,-14 left out, a tie between Teyn and Fort Ancylis
+          nearest: Tel Aruhn, Karthwasten, Holamayan, Tel Muthada, Narsis, Kaushasiralis
+```
+
+Ebonheart and Old Ebonheart are different towns, a short walk apart. Connecting them
+is walking's job, not naming's.
+
 ## Options and verification
 
 ```powershell
 python build_travel_catalog.py --profile tr
 python build_travel_catalog.py --policy policy/travel.json
+python build_travel_catalog.py --catalogs A:\Cache\OpenMWFoundation\catalogs\<releaseId>
 python build_app_bundle.py --no-travel
 python -m unittest test_travel_catalog -v
 ```
@@ -157,7 +213,8 @@ and unnamed endpoint cells; and the toggles' defaults surviving into the payload
 
 ## What this layer does not do
 
-No prices, no schedules, and no route-finding — it publishes the graph, not the path
+No schedules, no disposition, and no route-finding. It publishes the graph and what
+each journey costs before the player is considered, not the path
 through it. It evaluates no dialogue and no scripts, so a provider who would refuse to
 talk to you still appears. `excludedCells` drops developer cells; `interior:toddtest`
 is real, and Todd's Super Tester Guy really does sell travel to it.

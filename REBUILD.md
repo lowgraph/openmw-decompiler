@@ -152,7 +152,7 @@ step or later ones, so the earlier output is still good.
 | `These plugins changed since the last extraction` | effect dump | The game would load other files than were extracted | Run `extract_foundation.py` first |
 | `OpenMW reports ..., but the extraction is labelled` | effect dump | OpenMW was updated after extracting | Update `versions.vanilla`, then extract again |
 | `effect dump was taken against` or `No effect dump for` | rules | The dump is stale or was skipped | Run `dump_profiles.py`, then the rules |
-| `transcribed from OpenMW` | merchants | A new engine release | See [below](#after-an-openmw-update) |
+| `transcribed from OpenMW` | merchants, travel | A new engine release | See [below](#after-an-openmw-update) |
 | `A partial run (--limit or --category)` | gear rows | A smoke run aimed at the real rows | Pass `--output` with a scratch folder |
 | `constant effect(s) appear on candidates but the late-game policy does not cover them` | best-in-slot | A new item carries an effect with no tier | Add it to `effects` or `drawbacks` in `policy/late-game.json` |
 | `effect(s) in policy/late-game.json appear on no candidate` | best-in-slot | The last item carrying it is gone | Remove it, or check its spelling |
@@ -169,19 +169,23 @@ step or later ones, so the earlier output is still good.
 Update `openmwExecutable` and `versions.vanilla` in `export_config.json` and do the
 full rebuild. Extraction checks the label against the new binary.
 
-Two pieces of the pipeline are transcribed from OpenMW's source rather than read from
+Three pieces of the pipeline are transcribed from OpenMW's source rather than read from
 data, and no rebuild can update them. They were checked line by line against tag
 `openmw-0.51.0` (commit `f4bec41444`), including `npc.cpp`'s own `round_ieee_754`,
-which rounds ties to even as Python does. `build_merchant_catalog.py` stops while the
-extraction names any other release, and says what to compare:
+which rounds ties to even as Python does. `build_merchant_catalog.py` and
+`build_travel_catalog.py` stop while the extraction names any other release, and say
+what to compare:
 
 | Transcribed in | From |
 |---|---|
 | `BARTER_FORMULA` in `build_merchant_catalog.py` | `MechanicsManager::getBarterOffer`, `apps/openmw/mwmechanics/mechanicsmanagerimp.cpp` |
 | `autocalc.py` | `autoCalculateAttributes` and `autoCalculateSkills`, `apps/openmw/mwclass/npc.cpp` |
+| `TRAVEL_FORMULA` in `build_travel_catalog.py` | `TravelWindow::addDestination` and `onTravelButtonClick`, `apps/openmw/mwgui/travelwindow.cpp` |
 
-If both functions are unchanged in the new release, set `TRANSCRIBED_FROM` in
-`build_merchant_catalog.py` to it; if not, transcribe them again. `effect_names.py` is
+If the functions are unchanged in the new release, set `TRANSCRIBED_FROM` in
+`build_merchant_catalog.py` and in `build_travel_catalog.py` to it; if not, transcribe
+them again. The travel build checks both pins, since it prices with the barter formula
+and autocalc too. `effect_names.py` is
 not on this list: it maps Morrowind's fixed effect-name settings, a property of the file
 format rather than of the engine.
 

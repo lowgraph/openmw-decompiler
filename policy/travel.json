@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "policyVersion": "2026.09.27",
+  "policyVersion": "2026.09.27.2",
   "name": "Silt Strider fast travel policy",
   "notes": [
     "Authored rules, versioned independently of any extraction snapshot.",
@@ -58,6 +58,11 @@
         {"mode": "carriage", "models": ["pc_horsesdl", "sky_horse"]}
       ]
     }
+  },
+  "towns": {
+    "note": "A stop's town is its name up to the first comma, so Old Ebonheart, Docks and Old Ebonheart, Guild of Mages are both Old Ebonheart. An unnamed stop outside town joins the town owning most of the named cells nearest to it, within radius cells; a tie joins nothing, and an override decides before either rule. Map a cell to null to keep a stop out of every town.",
+    "radius": 1,
+    "overrides": {}
   },
   "excludedCells": [
     "interior:toddtest"

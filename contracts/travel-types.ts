@@ -34,6 +34,17 @@ export type TravelEdge = {
    *  Always false on `vanilla`. Every such edge also has requiresMageGuild true, so
    *  turning membership off already removes them. */
   requiresConjurer: boolean;
+  /** Additive to schema 1.0.0 since policy 2026.09.27.2. What the travel window asks
+   *  before barter and followers, per `travelFormula`. Null when either end has no
+   *  known position. Absent from older releases. */
+  price?: number | null;
+  /** Whole in-game hours the journey takes; 0 from a provider standing indoors. */
+  hours?: number | null;
+  /** Straight-line distance in game units, provider to landing point. */
+  distance?: number;
+  /** Where the provider stands and where you land, world units [x, y], rounded. */
+  fromPos?: [number, number];
+  toPos?: [number, number];
 };
 
 export type TravelNode = {
@@ -42,6 +53,29 @@ export type TravelNode = {
   name: string | null;
   interior: boolean;
   region: string | null;
+  /** Additive. The town this stop belongs to: the name up to the first comma, so
+   *  "Old Ebonheart, Docks" and "Old Ebonheart, Guild of Mages" are both Old Ebonheart.
+   *  An unnamed stop takes the town beside it; null when no town is certain. Route
+   *  between towns, and name the district as where to board. */
+  town?: string | null;
+  /** What followed the comma: "Docks", "Guild of Mages". Null for a bare town name. */
+  district?: string | null;
+  /** How the town was decided: its own name, the nearest named cells, or the policy. */
+  townRule?: "name" | "nearest" | "override" | null;
+};
+
+/** The seller's side of getBarterOffer. Additive. */
+export type TravelBarter = {
+  mercantile: number | null; personality: number | null; luck: number | null;
+  /** The record's base disposition, before race, personality and faction adjust it. */
+  disposition: number | null;
+  /** "record" when the NPC stores its stats, "derived" when rerun as OpenMW's autocalc. */
+  statsSource: "record" | "derived" | null;
+  /** False for a creature: getBarterOffer returns its price unchanged. */
+  haggles: boolean;
+  priceable: boolean;
+  race: string | null;
+  female: boolean;
 };
 
 export type TravelProvider = {
@@ -57,6 +91,17 @@ export type TravelProvider = {
   guildGuide: boolean;
   /** The vehicle model that decided `mode`, when one did. */
   vehicle?: string;
+  /** Additive. Present when the release is priced. */
+  barter?: TravelBarter;
+};
+
+/** OpenMW 0.51.0's travel window, transcribed; `settings` holds this profile's values. */
+export type TravelFormula = {
+  source: "authored"; transcribedFrom: string; function: string; note: string;
+  minimumPrice: 1; followersMultiplyPrice: true;
+  interiorProviderChargesFlat: "fMagesGuildTravel";
+  gameSettings: string[];
+  settings: { fTravelMult: number; fTravelTimeMult: number; fMagesGuildTravel: number };
 };
 
 /** Both default to the value here, not to false. */
@@ -74,7 +119,11 @@ export type TravelCatalog = {
   toggles: TravelToggles;
   /** The two rules the travel records cannot supply, kept verbatim so the reasoning
    *  ships with the data rather than living only in a commit message. */
-  authored: { source: "authored"; guildGuide: unknown; conjurerRank: unknown };
+  authored: { source: "authored"; guildGuide: unknown; conjurerRank: unknown; towns?: unknown };
+  /** Additive; null or absent in an unpriced release. */
+  travelFormula?: TravelFormula | null;
+  /** The same literals the Merchants catalog carries, so Travel prices on its own. */
+  barterFormula?: Record<string, unknown> | null;
   verification: {
     providers: number; edges: number; nodes: number;
     guildGuides: number;
@@ -94,6 +143,11 @@ export type TravelCatalog = {
     operatorsWithoutVehicle?: string[];
     unplacedProviders: string[];
     destinationsSkipped: number;
+    /** Additive. */
+    towns?: number;
+    stopsWithoutTown?: string[];
+    edgesWithoutPrice?: string[];
+    providersWithoutBarterStats?: string[];
   };
   nodes: Record<string, TravelNode>;
   providers: Record<string, TravelProvider>;
@@ -113,4 +167,29 @@ export function usableEdges(
   const conjurer = player.conjurerRank ?? catalog.toggles.conjurerRank.default;
   return catalog.records.filter(edge =>
     (member || !edge.requiresMageGuild) && (conjurer || !edge.requiresConjurer));
+}
+
+/**
+ * What a journey costs this player, as OpenMW 0.51.0 charges it: the published base
+ * price times one plus the followers, then getBarterOffer. `playerDisposition` is the
+ * provider's derived disposition toward the player, which the site has to estimate.
+ * Returns null when the release or the provider carries no price.
+ */
+export function journeyPrice(
+  catalog: TravelCatalog, edge: TravelEdge,
+  player: { mercantile: number; personality: number; luck: number;
+            fatigueTerm?: number; followers?: number; playerDisposition: number },
+): number | null {
+  const provider = catalog.providers[edge.provider];
+  const barter = provider?.barter;
+  if (edge.price == null || !barter || !barter.priceable) return null;
+  const base = Math.max(1, edge.price * (1 + (player.followers ?? 0)));
+  if (!barter.haggles) return base;
+  const fatigue = 1.25; // fFatigueBase at full fatigue, the seller's usual state
+  const pcTerm = (player.playerDisposition - 50 + Math.min(player.mercantile, 100)
+    + Math.min(0.1 * player.luck, 10) + Math.min(0.2 * player.personality, 10))
+    * (player.fatigueTerm ?? fatigue);
+  const npcTerm = (Math.min(barter.mercantile!, 100) + Math.min(0.1 * barter.luck!, 10)
+    + Math.min(0.2 * barter.personality!, 10)) * fatigue;
+  return Math.max(1, Math.trunc(base * 0.01 * (100 - 0.5 * (pcTerm - npcTerm))));
 }

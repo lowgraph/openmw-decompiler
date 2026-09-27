@@ -35,7 +35,7 @@ EXTRA_CATALOGS = {
                     'carry': ('derivation', 'costFormula', 'coverage')},
     'Travel': {'directory': 'travel', 'array': 'edges',
                'carry': ('toggles', 'nodes', 'providers', 'authored', 'verification',
-                         'policyVersion', 'coverage')},
+                         'policyVersion', 'travelFormula', 'barterFormula', 'coverage')},
     'Quests': {'directory': 'quests', 'array': 'records',
                'carry': ('derivation', 'policyVersion', 'coverage')},
     'Merchants': {'directory': 'merchants', 'array': 'records',
