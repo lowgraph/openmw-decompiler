@@ -8,13 +8,14 @@ import unittest
 import dump_profiles
 from dump_profiles import CONTENT, command_for, content_for, dumped, find_openmw, run_profile
 from export_items import ExportError
+from testing_support import scratch_dir
 
 PROFILE = {'id': 'tr', 'plugins': ['Morrowind.esm', 'TR_Mainland.esm'],
            'runtimeContent': ['tamrielrebuilt.omwscripts']}
 
 
 def executable():
-    path = Path(tempfile.mkdtemp())/'openmw.exe'
+    path = Path(scratch_dir())/'openmw.exe'
     path.write_bytes(b'')
     return path
 
@@ -61,7 +62,7 @@ class ExecutableTests(unittest.TestCase):
         self.assertEqual(find_openmw(None, {'openmwExecutable': str(path)}), path)
 
     def test_a_path_that_is_not_there_is_skipped_rather_than_returned(self):
-        missing = Path(tempfile.mkdtemp())/'absent.exe'
+        missing = Path(scratch_dir())/'absent.exe'
         path = executable()
         self.assertEqual(find_openmw(missing, {'openmwExecutable': str(path)}), path)
 
@@ -69,7 +70,7 @@ class ExecutableTests(unittest.TestCase):
 class CompletionTests(unittest.TestCase):
     """The run ends when the dump lands in the log, not when the game exits."""
     def setUp(self):
-        self.log = Path(tempfile.mkdtemp())/'openmw.log'
+        self.log = Path(scratch_dir())/'openmw.log'
 
     def test_a_log_from_before_the_launch_does_not_count(self):
         self.log.write_text('SILTDUMP END 141', encoding='utf-8')
@@ -91,7 +92,7 @@ class CompletionTests(unittest.TestCase):
 class RunTests(unittest.TestCase):
     """Nothing in the mod quits the game, so the driver has to decide when to stop."""
     def setUp(self):
-        self.log = Path(tempfile.mkdtemp())/'openmw.log'
+        self.log = Path(scratch_dir())/'openmw.log'
         self.spawned = []
 
     @contextlib.contextmanager

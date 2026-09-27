@@ -7,6 +7,7 @@ import unittest
 from build_quest_catalog import (FALLBACK_LENGTH, assemble, check_authored, excerpt,
                                  load_titles, quests)
 from export_items import ExportError
+from testing_support import scratch_dir
 
 
 def titles(**overrides):
@@ -152,7 +153,7 @@ class SelectionTests(JournalFixture):
 
 class AuthoredTitleTests(unittest.TestCase):
     def write(self, payload):
-        path = Path(tempfile.mkdtemp())/'journal-titles.json'
+        path = Path(scratch_dir())/'journal-titles.json'
         path.write_text(json.dumps(payload), encoding='utf-8')
         return path
 

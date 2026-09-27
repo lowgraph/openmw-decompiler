@@ -9,6 +9,7 @@ import unittest
 from build_rules_library import (MINIMUM_USES, agreement, build, check_alignment, fixed_at,
                                  flags_for, load_flags, observe, rule)
 from export_items import ExportError
+from testing_support import scratch_dir
 
 SNAPSHOT = 'snapshot-for-tests'
 
@@ -31,7 +32,7 @@ def spell(*effects):
 class RulesFixture(unittest.TestCase):
     """A catalog release is just files, so the fixtures are too."""
     def release(self, profiles, effects=None):
-        directory = Path(tempfile.mkdtemp())
+        directory = Path(scratch_dir())
         self.addCleanup(lambda: None)
         effects = effects or [effect(1, 'Test Effect')]
         for name, content in profiles.items():
@@ -47,7 +48,7 @@ class RulesFixture(unittest.TestCase):
 
     def rules(self, profiles, effects=None, publish_to=None):
         source = self.release(profiles, effects)
-        output = publish_to or Path(tempfile.mkdtemp())
+        output = publish_to or Path(scratch_dir())
         with contextlib.redirect_stdout(io.StringIO()):
             written = build(source, output, list(profiles))
         return {path.name.split('-')[0]: json.loads(path.read_text(encoding='utf-8'))
@@ -72,7 +73,7 @@ class RulesFixture(unittest.TestCase):
         # The importer reports repeated names; a fixture that did not would hide the
         # very case the name join has to handle.
         counted = Counter(r['name'] for r in written)
-        path = Path(tempfile.mkdtemp())/'effect-flags.json'
+        path = Path(scratch_dir())/'effect-flags.json'
         path.write_text(json.dumps(
             {'schemaVersion': '1.0.0', 'effects': len(written),
              'source': {'tool': 'test', 'snapshotId': SNAPSHOT},
@@ -83,7 +84,7 @@ class RulesFixture(unittest.TestCase):
     def merged(self, profiles, flags, effects=None, ident=1):
         source = self.release(profiles, effects)
         with contextlib.redirect_stdout(io.StringIO()):
-            written = build(source, Path(tempfile.mkdtemp()), list(profiles), flags)
+            written = build(source, Path(scratch_dir()), list(profiles), flags)
         payload = json.loads(written[0].read_text(encoding='utf-8'))
         return payload, next(r for r in payload['records'] if r['effectId'] == ident)
 
@@ -181,7 +182,7 @@ class PublicationTests(RulesFixture):
         self.assertEqual(formula['unusedDuration'], 0)
 
     def test_each_profile_is_published_once_and_is_content_addressed(self):
-        output = Path(tempfile.mkdtemp())
+        output = Path(scratch_dir())
         published = self.rules({'vanilla': {}, 'tr': {}}, publish_to=output)
         self.assertEqual(sorted(published), ['tr', 'vanilla'])
         self.assertEqual(len(list(output.glob('*.json'))), 2)
@@ -191,7 +192,7 @@ class PublicationTests(RulesFixture):
         (source/'vanilla/Spells.json').unlink()
         with self.assertRaises(ExportError):
             with contextlib.redirect_stdout(io.StringIO()):
-                build(source, Path(tempfile.mkdtemp()), ['vanilla'])
+                build(source, Path(scratch_dir()), ['vanilla'])
 
 
 class EngineFlagTests(RulesFixture):
@@ -255,7 +256,7 @@ class EngineFlagTests(RulesFixture):
         self.assertEqual(payload['verification']['source'], 'content only')
 
     def test_an_unreadable_flag_schema_is_refused(self):
-        path = Path(tempfile.mkdtemp())/'effect-flags.json'
+        path = Path(scratch_dir())/'effect-flags.json'
         path.write_text(json.dumps({'schemaVersion': '9.9.9', 'records': []}), encoding='utf-8')
         with self.assertRaises(ExportError):
             load_flags(path)
@@ -330,12 +331,12 @@ class EngineFlagTests(RulesFixture):
 
 class ProfileFlagTests(RulesFixture):
     def test_a_profile_with_its_own_dump_uses_it(self):
-        directory = Path(tempfile.mkdtemp())
+        directory = Path(scratch_dir())
         (directory/'tr.json').write_text('{}', encoding='utf-8')
         self.assertEqual(flags_for(directory, 'tr', Path('shared.json')), directory/'tr.json')
 
     def test_a_profile_without_one_falls_back_to_the_shared_dump(self):
-        directory = Path(tempfile.mkdtemp())
+        directory = Path(scratch_dir())
         self.assertEqual(flags_for(directory, 'tr', Path('shared.json')), Path('shared.json'))
 
     def test_no_directory_at_all_falls_back(self):
@@ -344,7 +345,7 @@ class ProfileFlagTests(RulesFixture):
     def test_each_profile_reads_its_own_flags(self):
         # Vanilla knows 1 effect, Tamriel Rebuilt knows that one and a Lua-registered
         # second. A single shared dump would force one answer onto both.
-        directory = Path(tempfile.mkdtemp())
+        directory = Path(scratch_dir())
         for name, records in (('vanilla', [{'id': 'one', 'name': 'One'}]),
                               ('tr', [{'id': 'one', 'name': 'One'},
                                       {'id': 'two', 'name': 'Summon Devourer'}])):
@@ -352,7 +353,7 @@ class ProfileFlagTests(RulesFixture):
                 self.flags(*records).read_bytes())
         source = self.release({'vanilla': {}, 'tr': {}}, [effect(1, 'One')])
         with contextlib.redirect_stdout(io.StringIO()):
-            written = build(source, Path(tempfile.mkdtemp()), ['vanilla', 'tr'],
+            written = build(source, Path(scratch_dir()), ['vanilla', 'tr'],
                             None, directory)
         counts = {}
         for path in written:
@@ -385,8 +386,8 @@ class ProfileFlagTests(RulesFixture):
         source = self.release({'vanilla': {}}, [effect(1, 'One')])
         with self.assertRaisesRegex(ExportError, 'No effect dump for vanilla'):
             with contextlib.redirect_stdout(io.StringIO()):
-                build(source, Path(tempfile.mkdtemp()), ['vanilla'], None,
-                      Path(tempfile.mkdtemp()))
+                build(source, Path(scratch_dir()), ['vanilla'], None,
+                      Path(scratch_dir()))
 
     def test_agreement_labels(self):
         self.assertEqual(agreement(None, True), 'decided')

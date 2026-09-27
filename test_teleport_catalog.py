@@ -8,6 +8,7 @@ from build_teleport_catalog import (FUNCTIONS, activated, assemble, branches, bu
                                     dialogue_items, gate_reason, gates, item_tests, load_policy,
                                     parse_destination, resolve_cell)
 from export_items import ExportError
+from testing_support import scratch_dir
 
 WARP = '''begin Warp_Andra
 if ( menumode == 1 )
@@ -129,7 +130,7 @@ class GateTests(unittest.TestCase):
 
 class PolicyTests(unittest.TestCase):
     def write(self, payload):
-        path = Path(tempfile.mkdtemp())/'teleports.json'
+        path = Path(scratch_dir())/'teleports.json'
         path.write_text(json.dumps(payload), encoding='utf-8')
         return path
 

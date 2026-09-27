@@ -8,6 +8,7 @@ import unittest
 
 from export_items import ExportError
 from rebuild import ROOT, run, select, steps
+from testing_support import scratch_dir
 
 SITE = 'A:/Claude/morrowind-tools'
 
@@ -18,7 +19,7 @@ def step(name, code):
 
 
 def quietly(plan, log=None):
-    log = log or Path(tempfile.mkdtemp())/'rebuild.log'
+    log = log or Path(scratch_dir())/'rebuild.log'
     out = io.StringIO()
     with redirect_stdout(out):
         code = run(plan, log, dict(os.environ))
@@ -59,7 +60,7 @@ class PlanTests(unittest.TestCase):
 
 class RunTests(unittest.TestCase):
     def test_the_first_refusal_stops_the_run_and_names_the_resume(self):
-        marker = Path(tempfile.mkdtemp())/'ran'
+        marker = Path(scratch_dir())/'ran'
         plan = [step('first', 'print("one")'),
                 step('second', 'import sys; print("refused"); sys.exit(3)'),
                 step('third', f'open(r"{marker}", "w").close()')]
@@ -77,7 +78,7 @@ class RunTests(unittest.TestCase):
         self.assertRegex(log.read_text(encoding='utf-8'), r'a\s+0m \d\ds\n\s+b\s+0m')
 
     def test_a_program_that_cannot_start_stops_the_run(self):
-        plan = [('ghost', 'ghost', [str(Path(tempfile.mkdtemp())/'nothing.exe')],
+        plan = [('ghost', 'ghost', [str(Path(scratch_dir())/'nothing.exe')],
                  Path(tempfile.gettempdir())), step('after', 'print("should not run")')]
         code, said, _ = quietly(plan)
         self.assertEqual(code, 1)

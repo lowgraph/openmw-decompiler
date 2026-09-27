@@ -8,6 +8,7 @@ import unittest
 from build_faction_catalog import (FADT_SIZE, RANKS, assemble, build, named, parse,
                                    reference)
 from export_items import ExportError
+from testing_support import scratch_dir
 
 REFERENCE = {'attributes': {0: 'strength', 1: 'intelligence', 2: 'willpower',
                             3: 'agility', 5: 'endurance', 6: 'personality'},
@@ -184,11 +185,11 @@ class BuildTests(Databases):
 class ReferenceTests(unittest.TestCase):
     def test_a_missing_catalog_fails_loudly(self):
         with self.assertRaises(ExportError) as caught:
-            reference(Path(tempfile.mkdtemp()), 'vanilla')
+            reference(Path(scratch_dir()), 'vanilla')
         self.assertIn('factions', str(caught.exception))
 
     def test_indices_are_keyed_as_integers(self):
-        root = Path(tempfile.mkdtemp())
+        root = Path(scratch_dir())
         (root/'vanilla').mkdir()
         (root/'vanilla'/'Attributes.json').write_text(json.dumps(
             {'records': [{'index': 0, 'id': 'strength'}]}), encoding='utf-8')

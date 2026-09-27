@@ -11,6 +11,7 @@ from build_best_in_slot_catalog import (STAGES, catalog_digests, check, check_co
                                         load_builds, load_late_policy, published_digests, rank,
                                         rerun, score, severity, skill_label, stale_from, traits)
 from export_items import ExportError
+from testing_support import scratch_dir
 
 POLICY = {
     'schemaVersion': '1.0.0', 'policyVersion': 'test',
@@ -78,7 +79,7 @@ def item(key='i', slot='amulet', effects=(), source=None, beast=True, **extra):
 
 class PolicyTests(unittest.TestCase):
     def write(self, payload):
-        path = Path(tempfile.mkdtemp())/'late-game.json'
+        path = Path(scratch_dir())/'late-game.json'
         path.write_text(json.dumps(payload), encoding='utf-8')
         return path
 
@@ -393,14 +394,14 @@ class RankTests(unittest.TestCase):
 
 class BuildSourceTests(unittest.TestCase):
     def test_duplicate_build_names_are_refused_because_they_are_the_keys(self):
-        path = Path(tempfile.mkdtemp())/'builds.json'
+        path = Path(scratch_dir())/'builds.json'
         path.write_text(json.dumps({'BUILDS': [build('Same'), build('Same')]}), encoding='utf-8')
         with self.assertRaises(ExportError) as caught:
             load_builds(None, path)
         self.assertIn('unique', str(caught.exception))
 
     def test_a_digest_travels_with_the_builds(self):
-        path = Path(tempfile.mkdtemp())/'builds.json'
+        path = Path(scratch_dir())/'builds.json'
         path.write_text(json.dumps({'BUILDS': [build('One')]}), encoding='utf-8')
         builds, source, digest = load_builds(None, path)
         self.assertEqual(len(builds), 1)
@@ -414,7 +415,7 @@ class BuildSourceTests(unittest.TestCase):
         # so the site's lookups by name missed every one of them.
         name = 'High Elf male \u2014 Atronach mage'
         sets = {'BUILDS': [build(name)]}
-        site = Path(tempfile.mkdtemp())
+        site = Path(scratch_dir())
         (site/'lib').mkdir()
         (site/'lib/premade-data.mjs').write_text(
             ''.join(f'export const {key} = {json.dumps(value, ensure_ascii=False)};\n'
@@ -432,7 +433,7 @@ CURRENT = {'vanilla': 'new', 'tr': 'new', 'tr_arce': 'new'}
 def publish_bundle(digests, inherit=()):
     """A published bundle with one BestInSlot file per profile. A profile in `inherit`
     carries none and names tr as its base, the way tr_arce can."""
-    root = Path(tempfile.mkdtemp())
+    root = Path(scratch_dir())
     profiles = []
     for profile, digest in digests.items():
         entry = {'id': profile, 'base': 'tr' if profile in inherit else None, 'files': {}}
@@ -485,7 +486,7 @@ class FreshnessTests(unittest.TestCase):
                          {'tr': None})
 
     def test_no_pointer_is_nothing_published_and_a_broken_pointer_is_refused(self):
-        empty = Path(tempfile.mkdtemp())
+        empty = Path(scratch_dir())
         self.assertIsNone(published_digests(empty))
         (empty/'current.json').write_text('{"bundleId": "x"}', encoding='utf-8')
         with self.assertRaises(ExportError):
@@ -500,7 +501,7 @@ class FreshnessTests(unittest.TestCase):
         self.assertEqual(published_digests(root), {'vanilla': None})
 
     def test_the_catalog_stage_reads_the_file_bundling_would_take(self):
-        directory = Path(tempfile.mkdtemp())
+        directory = Path(scratch_dir())
         for name, digest, when in (('tr-old.json', 'old', 1000), ('tr-new.json', 'new', 2000),
                                    ('tr_arce-x.json', 'arce', 3000)):
             (directory/name).write_text(json.dumps({'builds': {'digest': digest}}),

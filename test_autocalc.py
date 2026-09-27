@@ -5,6 +5,7 @@ import unittest
 
 import autocalc
 from export_items import ExportError
+from testing_support import scratch_dir
 
 # A stripped reference set: two attributes' worth of skills, enough to exercise every
 # branch without restating all 27.
@@ -132,11 +133,11 @@ class DeriveTests(unittest.TestCase):
 class ReferenceTests(unittest.TestCase):
     def test_a_missing_catalog_fails_loudly(self):
         with self.assertRaises(ExportError) as caught:
-            autocalc.reference(Path(tempfile.mkdtemp()), 'vanilla')
+            autocalc.reference(Path(scratch_dir()), 'vanilla')
         self.assertIn('autocalc', str(caught.exception))
 
     def test_it_keys_races_and_classes_for_lookup(self):
-        root = Path(tempfile.mkdtemp())
+        root = Path(scratch_dir())
         (root/'vanilla').mkdir()
         for name, records in (('Races', [RACE]), ('Classes', [CLASS]), ('Skills', SKILLS)):
             (root/'vanilla'/(name+'.json')).write_text(

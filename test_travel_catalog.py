@@ -9,6 +9,7 @@ from build_travel_catalog import (TRANSCRIBED_FROM, assemble, assign_towns, buil
                                   conjurer_edges, guild_cell, journey, load_travel_policy,
                                   split_town)
 from export_items import ExportError
+from testing_support import scratch_dir
 
 GUILD = 'interior:vivec, guild of mages'
 OTHER_GUILD = 'interior:narsis, guild of mages: commons'
@@ -235,7 +236,7 @@ class NodeTests(Databases):
 
 class PolicyTests(unittest.TestCase):
     def write(self, payload):
-        path = Path(tempfile.mkdtemp())/'travel.json'
+        path = Path(scratch_dir())/'travel.json'
         path.write_text(json.dumps(payload), encoding='utf-8')
         return path
 
@@ -356,7 +357,7 @@ class VehicleTests(Databases):
 
 class VehiclePolicyTests(unittest.TestCase):
     def write(self, payload):
-        path = Path(tempfile.mkdtemp())/'travel.json'
+        path = Path(scratch_dir())/'travel.json'
         path.write_text(json.dumps(payload), encoding='utf-8')
         return path
 
@@ -555,7 +556,7 @@ class TownTests(Databases):
 
 class TownPolicyTests(unittest.TestCase):
     def write(self, payload):
-        path = Path(tempfile.mkdtemp())/'travel.json'
+        path = Path(scratch_dir())/'travel.json'
         path.write_text(json.dumps(payload), encoding='utf-8')
         return path
 
