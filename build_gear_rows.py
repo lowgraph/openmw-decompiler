@@ -19,6 +19,7 @@ import tempfile
 import time
 
 from build_acquisition_index import metadata
+from door_access import door_access
 from evaluate_policy import (assess, check_near_start, load_policy, load_category,
                              profile_cells, resolve_limits)
 from export_items import ExportError
@@ -193,7 +194,7 @@ def objectives_from(policy):
 
 
 def build(world, acquisition, services, catalogs, profile, policy, categories, limits,
-          max_placements, max_nodes, max_edges, max_depth, limit=None):
+          max_placements, max_nodes, max_edges, max_depth, limit=None, access=None):
     settings = {r['key']: r['value'] for r in _settings(catalogs, profile)}
     wanted = {'ARMO': 'armor', 'WEAP': 'weapon', 'CLOT': 'clothing'}
     variants = [(toggles, variant(policy, toggles)) for toggles in toggle_sets()]
@@ -217,7 +218,7 @@ def build(world, acquisition, services, catalogs, profile, policy, categories, l
                 continue  # Not present in this profile's acquisition graph.
             for toggles, rules in variants:
                 verdict = assess(world, services, catalogs, profile, static, {'events': []},
-                                 rules, limits, static['truncated'], cache)
+                                 rules, limits, static['truncated'], cache, access)
                 chosen = verdict['recommended']
                 if chosen is None:
                     continue
@@ -327,7 +328,8 @@ def main(argv=None):
     parser.add_argument('--max-depth', type=int, default=12)
     for name, database in (('world-database', 'world/world.sqlite'),
                            ('acquisition-database', 'acquisition/acquisition.sqlite'),
-                           ('services-database', 'services/services.sqlite')):
+                           ('services-database', 'services/services.sqlite'),
+                           ('foundation-database', 'game-data.sqlite')):
         parser.add_argument('--'+name, type=Path)
     args = parser.parse_args(argv)
     categories = set(args.category or CATEGORIES)
@@ -350,7 +352,8 @@ def main(argv=None):
             catalogs = root/'catalogs'/json.loads(pointer.read_text(encoding='utf-8'))['releaseId']
         paths = (args.world_database or root/'world/world.sqlite',
                  args.acquisition_database or root/'acquisition/acquisition.sqlite',
-                 args.services_database or root/'services/services.sqlite')
+                 args.services_database or root/'services/services.sqlite',
+                 args.foundation_database or root/'game-data.sqlite')
         with ExitStack() as stack:
             dbs = []
             for path in paths:
@@ -359,7 +362,7 @@ def main(argv=None):
                 db.execute('PRAGMA cache_size=-32768')
                 db.execute('BEGIN')
                 dbs.append(db)
-            world, acquisition, services = dbs
+            world, acquisition, services, game = dbs
             # The near-start places are authored substrings; check them against the real
             # cell keys before spending twenty minutes building rows around them.
             coverage = check_near_start(policy, profile_cells(services))
@@ -371,9 +374,11 @@ def main(argv=None):
                     print(f'{profile}: near-start places that match nothing in this '
                           f'profile: {", ".join(inert)}', flush=True)
                 started = time.time()
+                # Pathgrids live in the foundation; doors in the world catalog.
+                access = door_access(world, game, profile)
                 rows = build(world, acquisition, services, catalogs, profile, policy,
                              categories, limits, args.max_placements, args.max_nodes,
-                             args.max_edges, args.max_depth, args.limit)
+                             args.max_edges, args.max_depth, args.limit, access)
                 destination, size = publish(rows, args.output or root/'gear-rows', profile,
                                             policy, limits, snapshot, categories)
                 filled = sum(1 for r in rows if r['primary'])

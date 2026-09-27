@@ -69,6 +69,9 @@ def load_policy(path):
         raise ExportError('Policy earlyGame.nearStart needs required and a non-empty places list')
     if not isinstance(early.get('excludedCells'), list):
         raise ExportError('Policy earlyGame.excludedCells must be a list, possibly empty')
+    holds = early.get('holdingCellPrefixes', [])
+    if not isinstance(holds, list) or not all(isinstance(s, str) and s for s in holds):
+        raise ExportError('Policy earlyGame.holdingCellPrefixes must be a list of cell key prefixes')
     uniforms = early.get('uniformScripts', [])
     if not isinstance(uniforms, list) or not all(isinstance(s, str) and s for s in uniforms):
         raise ExportError('Policy earlyGame.uniformScripts must be a list of script ids, possibly empty')
@@ -137,6 +140,43 @@ def actor_name(world, profile, object_key, cache=None):
     if cache is not None:
         cache['name', profile, object_key] = name
     return name
+
+
+def exterior_grid(cell_key):
+    """(x, y) of an exterior cell key, or None for an interior."""
+    if not cell_key.startswith('exterior:'):
+        return None
+    try:
+        x, y = cell_key.split(':', 1)[1].split(',')
+        return int(x), int(y)
+    except ValueError:
+        return None
+
+
+def trade_spot(world, profile, vendor, cell_key, cache=None):
+    """Where a merchant stands to sell what they own in cell_key, a crate or a piece on a
+    shelf: (cell key, [x, y, z]), or None when they never do.
+
+    OpenMW's trade window offers the merchant's inventory, plus the containers and loose
+    items they own in the active cells (World::getContainersOwnedBy, getItemsOwnedBy):
+    the interior they stand in or, outside, the cells around the player. Stock they own
+    anywhere else, such as Tamriel Rebuilt's hidden holding cells, is never offered."""
+    if not vendor:
+        return None
+    cache = {} if cache is None else cache
+    if ('spots', profile, vendor) not in cache:
+        cache['spots', profile, vendor] = [(cell, [x, y, z]) for cell, x, y, z in world.execute(
+            '''SELECT p.cell_key, p.x, p.y, p.z FROM placements p
+               JOIN profile_placements pp ON pp.reference_key=p.reference_key AND pp.version_id=p.version_id
+               WHERE pp.profile_id=? AND p.object_key=? ORDER BY p.version_id''', (profile, vendor))]
+    grid = exterior_grid(cell_key)
+    for cell, spot in cache['spots', profile, vendor]:
+        if cell == cell_key:
+            return cell, spot
+        near = exterior_grid(cell)
+        if grid and near and abs(grid[0]-near[0]) <= 1 and abs(grid[1]-near[1]) <= 1:
+            return cell, spot
+    return None
 
 
 def near_start(label, places):
@@ -393,7 +433,7 @@ def bound_summons(catalogs, profile, record):
 
 
 def assess(world, services, catalogs, profile, static, script, policy, limits=None, truncated=False,
-           cache=None):
+           cache=None, access=None):
     early = policy['earlyGame']
     threshold, level = policy['hostileFightThreshold'], early['characterLevel']
     if limits is None:
@@ -429,9 +469,12 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
         worth, condition = effective_value(value, maximum, charge)
         # Shop stock is owned by its merchant, so the owner is a vendor, not a victim.
         vendor = placement.get('ownerKey') if early['vendorOwnedPlacementsArePurchasable'] else None
-        purchasable = bool(quality == RESTOCKING
+        actor = holder['recordType'] in ('NPC_', 'CREA')
+        # A merchant sells what they own only while standing near it (trade_spot).
+        counter = None if actor else trade_spot(world, profile, vendor, placement['cellKey'], cache)
+        purchasable = bool((quality == RESTOCKING and (actor or counter))
                            or sells(services, profile, holder['key'], root['recordType'], enchanted)
-                           or sells(services, profile, vendor, root['recordType'], enchanted))
+                           or (counter and sells(services, profile, vendor, root['recordType'], enchanted)))
         # An item inside an actor is guarded by that actor, however placid it is standing there.
         carrier = (actor_stats(world, profile, holder['key'], cache)
                    if holder['recordType'] in ('NPC_', 'CREA') and not purchasable else None)
@@ -439,17 +482,31 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
         faction_only = bool(placement.get('factionKey') and not placement.get('ownerKey'))
         theft = not purchasable and (bool(carrier) or
                                      (owned and not (faction_only and early['assumeFactionAccess'])))
-        danger = with_obstacle(cell_danger(world, profile, placement['cellKey'], level, threshold, cache), carrier)
-        lock = extra.get('lockLevelRaw') or 0
-        close = near_start(cell_label(world, profile, placement['cellKey'], cache), near['places'])
+        # Buying happens at the counter, not at the stock: a purchase is judged where the
+        # merchant stands (the doors in front of them, their stall's cell outside), and
+        # the lock on the chest behind them does not matter to a buyer.
+        where, spot = placement['cellKey'], placement.get('position')
+        if purchasable and counter:
+            where, spot = counter
+        danger = with_obstacle(cell_danger(world, profile, where, level, threshold, cache), carrier)
+        lock = 0 if purchasable else extra.get('lockLevelRaw') or 0
+        # The door in front of it: a vault behind a jail door, a storeroom behind a locked
+        # one (door_access.py). None when no door leads there at all, which claims nothing.
+        door = access.lock_to_reach(where, spot) if access else None
+        close = near_start(cell_label(world, profile, where, cache), near['places'])
         reasons = []
         if placement['cellKey'].casefold() in excluded:
             reasons.append('developer test cell, not reachable in normal play')
+        if any(where.casefold().startswith(prefix.casefold()) for prefix in early.get('holdingCellPrefixes', [])):
+            reasons.append('in a holding cell: hidden storage for scripts, quest rewards and '
+                           'staged NPCs, with no way in')
         if uniform:
             reasons.append(f'wearing it marks you as an impostor (script {record["script"]}); '
                            'Ordinators react to their uniform on anyone outside the order')
         if lock and early['requireUnlocked']:
             reasons.append(f'locked (level {lock})')
+        if door and early['requireUnlocked']:
+            reasons.append(f'behind a locked door (level {door})')
         if endgame and not early['allowEndgameEarly']:
             conjured = ', '.join(s['name'] for s in summons if s.get('name'))
             reasons.append(f'endgame piece{f" (summons {conjured})" if conjured else ""}; '
@@ -477,12 +534,11 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
         # A merchant's stock often sits in a crate they own; the buyer deals with them.
         seller = None
         if purchasable:
-            seller = (holder['name'] if holder['recordType'] in ('NPC_', 'CREA')
-                      else actor_name(world, profile, vendor, cache))
+            seller = holder['name'] if actor else actor_name(world, profile, vendor, cache)
         routes.append({
             'holder': {'key': holder['key'], 'name': holder['name'], 'recordType': holder['recordType']},
             'seller': seller,
-            'place': cell_place(world, profile, placement['cellKey'], cache),
+            'place': cell_place(world, profile, where, cache),
             'quality': QUALITY_NAMES[quality],
             'sourceQuality': 'random' if quality == RANDOM else 'guaranteed',
             'acquisition': 'purchase' if purchasable else 'pickpocket' if carrier else 'theft' if theft
@@ -490,7 +546,7 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
             'heldBy': carrier,
             'cellKey': placement['cellKey'], 'referenceKey': placement['referenceKey'],
             'ownerKey': placement.get('ownerKey'), 'factionKey': placement.get('factionKey'),
-            'lockLevel': lock, 'trapId': extra.get('trapId'), 'nearStart': close,
+            'lockLevel': lock, 'doorLock': door, 'trapId': extra.get('trapId'), 'nearStart': close,
             'condition': condition, 'value': worth,
             # Accepted as a route when the policy allows it, but it is salvage until repaired.
             'needsRepair': bool(condition and not condition['ratio']),

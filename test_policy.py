@@ -30,7 +30,8 @@ CREATE TABLE profile_objects(profile_id TEXT,object_key TEXT,version_id INTEGER)
 CREATE TABLE actors(version_id INTEGER PRIMARY KEY,level INTEGER,details TEXT);
 CREATE TABLE leveled_lists(version_id INTEGER PRIMARY KEY,chance_none INTEGER);
 CREATE TABLE leveled_entries(list_version_id INTEGER,object_key TEXT,minimum_level INTEGER);
-CREATE TABLE placements(version_id INTEGER PRIMARY KEY,reference_key TEXT,object_key TEXT,cell_key TEXT);
+CREATE TABLE placements(version_id INTEGER PRIMARY KEY,reference_key TEXT,object_key TEXT,cell_key TEXT,
+                        x REAL,y REAL,z REAL);
 CREATE TABLE profile_placements(profile_id TEXT,reference_key TEXT,version_id INTEGER);
 CREATE TABLE cells(profile_id TEXT,cell_key TEXT,name TEXT,region_key TEXT,grid_x INTEGER,grid_y INTEGER);
 CREATE INDEX placement_cell ON placements(cell_key,version_id);
@@ -72,10 +73,10 @@ class World:
     def cell(self, cell_key, name, region=None, grid=(None, None)):
         self.db.execute('INSERT INTO cells VALUES(?,?,?,?,?,?)', ('p', cell_key, name, region, *grid))
 
-    def place(self, key, cell):
+    def place(self, key, cell, at=(0, 0, 0)):
         version = self.next
         self.next += 1
-        self.db.execute('INSERT INTO placements VALUES(?,?,?,?)', (version, f'ref{version}', key, cell))
+        self.db.execute('INSERT INTO placements VALUES(?,?,?,?,?,?,?)', (version, f'ref{version}', key, cell, *at))
         self.db.execute('INSERT INTO profile_placements VALUES(?,?,?)', ('p', f'ref{version}', version))
         return version
 
@@ -121,6 +122,7 @@ class PolicyDocumentTests(unittest.TestCase):
         self.assertFalse(policy['earlyGame']['assumeFactionAccess'],
                          'a level 1 character belongs to no faction; vault gear is theft')
         self.assertIn('ordinatoruniform', policy['earlyGame']['uniformScripts'])
+        self.assertEqual(policy['earlyGame']['holdingCellPrefixes'], ['interior:tr_hold_'])
         self.assertTrue(policy['earlyGame']['vendorOwnedPlacementsArePurchasable'])
 
     def test_bound_summons_must_be_a_boolean(self):
@@ -425,6 +427,7 @@ class AssessmentTests(unittest.TestCase):
         self.world.object('crate', 'CONT', name='Crate')
         self.world.object('arnulf', 'NPC_', name='Arnulf', level=10, health=100, fight=0)
         self.world.merchant('arnulf', 2)
+        self.world.place('arnulf', 'shop')
         crate = self.assess(static([node(1, 'greaves', 'ARMO'), node(2, 'crate', 'CONT', 'Crate')],
                                    [edge(2, 1)], [placement(2, 'shop', owner='arnulf')]))['routes'][0]
         self.assertEqual((crate['acquisition'], crate['holder']['name'], crate['seller']), ('purchase', 'Crate', 'Arnulf'))
@@ -488,6 +491,7 @@ class AssessmentTests(unittest.TestCase):
         world.object('dagger', 'WEAP')
         world.object('trader', 'NPC_', level=5, health=50, fight=30)
         world.merchant('trader', 1)
+        world.place('trader', 'shop')
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         catalogs = Path(directory.name)
@@ -601,6 +605,103 @@ class AssessmentTests(unittest.TestCase):
         self.assertIn('locked (level 25)', ' '.join(locked['routes'][0]['reasons']))
         self.assertTrue(self.free('tomb')['earlyGameEligible'],
                         'the benchmark urn is trapped, not locked')
+
+    def test_a_source_behind_a_locked_door_is_refused_like_a_locked_chest(self):
+        class Access:
+            def lock_to_reach(self, cell, spot):
+                return {'vault': 100, 'hall': 0}.get(cell)
+        self.world.object('helm', 'ARMO')
+        self.world.object('urn', 'CONT')
+        def route(cell):
+            graph = static([node(1, 'helm', 'ARMO'), node(2, 'urn', 'CONT')], [edge(2, 1)],
+                           [placement(2, cell) | {'position': [0, 0, 0]}])
+            return assess(self.world.db, self.world.services, None, 'p', graph, {'events': []}, POLICY,
+                          self.limits, False, None, Access())['routes'][0]
+        vault = route('vault')
+        self.assertEqual(vault['doorLock'], 100)
+        self.assertIn('behind a locked door (level 100)', vault['reasons'])
+        self.assertFalse(vault['earlyGameEligible'])
+        self.assertTrue(route('hall')['earlyGameEligible'])
+        unknown = route('mournhold')
+        self.assertIsNone(unknown['doorLock'], 'no door leads there: nothing is claimed')
+        self.assertTrue(unknown['earlyGameEligible'])
+        lenient = copy.deepcopy(POLICY)
+        lenient['earlyGame']['requireUnlocked'] = False
+        graph = static([node(1, 'helm', 'ARMO'), node(2, 'urn', 'CONT')], [edge(2, 1)],
+                       [placement(2, 'vault') | {'position': [0, 0, 0]}])
+        self.assertTrue(assess(self.world.db, self.world.services, None, 'p', graph, {'events': []},
+                               lenient, self.limits, False, None, Access())['earlyGameEligible'])
+
+    def merchant_stock(self, crate_cell, merchant_cell, merchant_at=(0, 0, 0), access=None, lock=0):
+        """A helmet in a chest Helsanni owns, with Helsanni standing somewhere."""
+        self.world.object('helmet', 'ARMO')
+        self.world.object('chest', 'CONT', name='Chest')
+        self.world.object('helsanni', 'NPC_', name='Helsanni', level=5, health=50, fight=0)
+        self.world.merchant('helsanni', 2)
+        self.world.place('helsanni', merchant_cell, at=merchant_at)
+        policy = copy.deepcopy(POLICY)
+        policy['earlyGame']['holdingCellPrefixes'] = ['interior:tr_hold_']
+        graph = static([node(1, 'helmet', 'ARMO'), node(2, 'chest', 'CONT', 'Chest')], [edge(2, 1)],
+                       [placement(2, crate_cell, owner='helsanni', lock=lock) | {'position': [0, 0, 0]}])
+        return assess(self.world.db, self.world.services, None, 'p', graph, {'events': []}, policy,
+                      self.limits, False, None, access)['routes'][0]
+
+    def test_a_merchant_sells_from_a_locked_chest_behind_the_counter(self):
+        class Access:
+            def lock_to_reach(self, cell, spot):
+                return 0 if spot[1] < 500 else 60  # the counter is open, the back room is not
+        self.world.cell('interior:outfitter', 'Firewatch, Outfitter')
+        route = self.merchant_stock('interior:outfitter', 'interior:outfitter', (0, 100, 0), Access(), lock=100)
+        self.assertEqual((route['acquisition'], route['seller']), ('purchase', 'Helsanni'))
+        self.assertEqual((route['lockLevel'], route['doorLock']), (0, 0), 'judged at the counter')
+        self.assertEqual(route['reasons'], ['purchase price unknown: no catalog value available'])
+
+    def test_a_merchant_does_not_sell_stock_kept_in_another_cell(self):
+        route = self.merchant_stock('interior:storehouse', 'interior:outfitter')
+        self.assertEqual(route['acquisition'], 'theft', 'never offered in trade: OpenMW looks in active cells')
+        self.assertIsNone(route['seller'])
+
+    def test_outside_a_merchant_sells_from_the_neighbouring_cell(self):
+        self.world.cell('exterior:5,5', 'Firewatch')
+        route = self.merchant_stock('exterior:6,5', 'exterior:5,5')
+        self.assertEqual(route['acquisition'], 'purchase')
+        self.assertEqual(route['place'], 'Firewatch', "the merchant's stall")
+
+    def test_outside_a_merchant_does_not_sell_from_across_town(self):
+        self.assertEqual(self.merchant_stock('exterior:8,5', 'exterior:5,5')['acquisition'], 'theft')
+
+    def test_a_merchant_staged_in_a_holding_cell_sells_nothing_reachable(self):
+        # TR_HOLD_Firewatch Ext Merchants: a whole market, stalls and merchants, that no
+        # script moves out. Helsanni stands there with her stock.
+        hold = 'interior:tr_hold_firewatch ext merchants'
+        route = self.merchant_stock(hold, hold)
+        self.assertEqual(route['acquisition'], 'purchase')
+        self.assertIn('holding cell', ' '.join(route['reasons']))
+        self.assertFalse(route['earlyGameEligible'])
+
+    def test_nothing_in_a_holding_cell_is_a_pickup(self):
+        policy = copy.deepcopy(POLICY)
+        policy['earlyGame']['holdingCellPrefixes'] = ['interior:tr_hold_']
+        self.world.object('greaves', 'ARMO')
+        self.world.object('urn', 'CONT')
+        graph = static([node(1, 'greaves', 'ARMO'), node(2, 'urn', 'CONT')], [edge(2, 1)],
+                       [placement(2, 'interior:tr_hold_bazhthum')])
+        result = self.assess(graph, policy)
+        self.assertFalse(result['earlyGameEligible'])
+        self.assertIn('holding cell', ' '.join(result['routes'][0]['reasons']))
+        ship = self.assess(static([node(1, 'greaves', 'ARMO'), node(2, 'urn', 'CONT')], [edge(2, 1)],
+                                  [placement(2, 'interior:the elf-skerring, hold')]), policy)
+        self.assertTrue(ship['earlyGameEligible'], "a ship's cargo hold is a real place")
+
+    def test_holding_cell_prefixes_must_be_a_list_of_strings(self):
+        broken = copy.deepcopy(POLICY)
+        broken['earlyGame']['holdingCellPrefixes'] = 'interior:tr_hold_'
+        handle = tempfile.NamedTemporaryFile('w', suffix='.json', delete=False, encoding='utf-8')
+        json.dump(broken, handle)
+        handle.close()
+        self.addCleanup(lambda: Path(handle.name).unlink(missing_ok=True))
+        with self.assertRaises(ExportError):
+            load_policy(handle.name)
 
     def test_developer_test_cells_are_excluded_by_exact_key(self):
         self.assertFalse(self.free('interior:toddtest')['earlyGameEligible'])

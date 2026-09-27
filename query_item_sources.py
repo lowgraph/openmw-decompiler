@@ -12,12 +12,13 @@ from build_acquisition_index import metadata
 from inspect_acquisition_index import query_item
 from inspect_script_evidence import item_evidence
 from evaluate_policy import assess,load_policy
+from door_access import door_access
 
 
 def unified_sources(acquisition,world,evidence,profile,item,record_type=None,
                     max_nodes=2000,max_edges=5000,max_depth=12,max_placements=100,
                     max_events=100,max_script_targets=200,max_anchors=100,max_anchor_placements=100,
-                    policy=None,services=None,catalogs=None):
+                    policy=None,services=None,catalogs=None,access=None):
     if min(max_events,max_script_targets,max_anchors,max_anchor_placements)<1:
         raise ExportError('Evidence limits must be positive')
     am,wm,em=metadata(acquisition),metadata(world),metadata(evidence)
@@ -107,7 +108,7 @@ def unified_sources(acquisition,world,evidence,profile,item,record_type=None,
             'scriptContextDefinitions':len(anchors),'scriptContextPlacements':len(locations)},
         'coverage':'Static containment plus lexical script evidence for the item and discovered ancestors. Context locations are not item placements or proof of execution.',
         # Null until a policy is supplied: evidence never implies a verdict on its own.
-        'assessment':assess(world,services,catalogs,profile,static,{'events':events},policy,None,bool(reasons)) if policy else
+        'assessment':assess(world,services,catalogs,profile,static,{'events':events},policy,None,bool(reasons),None,access) if policy else
             {'obtainable':None,'theftRequired':None,'saleStatus':None,'price':None,'earlyGameEligible':None},
         'static':static,'script':{'events':events,'contextAnchors':list(anchors.values()),'contextLinks':anchor_links,
             'contextPlacements':locations,'targetsExamined':targets_examined,
@@ -123,6 +124,7 @@ def main(argv=None):
     parser.add_argument('--policy',type=Path,nargs='?',const=ROOT/'policy/early-game.json',
         help='Evaluate this authored policy; defaults to policy/early-game.json when given without a path')
     parser.add_argument('--services-database',type=Path);parser.add_argument('--catalogs',type=Path)
+    parser.add_argument('--foundation-database',type=Path,help='Pathgrids for locked doors; game-data.sqlite by default')
     # The site's three toggles, overriding the policy document for one query.
     parser.add_argument('--allow-theft',action='store_true');parser.add_argument('--endgame-early',action='store_true')
     parser.add_argument('--near-start',action='store_true')
@@ -139,7 +141,7 @@ def main(argv=None):
             if args.allow_theft:policy['earlyGame']['allowTheft']=True
             if args.endgame_early:policy['earlyGame']['allowEndgameEarly']=True
             if args.near_start:policy['earlyGame']['nearStart']['required']=True
-            paths+=(args.services_database or root/'services/services.sqlite',)
+            paths+=(args.services_database or root/'services/services.sqlite',args.foundation_database or root/'game-data.sqlite')
         with ExitStack() as stack:
             dbs=[]
             for path in paths:
@@ -149,9 +151,11 @@ def main(argv=None):
             if policy and catalogs is None:
                 pointer=root/'catalogs/current.json'
                 catalogs=root/'catalogs'/json.loads(pointer.read_text(encoding='utf-8'))['releaseId'] if pointer.is_file() else None
+            # The doors in front of each route: a vault behind a jail door (door_access.py).
+            access=door_access(dbs[1],dbs[4],args.profile) if policy else None
             result=unified_sources(*dbs[:3],args.profile,args.item,args.record_type,args.max_nodes,args.max_edges,args.max_depth,args.max_placements,
                 args.max_events,args.max_script_targets,args.max_anchors,args.max_anchor_placements,
-                policy,dbs[3] if policy else None,catalogs)
+                policy,dbs[3] if policy else None,catalogs,access)
             print(json.dumps(result,ensure_ascii=False,indent=2,allow_nan=False));return 0
     except (OSError,ValueError,KeyError,sqlite3.Error) as exc:
         print(f'Item source query failed: {exc}',file=sys.stderr);return 1

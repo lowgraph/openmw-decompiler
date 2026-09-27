@@ -13,6 +13,9 @@
     "Samarys is a starting-area place: the benchmark item must pass its own benchmark.",
     "Faction-owned items are theft for a level 1 character, who belongs to no faction yet: Redoran's vaults and the Imperial Cult's chapels hold plenty of loose gear, and taking it is a crime until you join and rise far enough. assumeFactionAccess was true until 2026-09-27, which offered those as free.",
     "endgame.boundSummons: an item whose Cast When Used enchantment conjures Bound gear is endgame, whatever it costs. The Devil, Demon and Fiend weapons are priced like steel and conjure a Bound weapon that hits like Daedric: a 157 gold Devil Tanto gives a Bound Dagger to match a 14,000 gold Daedric Tanto, five 60-second casts per charge. Gear rows rank such a weapon on what it conjures in its own skill, and armour on a conjured piece for its own slot.",
+    "holdingCellPrefixes: Tamriel Rebuilt's TR_Hold_ cells are hidden storage for scripts, quest rewards and staged NPCs, with no door in. TR_HOLD_Firewatch Ext Merchants holds a whole market, stalls and merchants, that no script moves out yet. Nothing there is reachable, bought or taken. Ships' cargo holds are real places and are not matched.",
+    "A merchant sells what they own only while standing near it: OpenMW's trade window offers their inventory plus the containers and loose items they own in the active cells (World::getContainersOwnedBy, getItemsOwnedBy), so the same interior or, outside, the neighbouring cells. Stock they own anywhere else is never offered, and taking it is theft.",
+    "A purchase ignores the lock on the chest a merchant keeps stock in: the merchant hands it over. The doors in front of the merchant still count.",
     "uniformScripts name item scripts that make the wearer an impostor. OrdinatorUniform sets WearingOrdinatorUni on equip, and Ordinators react to it (Tamriel Rebuilt exempts members of T_Mw_Ordinators). Only the helmets and cuirasses that carry the script are excluded; the rest of an Indoril set is safe to wear.",
     "excludedCells lists exact keys: a substring match on 'test' would wrongly drop Nchuleftingth's Test of Pattern and Atestas' Pawn & Loan."
   ],
@@ -28,6 +31,7 @@
     "allowTheft": false,
     "assumeFactionAccess": false,
     "uniformScripts": ["ordinatoruniform"],
+    "holdingCellPrefixes": ["interior:tr_hold_"],
     "requireGuaranteedSource": true,
     "countRestockingMerchantsAsGuaranteed": true,
     "danger": {

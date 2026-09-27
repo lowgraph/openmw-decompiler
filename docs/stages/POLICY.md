@@ -22,12 +22,14 @@ costs one re-evaluation and never a re-extraction.
 | Rule | Stated as | Number |
 | --- | --- | --- |
 | Danger | at most two enemies, none above level 4 | measured from the benchmark cell |
-| Locks | nothing locked | `requireUnlocked`; traps are fine, the benchmark urn has one |
+| Locks | nothing locked, and no locked door in the way | `requireUnlocked`; traps are fine, the benchmark urn has one |
 | Spending | 500 gold or less to buy, or buy worn and repair | authored, against condition-scaled worth |
 | Theft | no price limit when the theft is that easy | the cap applies to purchases only |
 | Broken gear | counts, flagged `needsRepair` | authored |
 | Quests and farming | do not count | script-only and leveled routes are never eligible |
-| Faction access | assumed, so faction-owned is not theft | authored |
+| Faction access | not assumed: a level 1 character belongs to no faction, so faction-owned is theft | `assumeFactionAccess` |
+| Uniforms | never worn by an outsider | `uniformScripts`: the Ordinator helmets and cuirasses |
+| Holding cells | never reachable | `holdingCellPrefixes`: Tamriel Rebuilt's `TR_Hold_` cells |
 | Hostility | an actor attacks on sight at `ai.fight` 70+ | authored threshold, checked against the data |
 
 ### The three site toggles
@@ -93,6 +95,13 @@ Each route is then checked against the policy, and fails with stated reasons:
   the item or owns it where it lies. Shop stock is owned by its merchant, so an owner
   that sells the category is a vendor, not a victim. Set
   `vendorOwnedPlacementsArePurchasable` to false to treat it as theft instead.
+- **Only while the merchant stands near it.** OpenMW's trade window offers the
+  merchant's inventory plus the containers and loose items they own in the active
+  cells (`World::getContainersOwnedBy`, `getItemsOwnedBy`): the interior they stand in
+  or, outside, the neighbouring cells. What a merchant owns in their house, their back
+  office or another town is never offered, so taking it is theft. A purchase is judged
+  at the counter: the doors in front of the merchant count, the lock on the chest behind
+  them does not, and `place` names the merchant's cell.
 - **Worn gear is priced pro rata.** Weapons, armour and tools carry a condition on
   each placement, and worth scales with what is left of it. A Glass Dagger at 2 of
   300 condition is worth 27 gold, not 4000 — which is the whole reason worn shop
@@ -107,6 +116,20 @@ Each route is then checked against the policy, and fails with stated reasons:
   level, plus any holder, compared against the budget on all three dimensions.
 - **Locked means refused.** The benchmark urn is trapped but not locked, so traps
   pass and any lock level does not.
+- **So is a locked door in the way.** A chest's own lock is on its record, but the door
+  in front of it is not: Briricca's private bank in Old Ebonheart opens onto the street,
+  and its vault is behind jail doors locked at 100. [door_access.py](../../door_access.py)
+  reads the interiors' pathgrids, the walking graph each carries for its NPCs, and finds
+  the lowest lock a character must open to reach each spot. Routes carry `doorLock`:
+  0 when open, the level when a door is in the way, and null when no door leads there
+  at all (Mournhold, reached by a Temple teleport), which claims nothing. A storeroom
+  with no pathgrid of its own is caught by its distance from the graph and from a
+  locked door on its floor. Across the profiles 12 to 18% of interior item placements
+  sit behind a locked door.
+- **Holding cells are unreachable.** Tamriel Rebuilt's `TR_Hold_` cells are hidden
+  storage for scripts, quest rewards and staged NPCs: `TR_HOLD_Firewatch Ext Merchants`
+  holds a whole market, stalls and merchants, that no script moves out yet. Nothing
+  there counts, bought or taken. Ships' cargo holds are real places and are not matched.
 - **The gold cap is for purchases.** A theft route that clears the danger and lock
   rules has no price limit, because nothing is being paid. A stolen Glass Cuirass
   worth 22,400 is eligible with both toggles on; buying one is not.
@@ -141,7 +164,9 @@ worn Adamantium Helm reports `price: 2222` and stays ineligible under the 500 ca
 Tests use synthetic worlds built in memory: level gating, worst-candidate selection,
 benchmark derivation and override, route quality and leveled absorption, carried
 items, theft and faction toggles, condition scaling and clamping, worn shop stock,
-broken items, vendor ownership, price caps, script-only items, and truncation.
+broken items, vendor ownership, merchants away from their stock, holding cells, locked
+doors, price caps, script-only items, and truncation. `--foundation-database` names the
+`game-data.sqlite` the pathgrids come from.
 
 ## What this layer does not do
 
