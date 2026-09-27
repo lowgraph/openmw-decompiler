@@ -202,3 +202,44 @@ Old migration/backend setup notes are explicitly marked historical. No dataset s
 or runtime invariant changed in this documentation batch. Next agent: first run
 `npm test` in the site repository, then `npm run build`; rehearse and visually verify
 the intended release before adding screenshots or claiming deployment readiness.
+
+
+## Native JavaScript cleanup, 27 September 2026
+
+No exported dataset or schema changes. The production React app no longer loads
+legacy-data/legacy-runtime scripts, reads legacy catalog or shell globals, or
+synchronizes retired character/calculator DOM controls. Calculator stat ingestion
+uses React state; vault session tokens come directly from Clerk. Unused calculator
+HUD and alchemy bridge components were removed, with their obsolete tests replaced
+by native state isolation tests. Current catalog service events and old permalink
+formats remain supported. Shared legacy CSS and the historical index.html fixture
+remain for a separate styling migration and regression coverage.
+
+Validation: 482 site tests passed; final calculator/isolation checks and static
+build passed. Browser checks rendered all 13 views without JavaScript errors or
+legacy script requests, exercised stat ingestion and travel selections, and checked
+desktop/mobile screenshots. No deployment in this batch.
+
+Next agent: first run `npm test` in `A:\Claude\morrowind-tools`; next phase is
+legacy CSS consolidation with visual checks. No extraction or bundle rebuild.
+
+
+## Stylesheet consolidation, 27 September 2026
+
+No schema, bundle, or extraction changes. Shared styles are consolidated in
+app/globals.css; app/legacy-compat.css and its root import are removed. Retired
+control selectors and duplicate definitions were pruned while preserving cascade
+order, Pelagiad licensing, dynamic vital classes, and active Ashfall grouped
+selectors. Theme overrides still load last. Combined CSS source shrank by about
+24 KB. The full suite passed (485 tests before the final additional grouped-selector
+guard), followed by 9 passing stylesheet/token checks and a successful static build.
+All 52 screenshots (13 views, two themes, desktop/mobile) match the baseline
+pixel-for-pixel, with no browser errors or horizontal overflow.
+
+Correction to the earlier JavaScript audit: gear-advisor.jsx and
+local-characters-panel.jsx still contain legacy DOM bridges. They were discovered
+while tracing stylesheet references and are not removed in this styling batch.
+The old runtime remains unloaded. Next agent: first run `npm test`, then inspect
+those two builder components and remove their remaining DOM hooks while preserving
+native gear recommendations and local save behavior. No extraction is needed.
+Changes remain local; nothing was deployed in this batch.
