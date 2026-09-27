@@ -19,7 +19,14 @@ export type ClothingSlot =
 export type WeaponSkill = "short_blade" | "long_blade" | "blunt" | "axe" | "spear" | "marksman";
 
 /** The toggle set a row was built for; the same three the policy layer takes. */
-export type RowToggles = { theft: boolean; endgame: boolean; nearStart: boolean };
+export type PolicyToggles = { theft: boolean; endgame: boolean; nearStart: boolean };
+
+/** An ambush row names its own toggle instead: gear worn by an actor a script sends at
+ *  the player, shown only when that toggle is on, whatever the policy toggles. Additive
+ *  to schema 1.0.0; a site that only matches the three policy toggles never selects it. */
+export type AmbushToggles = { darkBrotherhood: true };
+
+export type RowToggles = PolicyToggles | AmbushToggles;
 
 /** What a row optimises for. Every slot is answered once per objective, and they
  *  disagree on 94 of vanilla's 352 filled rows. */
@@ -49,12 +56,14 @@ export type Pick = {
   /** Undamaged catalog value, for comparison against the route's own price. */
   baseValue: number;
   endgame: boolean;
-  acquisition: "direct" | "take" | "purchase" | "theft" | "pickpocket";
+  /** `ambush`: taken from the body of an actor a script sends at the player. */
+  acquisition: "direct" | "take" | "purchase" | "theft" | "pickpocket" | "ambush";
   /** Gold for a purchase route, condition-scaled; null when nothing is paid. */
   price: number | null;
   /** This copy's worth after condition. */
   value: number | null;
-  cellKey: string;
+  /** Null on an ambush pick, which has no fixed place. */
+  cellKey: string | null;
   /** What to call `cellKey` on screen: the cell's name, or for an unnamed exterior its
    *  region and grid ("Grazelands Region (10, 10)"). Additive; absent in older rows. */
   place?: string | null;
@@ -69,6 +78,8 @@ export type Pick = {
   theftRequired: boolean;
   /** The item's search was capped, so a better source may exist. */
   evidenceTruncated: boolean;
+  /** On an ambush pick: how the actor comes and what to do. */
+  note?: string;
 };
 
 /** One Bound piece an item conjures on use. Additive to schema 1.0.0. */
@@ -90,7 +101,8 @@ export type Summon = {
 
 export type GearRow = {
   /** Stable, unique:
-   *  `category/slot-or-skill/armorClass/theft endgame nearStart/objective`. */
+   *  `category/slot-or-skill/armorClass/theft endgame nearStart/objective`, or the
+   *  ambush toggle's name in place of the three flags. */
   key: string;
   category: RowCategory;
   /** Set for armor and clothing rows; null for shields and weapons. */
@@ -133,6 +145,8 @@ export type GearRows = {
   policy: { version: string; schemaVersion: string; name: string | null };
   limits: import("./policy-types").Limits;
   categories: RowCategory[];
+  /** The ambushes this profile's scripts still send, with their rows' toggle. */
+  ambushes?: Array<{ toggle: keyof AmbushToggles; label: string; actor: string; script: string; note: string }>;
   coverage: string;
   builtAtUnix: number;
   rows: GearRow[];
@@ -144,7 +158,9 @@ export type GearRows = {
  */
 export function rowKey(row: Pick<GearRow, "category" | "slot" | "armorClass" | "skill" | "hands" | "toggles">): string {
   const slot = row.slot ?? (row.skill ? `${row.skill}-${row.hands}h` : "-");
-  const t = `${+row.toggles.theft}${+row.toggles.endgame}${+row.toggles.nearStart}`;
+  const t = "theft" in row.toggles
+    ? `${+row.toggles.theft}${+row.toggles.endgame}${+row.toggles.nearStart}`
+    : Object.keys(row.toggles).sort().join("-");
   return `${row.category}/${slot}/${row.armorClass ?? "-"}/${t}`;
 }
 

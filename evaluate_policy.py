@@ -75,6 +75,16 @@ def load_policy(path):
     uniforms = early.get('uniformScripts', [])
     if not isinstance(uniforms, list) or not all(isinstance(s, str) and s for s in uniforms):
         raise ExportError('Policy earlyGame.uniformScripts must be a list of script ids, possibly empty')
+    ambushes = early.get('ambushes', [])
+    fields = ('toggle', 'label', 'script', 'actor', 'place', 'note')
+    if not isinstance(ambushes, list) or not all(
+            isinstance(a, dict) and all(isinstance(a.get(f), str) and a[f] for f in fields)
+            and isinstance(a.get('categories'), list) and a['categories'] for a in ambushes):
+        raise ExportError('Policy earlyGame.ambushes entries need toggle, label, script, actor, '
+                          'place, note and a non-empty categories list')
+    toggles = [a['toggle'] for a in ambushes]
+    if len(set(toggles)) != len(toggles) or set(toggles) & {'theft', 'endgame', 'nearStart'}:
+        raise ExportError('Policy earlyGame.ambushes toggles must be unique and not a policy toggle')
     return policy
 
 

@@ -14,13 +14,14 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sqlite3
 import tempfile
 import time
 
 from build_acquisition_index import metadata
 from door_access import door_access
-from evaluate_policy import (assess, check_near_start, load_policy, load_category,
+from evaluate_policy import (assess, check_near_start, is_endgame, load_policy, load_category,
                              profile_cells, resolve_limits)
 from export_items import ExportError
 from extract_foundation import ROOT, load_config
@@ -170,8 +171,69 @@ def pick(record, verdict, route, catalogs=None, profile=None):
 def row_identity(category, slot, armour, weapon, toggles, objective):
     """Stable key for one row, across definitions, toggle sets and objectives."""
     part = slot or (f'{weapon[0]}-{weapon[1]}h' if weapon else '-')
-    flags = f"{int(toggles['theft'])}{int(toggles['endgame'])}{int(toggles['nearStart'])}"
+    if 'theft' in toggles:
+        flags = f"{int(toggles['theft'])}{int(toggles['endgame'])}{int(toggles['nearStart'])}"
+    else:
+        flags = '-'.join(sorted(toggles))
     return f"{category}/{part}/{armour or '-'}/{flags}/{objective}"
+
+
+def bucket_for(toggles):
+    """Where a toggle set's candidates collect: the policy toggles, or one ambush."""
+    if 'theft' in toggles:
+        return (toggles['theft'], toggles['endgame'], toggles['nearStart'])
+    return ('ambush', *sorted(toggles))
+
+
+def script_places(game, profile, script, actor):
+    """Whether the profile's winning version of a script places an actor at the player,
+    as Tribunal's dbAttackScript does with PlaceAtPC "db_assassin1b"."""
+    order = dict(game.execute('SELECT plugin_id, load_order FROM profile_plugins WHERE profile_id = ?',
+                              (profile,)))
+    winner = None
+    for plugin, payload in game.execute(
+            "SELECT plugin_id, payload FROM record_versions WHERE record_type = 'SCPT' AND record_key = ?",
+            (script.casefold(),)):
+        if plugin in order and (winner is None or order[plugin] >= winner[0]):
+            winner = (order[plugin], payload)
+    if winner is None:
+        return False
+    text = winner[1].decode('cp1252', 'replace').casefold()
+    return re.search(r'placeatpc[\s,]*"?' + re.escape(actor.casefold()) + r'"?[\s,]', text) is not None
+
+
+def ambushes_in(game, profile, policy):
+    """The policy's ambushes that this profile's scripts still send."""
+    found = []
+    for ambush in policy['earlyGame'].get('ambushes', []):
+        if script_places(game, profile, ambush['script'], ambush['actor']):
+            found.append(ambush)
+        else:
+            print(f"{profile}: {ambush['script']} does not place {ambush['actor']}; "
+                  f"no {ambush['toggle']} rows", flush=True)
+    return found
+
+
+def carried_by(static, actor):
+    """The actor node that carries the item itself, not through a leveled list."""
+    root = static['nodes'][0]['versionId']
+    nodes = {node['versionId']: node for node in static['nodes']}
+    for edge in static['edges']:
+        parent = nodes.get(edge['parentVersionId'])
+        if (edge['targetVersionId'] == root and edge['kind'] == 'inventory' and parent
+                and parent['key'].casefold() == actor.casefold()):
+            return parent
+    return None
+
+
+def ambush_pick(record, carrier, ambush, policy, catalogs=None, profile=None):
+    """A piece taken from an ambusher's body: nothing paid, nobody robbed, no fixed place."""
+    verdict = {'endgame': is_endgame(record, policy['earlyGame']['endgame']), 'summons': [],
+               'evidenceTruncated': False}
+    route = {'acquisition': 'ambush', 'price': None, 'value': record.get('value'), 'cellKey': None,
+             'place': ambush['place'], 'seller': None, 'nearStart': True, 'needsRepair': False,
+             'condition': None, 'holder': {'name': carrier['name']}, 'theftRequired': False}
+    return pick(record, verdict, route, catalogs, profile) | {'note': ambush['note']}
 
 
 def best(candidates, field='strength'):
@@ -194,7 +256,7 @@ def objectives_from(policy):
 
 
 def build(world, acquisition, services, catalogs, profile, policy, categories, limits,
-          max_placements, max_nodes, max_edges, max_depth, limit=None, access=None):
+          max_placements, max_nodes, max_edges, max_depth, limit=None, access=None, ambushes=()):
     settings = {r['key']: r['value'] for r in _settings(catalogs, profile)}
     wanted = {'ARMO': 'armor', 'WEAP': 'weapon', 'CLOT': 'clothing'}
     variants = [(toggles, variant(policy, toggles)) for toggles in toggle_sets()]
@@ -216,6 +278,13 @@ def build(world, acquisition, services, catalogs, profile, policy, categories, l
                                     max_nodes, max_edges, max_depth, max_placements)
             except ExportError:
                 continue  # Not present in this profile's acquisition graph.
+            # Gear an ambusher wears is its own row under its own toggle, whatever the
+            # policy verdict: the actor has no placement, a script sends them.
+            for ambush in ambushes:
+                carrier = carried_by(static, ambush['actor']) if key[0] in ambush['categories'] else None
+                if carrier:
+                    buckets.setdefault(key, {}).setdefault(bucket_for({ambush['toggle']: True}), []).append(
+                        ambush_pick(record, carrier, ambush, policy, catalogs, profile))
             for toggles, rules in variants:
                 verdict = assess(world, services, catalogs, profile, static, {'events': []},
                                  rules, limits, static['truncated'], cache, access)
@@ -227,10 +296,10 @@ def build(world, acquisition, services, catalogs, profile, policy, categories, l
                 bucket.append(pick(record, verdict, verdict['routes'][chosen], catalogs, profile))
             if index % 200 == 0:
                 print(f'  {index:,}/{len(records):,}', flush=True)
-    return assemble(buckets, categories, objectives_from(policy))
+    return assemble(buckets, categories, objectives_from(policy), [a['toggle'] for a in ambushes])
 
 
-def assemble(buckets, categories, objectives=('power',)):
+def assemble(buckets, categories, objectives=('power',), ambushes=()):
     rows = []
     definitions = []
     if 'armor' in categories:
@@ -243,9 +312,10 @@ def assemble(buckets, categories, objectives=('power',)):
         definitions += [('clothing', slot, None, None) for slot in CLOTHING_SLOTS]
     for key in definitions:
         category, slot, armour, weapon = key
-        for toggles in toggle_sets():
-            candidates = buckets.get(key, {}).get(
-                (toggles['theft'], toggles['endgame'], toggles['nearStart']), [])
+        for toggles in toggle_sets() + [{name: True} for name in ambushes]:
+            candidates = buckets.get(key, {}).get(bucket_for(toggles), [])
+            if not candidates and 'theft' not in toggles:
+                continue  # An ambush row only where the ambusher wears something.
             near = [c for c in candidates if c['nearStart']]
             far = [c for c in candidates if not c['nearStart']]
             # The objectives cost nothing here: the candidates are already gathered and
@@ -285,7 +355,7 @@ def _settings(catalogs, profile):
     return json.loads(path.read_text(encoding='utf-8'))['records']
 
 
-def publish(rows, output, profile, policy, limits, snapshot, categories):
+def publish(rows, output, profile, policy, limits, snapshot, categories, ambushes=()):
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     payload = {'schemaVersion': VERSION, 'profile': profile, 'snapshotId': snapshot,
@@ -295,8 +365,14 @@ def publish(rows, output, profile, policy, limits, snapshot, categories):
                'objectives': [{'key': key, 'ranksOn': OBJECTIVES[key],
                                'note': (policy.get('objectiveNotes') or {}).get(key)}
                               for key in objectives_from(policy)],
+               'ambushes': [{'toggle': a['toggle'], 'label': a['label'], 'actor': a['actor'],
+                             'script': a['script'], 'note': a['note']} for a in ambushes],
                'coverage': 'Rows are derived from policy verdicts over static evidence. Script '
                            'grants are not consulted; a quest reward is never an eligible row. '
+                           'The exception is an ambush: rows whose toggles name one, such as '
+                           'darkBrotherhood, hold gear worn by an actor a script sends at the '
+                           'player, checked against that script, for the site to show only '
+                           'under that toggle. '
                            'beastPrimary is the same row for an Argonian or Khajiit, who cannot '
                            'equip anything covering the head or a foot: null there means nothing '
                            'in this slot fits them, which is every boots and almost every shoes '
@@ -376,11 +452,12 @@ def main(argv=None):
                 started = time.time()
                 # Pathgrids live in the foundation; doors in the world catalog.
                 access = door_access(world, game, profile)
+                ambushes = ambushes_in(game, profile, policy)
                 rows = build(world, acquisition, services, catalogs, profile, policy,
                              categories, limits, args.max_placements, args.max_nodes,
-                             args.max_edges, args.max_depth, args.limit, access)
+                             args.max_edges, args.max_depth, args.limit, access, ambushes)
                 destination, size = publish(rows, args.output or root/'gear-rows', profile,
-                                            policy, limits, snapshot, categories)
+                                            policy, limits, snapshot, categories, ambushes)
                 filled = sum(1 for r in rows if r['primary'])
                 print(f'Gear rows complete: {destination}\n'
                       f'{len(rows)} rows, {filled} filled, {len(rows)-filled} empty, '

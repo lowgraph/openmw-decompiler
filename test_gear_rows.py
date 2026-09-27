@@ -327,6 +327,98 @@ class PartialRunTests(unittest.TestCase):
         self.assertIn('in place of the full ones', said)
 
 
+class AmbushTests(unittest.TestCase):
+    """Tribunal's assassins: gear a script sends at a sleeping player, under its own toggle."""
+    AMBUSH = {'toggle': 'darkBrotherhood', 'label': 'Dark Brotherhood armor',
+              'script': 'dbattackscript', 'actor': 'db_assassin1b', 'categories': ['armor'],
+              'place': 'Wherever you rest', 'note': 'Worn by the assassin.'}
+
+    def game(self, *versions):
+        """A foundation with the attack script as each plugin in load order last saved it."""
+        import sqlite3
+        db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
+        db.executescript('CREATE TABLE profile_plugins(profile_id,plugin_id,load_order);'
+                         'CREATE TABLE record_versions(plugin_id,record_type,record_key,payload);')
+        for order, text in enumerate(versions):
+            db.execute('INSERT INTO profile_plugins VALUES(?,?,?)', ('p', order + 1, order))
+            db.execute("INSERT INTO record_versions VALUES(?, 'SCPT', 'dbattackscript', ?)",
+                       (order + 1, b'SCHD' + text.encode('cp1252')))
+        return db
+
+    def test_the_winning_script_must_still_send_the_actor(self):
+        from build_gear_rows import script_places
+        sends = 'if ( playerLevel == 1 )\n\tPlaceAtPC "db_assassin1b" 1 128 1\nendif'
+        self.assertTrue(script_places(self.game(sends), 'p', 'dbAttackScript', 'db_assassin1b'))
+        self.assertFalse(script_places(self.game(sends, 'return'), 'p', 'dbattackscript', 'db_assassin1b'),
+                         'a later plugin that rewrites the script decides')
+        self.assertFalse(script_places(self.game(sends), 'p', 'dbattackscript', 'db_assassin1'),
+                         'db_assassin1 is not db_assassin1b')
+        self.assertFalse(script_places(self.game(), 'p', 'dbattackscript', 'db_assassin1b'))
+
+    def graph(self, *parents):
+        nodes = [{'versionId': 1, 'key': 'darkbrotherhood helm', 'recordType': 'ARMO', 'name': 'Helm'}]
+        edges = []
+        for version, (key, kind) in enumerate(parents, 2):
+            nodes.append({'versionId': version, 'key': key, 'recordType': 'NPC_', 'name': key.title()})
+            edges.append({'parentVersionId': version, 'targetVersionId': 1, 'kind': kind, 'details': {}})
+        return {'nodes': nodes, 'edges': edges, 'placements': []}
+
+    def test_only_the_named_actor_carrying_it_counts(self):
+        from build_gear_rows import carried_by
+        self.assertEqual(carried_by(self.graph(('db_assassin4', 'inventory'), ('DB_Assassin1b', 'inventory')),
+                                    'db_assassin1b')['key'], 'DB_Assassin1b')
+        self.assertIsNone(carried_by(self.graph(('db_assassin4', 'inventory')), 'db_assassin1b'))
+        self.assertIsNone(carried_by(self.graph(('db_assassin1b', 'leveled')), 'db_assassin1b'))
+
+    def test_the_pick_is_taken_from_the_body(self):
+        from build_gear_rows import ambush_pick
+        record = {'key': 'darkbrotherhood helm', 'name': 'Dark Brotherhood Helm', 'recordType': 'ARMO',
+                  'type': 'helmet', 'armorRating': 30, 'value': 200, 'enchantp': 100}
+        pick = ambush_pick(record, {'name': 'Dark Brotherhood Assassin'}, self.AMBUSH,
+                           {'earlyGame': {'endgame': {'armorRating': 50, 'armorValue': 2000, 'anyValue': 10000}}})
+        self.assertEqual((pick['acquisition'], pick['strength'], pick['price'], pick['cellKey']),
+                         ('ambush', 30, None, None))
+        self.assertEqual((pick['place'], pick['holder'], pick['note']),
+                         ('Wherever you rest', 'Dark Brotherhood Assassin', 'Worn by the assassin.'))
+        self.assertTrue(pick['nearStart'], 'the assassin comes to wherever you sleep')
+        self.assertFalse(pick['theftRequired'] or pick['endgame'])
+
+    def test_ambush_rows_stand_apart_and_only_where_something_is_worn(self):
+        helm = candidate('darkbrotherhood helm', 30, True)
+        chitin = candidate('chitin helm', 10, True)
+        buckets = {('armor', 'helmet', 'medium', None): {('ambush', 'darkBrotherhood'): [helm],
+                                                         (False, False, False): [chitin]}}
+        rows = assemble(buckets, {'armor'}, ('power',), ['darkBrotherhood'])
+        ambush = [r for r in rows if 'darkBrotherhood' in r['toggles']]
+        self.assertEqual(len(ambush), 1, 'no empty ambush rows for the other slots')
+        self.assertEqual(ambush[0]['key'], 'armor/helmet/medium/darkBrotherhood/power')
+        self.assertEqual((ambush[0]['toggles'], ambush[0]['primary']['key']),
+                         ({'darkBrotherhood': True}, 'darkbrotherhood helm'))
+        plain = [r for r in rows if r['toggles'] == {'theft': False, 'endgame': False, 'nearStart': False}
+                 and r['slot'] == 'helmet' and r['armorClass'] == 'medium']
+        self.assertEqual(plain[0]['primary']['key'], 'chitin helm', 'the policy rows are untouched')
+        self.assertEqual(len(rows), len(assemble(buckets, {'armor'}, ('power',))) + 1)
+
+    def test_the_shipped_policy_sends_the_level_one_assassin(self):
+        policy = load_policy(Path(__file__).parent/'policy/early-game.json')
+        [ambush] = policy['earlyGame']['ambushes']
+        self.assertEqual((ambush['toggle'], ambush['actor'], ambush['categories']),
+                         ('darkBrotherhood', 'db_assassin1b', ['armor']))
+
+    def test_a_malformed_ambush_is_refused(self):
+        import copy, json, tempfile
+        policy = load_policy(Path(__file__).parent/'policy/early-game.json')
+        for broken in ({'categories': []}, {'toggle': 'theft'}, {'actor': ''}):
+            changed = copy.deepcopy(policy)
+            changed['earlyGame']['ambushes'][0].update(broken)
+            with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False, encoding='utf-8') as handle:
+                json.dump(changed, handle)
+            self.addCleanup(lambda name=handle.name: Path(name).unlink(missing_ok=True))
+            with self.assertRaises(ExportError, msg=str(broken)):
+                load_policy(handle.name)
+
+
 if __name__ == '__main__':
     unittest.main()
 

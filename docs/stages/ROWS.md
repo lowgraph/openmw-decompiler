@@ -186,6 +186,36 @@ rather than hours.
 vanilla: 1,605 items -> 424 rows, 414 filled, 254 KB, 196s
 ```
 
+## Ambush rows: the Dark Brotherhood
+
+One source has no placement at all. Tribunal's `dbAttackScript` wakes a resting
+character to a Dark Brotherhood assassin, and at levels 1 to 3 it places one
+`db_assassin1b`, level 1, wearing the whole set: eight pieces of **light** armour at
+30 each, twice a Wolf Helmet, for 100 to 1,000 gold of worth. The chance is 20% a
+rest, 10% after the first attack and none after the second. No policy verdict can see
+this: the assassin exists only once the script runs, so every route the evidence has
+is a carried item on an actor with no cell.
+
+The site offers it as its own toggle, so the policy authors it as an **ambush**:
+`earlyGame.ambushes` names the toggle, the script and the actor, and which categories
+to offer (armour only: the Silver Dagger is sold everywhere and the one Ebony Dart is
+one throw). The builder then:
+
+- checks that the profile's **winning** version of the script still says
+  `PlaceAtPC "db_assassin1b"`, and prints why when it does not, so a mod that rewrites
+  the attacks turns the rows off rather than leaving them wrong;
+- finds each item that actor carries directly (not through a leveled list) in the
+  item's own acquisition graph;
+- emits a row for that slot with `toggles: {"darkBrotherhood": true}` and a key such as
+  `armor/helmet/light/darkBrotherhood/power`, only where the actor wears something.
+
+The pick is `acquisition: "ambush"`, `place: "Wherever you rest"`, no price and no
+cell, `nearStart: true` because the assassin comes to you, and carries the policy's
+`note`. The policy rows are untouched: an ambush row stands beside them, and the site
+merges it into its slot only when that toggle is on. A site that matches only the
+three policy toggles never selects one. All three profiles send the same assassin in
+the same eight pieces.
+
 ## Options and verification
 
 ```powershell
@@ -220,6 +250,11 @@ an item with no body parts at all, the engine's own part numbers, and at row lev
 beast getting the best helm it can wear rather than the best helm, a row where nothing
 fits saying so, an unrestricted row giving the same pick, and the near-first rule
 applying to the beast pick too.
+
+Ambush tests cover the winning script deciding, a prefix of the actor's id not
+matching, only the named actor's own inventory counting, the pick taken from the body,
+ambush rows standing apart and only where something is worn, and malformed entries
+being refused.
 
 Tests cover armour-class thresholds and their boundaries, bracers borrowing the
 gauntlet threshold, strength per record type, row keys including shields and excluded
