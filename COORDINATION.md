@@ -256,3 +256,54 @@ Validation: 510 site tests passed (`npm test`); 498 pipeline tests passed; stati
 
 Next agent: first run `npm test` in `A:\Claude\morrowind-tools`. No extraction or bundle rebuild required.
 
+
+
+## Final builder DOM bridges removed, 27 September 2026
+
+No schema or data changes. Gear Advisor no longer reads/writes legacy controls,
+calls global optimizers, observes #gear-box, or injects its HTML. Native bundle
+results show independent early/late loading and failure states with retries.
+The local-characters panel no longer relocates old DOM nodes; its existing
+silt-open-vault event still opens the native vault. Browser storage is untouched.
+Concurrent Dark Brotherhood and gear-source improvements were preserved.
+
+Validation: 522 tests passed and static build succeeded. Browser verification
+covered optimization, two-handed selection, equipping early and late recommendations,
+and opening the native vault; no JavaScript errors. Desktop gear and mobile vault
+screenshots were inspected. Next agent: first run `npm test`; review the task's
+explicit files before committing because other work shares this checkout.
+No commit, push, deployment, extraction, or bundle rebuild in this batch.
+
+
+## Cloud-save identity labels, 27 September 2026
+
+No schema or extraction changes. OpenMW vault cards use lib/vault-identity.mjs to
+resolve raw race/sign IDs case-insensitively against Races/Birthsigns. Save headers
+have no profile field, so only unambiguous names across the three published profiles
+are displayed; the selected builder profile is not used. Unknown/conflicting IDs
+and unavailable catalogs retain their original values. Requests are shared per
+bundle loader; full save payloads are not fetched, and stored values are untouched.
+
+Validation: 525 tests and production build passed. Browser verification with
+synthetic headers and real catalogs displayed Chimeri-Quey / The Atronach, retained
+unknown IDs after switching cards, and made no save API requests. Next agent: run
+`npm test` before release. No deployment or migration in this batch.
+
+## Clean HTML5 path routing and hash migration, 27 September 2026
+
+No exported dataset or schema changes. Transitioned workstation and tool navigation from URL hash fragments (`#builder`, `#alchemy`, `#travel`, etc.) to clean HTML5 History API path routing (`/builder`, `/leveler`, `/alchemy`, `/travel`, `/enchanting`, `/spellmaking`, `/factions`, `/challenge`, `/vault`, `/about`, `/changelog`):
+1. Shell routing engine (`components/shell-context.jsx`):
+   - `shell.navigate(view)` now invokes `window.history.pushState({ view }, '', targetPath)` (with `/` for home, `/${view}` for tools) and dispatches `silt-shell-change`.
+   - Listens to browser `popstate` events to provide seamless native browser Back and Forward history traversal across workstations.
+   - Legacy hash migration: automatically replaces incoming legacy hash fragments (e.g. `/#builder`, `/#TR`, etc.) via `window.history.replaceState` into canonical pathnames, stripping `#`.
+   - Backward compatibility for permalink payloads: preserved full support for `#builder&build=...`, `#challenge&run=...`, and query string variants (`?build=...`, `?run=...`), decoding them cleanly on arrival.
+2. Link and anchor elements:
+   - Updated header brand link (`components/site-header.jsx`) to `href="/"`.
+   - Updated tool grid cards (`components/home-hub/home-tools.jsx`), colophon links (`components/home-hub/home-colophon.jsx`), and footer links (`components/site-footer.jsx`) to clean pathnames (`/about`, `/changelog`, etc.) with SPA event prevention where appropriate.
+   - Updated permalink share URL generators in `character-builder-root.jsx` and `challenge-runs-root.jsx` to build clean origin URLs.
+3. Codec and state parser updates (`lib/permalink-codec.mjs`):
+   - `decodeShareHash` and `profileFromLocation` accept clean pathnames, full URLs, query strings, and legacy hashes.
+
+Validation: 533 site tests passed (`npm test` in `A:\Claude\morrowind-tools`); 555 pipeline tests passed (`python -B -m unittest` in `OpenMW Decompiler`); static production build (`npm run build`) and Cloudflare static export (`npm run build:cloudflare`) succeed cleanly (18/18 static pages prerendered). Automated test suite directly verifies popstate Back/Forward browser traversal, legacy hash auto-migration (`/#TR`, `/#ARCE`, `/#alchemy`), and clean query permalink payloads.
+
+Next agent: first run `npm test` in `A:\Claude\morrowind-tools`. No extraction or bundle rebuild required.
