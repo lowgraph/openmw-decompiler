@@ -5,9 +5,9 @@ if you are picking this up cold. For canonical repository paths and recent
 restructuring, read [docs/AGENT_PATH_MIGRATION.md](docs/AGENT_PATH_MIGRATION.md).
 
 1. **Claude (Data Agent):** Owns this data pipeline repository (`lowgraph/openmw-decompiler`).
-   Extracts game files, maintains normalized SQLite in `A:\Cache\OpenMWFoundation`,
+   Extracts game files, maintains normalized SQLite databases in the local data workspace,
    derives effect rules, evaluates policies, and publishes the app bundle.
-2. **Codex (Site Agent):** Owns the site repository at `A:\Claude\morrowind-tools`
+2. **Codex (Site Agent):** Owns the sibling web application repository (`lowgraph/siltstrider.tools`)
    and implements the web application consuming the bundle, executing the UI
    transformation set out in [UI_TRANSFORMATION.md](UI_TRANSFORMATION.md). Do not
    edit that repository.
@@ -18,20 +18,20 @@ restructuring, read [docs/AGENT_PATH_MIGRATION.md](docs/AGENT_PATH_MIGRATION.md)
 
 ### 1. Shell & Environment Invariants (CRITICAL)
 - **PowerShell Only:** Never emit bash chained operators (`&&`). Always use PowerShell command separators (`;`) or execute statements sequentially.
-- **Temp Isolation:** All temp fixtures, staging databases, artifacts, and test caches must strictly reside in `A:\Cache`. Always prefix pipeline test invocations with:
+- **Temp Isolation:** All temp fixtures, staging databases, artifacts, and test caches must strictly reside in the configured local cache directory (e.g., `A:\Cache`). Always prefix pipeline test invocations with:
   `$env:TEMP='A:\Cache'; $env:TMP='A:\Cache'; python -B -m unittest discover -s . -p "test_*.py"`
 - **Scratch & Secret Isolation:** Never stage scratch files (e.g., `<scratchDir>/capture-*.js`), `Char Creation.png`, or `Hey.html`. Always clean up temporary runner scripts after visual evaluation.
 - **No Real-Data Rebuilds Without Instruction:** The user runs full game-data extraction commands locally in VS Code. Build code and provide commands; do not rebuild real-data catalogues unless explicitly asked. Verify changes with synthetic fixtures instead.
 - **Provenance:** Preserve separate vanilla, tr, and tr_arce profiles and source provenance.
 
 ### 2. Cross-Repo Boundary Enforcement
-- **Strict Boundary:** The Pipeline agent (`OpenMW Decompiler`) must NEVER directly modify files inside `A:\Claude\morrowind-tools`.
+- **Strict Boundary:** The Pipeline agent must NEVER directly modify files inside the sibling web application repository (`lowgraph/siltstrider.tools`).
 - **Contract Sync:** Changes to game parsing outputs or schemas pass exclusively via exported JSON bundles to `public/game-data/` and synchronized updates to `COORDINATION.md` and `UI_TRANSFORMATION.md`.
 - **Canonical Schema Paths:** All SQL schemas reside in `schemas/`. Never recreate schema files in the repository root.
 
 ### 3. Verification & Adversarial QA Protocols
-- **Pipeline Tests (233 suites):** Must pass cleanly with zero uncaught warnings. Summarize output; do not flood context with raw passing test logs.
-- **Site Tests (155 suites) & CDP Screenshots:** Run `npm test` in `A:\Claude\morrowind-tools`. For UI modifications, execute headless visual capture via Chrome CDP on port 8765 (`node <scratchDir>/capture-*.js`) to confirm layout integrity before ticket completion.
+- **Pipeline Tests:** Must pass cleanly with zero uncaught warnings. Summarize output; do not flood context with raw passing test logs.
+- **Site Tests & CDP Screenshots:** Run `npm test` in the site repository. For UI modifications, execute headless visual capture via Chrome CDP on port 8765 (`node <scratchDir>/capture-*.js`) to confirm layout integrity before ticket completion.
 - **Adversarial Edge Cases:** Do not approve schema/logic changes on baseline tests alone. Before marking a logic task complete, write at least 3 automated tests targeting edge conditions (malformed record tags, missing SQLite indices, null/undefined properties, or boundary values).
 
 ### 4. Two-Failure Revert & Escalation Policy

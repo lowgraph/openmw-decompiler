@@ -1,7 +1,11 @@
 # Agent Path Migration Guide — OpenMW Decompiler
 
 Date: 2026-09-26  
-Branch: `portfolio/restructure`
+Migration branch: `portfolio/restructure` — merged on 2026-09-26  
+Canonical branch: `master`
+
+> [!NOTE]
+> The historical migration branch (`portfolio/restructure`) has been merged into `master` and retired. Agents must work directly on the canonical default branch (`master`) using the canonical paths defined below. Do not search for, checkout, or recreate the retired migration branch.
 
 This document defines canonical repository locations, path migrations, and operational guidelines for AI agents working in `lowgraph/openmw-decompiler`.
 
@@ -74,6 +78,7 @@ The following files deliberately remain at the repository root:
 
 - **Run pipeline tests**:
   ```powershell
+  # Using local cache directory for temporary SQLite databases
   $env:TEMP='A:\Cache'; $env:TMP='A:\Cache'; python -B -m unittest discover -s . -p "test_*.py"
   ```
 - **Inspect pipeline order**: `python rebuild.py --list`
@@ -86,4 +91,4 @@ The following files deliberately remain at the repository root:
 1. **No Real-Data Rebuilds Without Instruction**: The user executes full extractions locally. Verify code and schema changes exclusively with synthetic in-memory fixtures.
 2. **Canonical Paths**: Resolve all schemas from `ROOT / 'schemas' / '<name>_schema.sql'`. Never add fallback to root paths. Do not recreate schema or contract files in root.
 3. **PowerShell Only**: Never use bash `&&`. Always use `;` or execute statements sequentially.
-4. **Temp Isolation**: Always isolate temporary files to `A:\Cache`.
+4. **Temp Isolation**: Always isolate temporary files and SQLite fixtures to the configured local cache directory (e.g. `A:\Cache` or dedicated RAM disk).

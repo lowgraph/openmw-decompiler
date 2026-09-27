@@ -7,12 +7,12 @@ repositories. If you change it, change both copies in the same session.
 
 | | Antigravity (UI Lead) | Codex (Site Agent) | Claude (Data Agent) |
 | --- | --- | --- | --- |
-| Repository / Focus | Architecture, Design & Specs (`UI_TRANSFORMATION.md`) | `A:\Claude\morrowind-tools` | `C:\Users\tiago\OneDrive\Documents\ChatGPT\OpenMW Decompiler` |
+| Repository / Focus | Architecture, Design & Specs (`UI_TRANSFORMATION.md`) | Web Application (`lowgraph/siltstrider.tools`) | Data Pipeline (`lowgraph/openmw-decompiler`) |
 | Owns | UI/UX specifications, design tokens, component hierarchy, CRPG aesthetic standards | Next.js 16 App Router, React 19, Tailwind CSS, UI implementation, Clerk, `cloudflare/`, D1 routes & migrations | Extraction, catalogs, policy, gear rows, rules library, engine dumps, app bundle publication |
-| Reads | User feedback, in-game references (`Char Creation.png`), legacy runtime | `UI_TRANSFORMATION.md`, `public/game-data/`, legacy workbench | Plugin files, OpenMW engine dumps, `A:\Cache\OpenMWFoundation` |
+| Reads | User feedback, in-game references (`Char Creation.png`), legacy runtime | `UI_TRANSFORMATION.md`, `public/game-data/`, legacy workbench | Plugin files, OpenMW engine dumps, local staging workspace |
 | Never | Writes production backend database code | Opens raw SQLite databases or runs extractors | Writes frontend JSX, CSS, or Cloudflare route handlers |
 
-**Respect workspace boundaries.** While agents can inspect files across folders for context, each agent only commits changes within its designated scope. Antigravity authors cross-cutting UI blueprints; Codex implements them in `morrowind-tools`; Claude implements data features in `OpenMW Decompiler`.
+**Respect workspace boundaries.** While agents can inspect files across folders for context, each agent only commits changes within its designated scope. Antigravity authors cross-cutting UI blueprints; Codex implements them in `siltstrider.tools`; Claude implements data features in `openmw-decompiler`.
 
 ## The contract is the bundle
 
