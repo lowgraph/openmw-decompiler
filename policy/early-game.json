@@ -23,8 +23,8 @@
   "hostileFightThreshold": 70,
   "objectives": ["power", "enchantment"],
   "objectiveNotes": {
-    "power": "What the piece is for: armour rating on armour and shields, best damage on weapons, and enchantment capacity on clothing, which has no other purpose.",
-    "enchantment": "Enchantment capacity, which decides what a constant effect can cost. Often a different item: Eleidon's Ward carries 30,000 points at 100 armour, while the best cuirass in the game has 100 armour at 1,500."
+    "power": "What the piece is for: armour rating on armour and shields, best damage on weapons, and on clothing its enchantment: an enchanted ring or amulet first, on what its enchantment is worth, then a blank one on its capacity. An enchantment settles a tie on armour and weapons.",
+    "enchantment": "Enchantment capacity for your own enchantment, which decides what a constant effect can cost. Only a blank piece takes one, so every blank ranks before any enchanted piece. Often a different item from power: the best cuirass in the game has 100 armour at 1,500 points of room."
   },
   "earlyGame": {
     "characterLevel": 1,

@@ -327,6 +327,109 @@ class PartialRunTests(unittest.TestCase):
         self.assertIn('in place of the full ones', said)
 
 
+class EnchantedTests(unittest.TestCase):
+    """An enchantment already on a piece beats room for one a new character cannot afford."""
+
+    def setUp(self):
+        import json, tempfile
+        from evaluate_policy import _CATEGORIES
+        _CATEGORIES.clear()
+        self.addCleanup(_CATEGORIES.clear)
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.catalogs = Path(folder.name)
+        (self.catalogs/'p').mkdir()
+        def effect(effect_id, name, low, high, seconds=1, reach='self', **extra):
+            return {'effectId': effect_id, 'name': name, 'magnitude': {'min': low, 'max': high},
+                    'durationSeconds': seconds, 'range': reach, 'areaFeet': 0,
+                    'attribute': extra.get('attribute'), 'skill': extra.get('skill')}
+        records = {
+            'Enchantments': [
+                {'key': "The Master's Circle", 'castType': 'constant_effect', 'cost': 0, 'charges': 0,
+                 'effects': [effect(79, 'Fortify Attribute', 10, 10, attribute='intelligence'),
+                             effect(79, 'Fortify Attribute', 10, 10, attribute='willpower')]},
+                {'key': 'cursed_en', 'castType': 'constant_effect', 'cost': 0, 'charges': 0,
+                 'effects': [effect(17, 'Drain Attribute', 5, 5, attribute='strength')]},
+                {'key': 'frost_en', 'castType': 'when_strikes', 'cost': 5, 'charges': 50,
+                 'effects': [effect(16, 'Frost Damage', 2, 4, seconds=3, reach='touch')]},
+                {'key': 'bolt_en', 'castType': 'when_used', 'cost': 5, 'charges': 50,
+                 'effects': [effect(16, 'Frost Damage', 2, 4, seconds=3, reach='target')]},
+                {'key': 'recall_en', 'castType': 'when_used', 'cost': 5, 'charges': 50,
+                 'effects': [effect(61, 'Recall', 1, 1, seconds=1)]}],
+            'MagicEffects': [{'key': '79', 'effectId': 79, 'baseCost': 1},
+                             {'key': '17', 'effectId': 17, 'baseCost': 1},
+                             {'key': '16', 'effectId': 16, 'baseCost': 5},
+                             {'key': '61', 'effectId': 61, 'baseCost': 350}],
+            'GameSettings': [{'key': 'fEffectCostMult', 'value': 0.5},
+                             {'key': 'fEnchantmentConstantDurationMult', 'value': 100}]}
+        for name, rows in records.items():
+            (self.catalogs/'p'/f'{name}.json').write_text(json.dumps({'records': rows}), encoding='utf-8')
+
+    FLAGS = {17: {'harmful': True}, 61: {'noMagnitude': True, 'noDuration': True}}
+
+    def spell(self, enchantment_id, flags=FLAGS):
+        from build_gear_rows import enchanted
+        return enchanted({'enchantmentId': enchantment_id}, self.catalogs, 'p', flags)
+
+    def test_a_constant_effect_is_worth_what_the_engine_charges_to_make_it(self):
+        mentor = self.spell("the master's circle")
+        # ((10 + 10) x 100 + 1) x 1 x 0.5 x 0.05 per attribute: about 100 in all, against
+        # an Exquisite Ring's 120 of room. The record's own cost says 0.
+        self.assertEqual(mentor['worth'], 100.1)
+        self.assertEqual(mentor['castType'], 'constant_effect')
+        self.assertEqual([(e['attribute'], e['min'], e['seconds']) for e in mentor['effects']],
+                         [('intelligence', 10, None), ('willpower', 10, None)])
+
+    def test_a_curse_on_the_wearer_counts_against(self):
+        cursed = self.spell('cursed_en')
+        self.assertLess(cursed['worth'], 0)
+        self.assertTrue(cursed['effects'][0]['drawback'])
+        self.assertGreater(self.spell('cursed_en', flags={})['worth'], 0,
+                           'harm is read from the rules library, not guessed')
+
+    def test_a_charged_effect_lasts_its_own_seconds_and_costs_more_at_range(self):
+        touch, target = self.spell('frost_en'), self.spell('bolt_en')
+        self.assertEqual(touch['worth'], 2.4)  # ((2 + 4) x 3 + 1) x 5 x 0.025 = 2.375
+        self.assertEqual(target['worth'], 3.6)  # half again at range: 3.5625
+        self.assertEqual((touch['charges'], touch['effects'][0]['seconds']), (50, 3))
+        self.assertIsNone(self.spell('nothing'))
+
+    def test_an_effect_without_magnitude_or_duration_shows_neither(self):
+        recall = self.spell('recall_en')
+        self.assertEqual((recall['effects'][0]['min'], recall['effects'][0]['seconds']), (None, None))
+        self.assertEqual(recall['worth'], 8.8, '(2 x 0 + 1) x 350 x 0.025 = 8.75, priced as the engine does')
+
+    def ring(self, name, capacity, worth=None):
+        spell = None if worth is None else {'worth': worth, 'effects': []}
+        return candidate(name, capacity, True, enchantment=capacity) | {'enchanted': spell}
+
+    def test_clothing_wears_an_enchantment_before_room_for_one(self):
+        from build_gear_rows import best
+        mentor, exquisite, cursed = self.ring('mentor', 100, 100.1), self.ring('exquisite', 1200), \
+            self.ring('cursed', 5000, -12.5)
+        self.assertEqual(best([exquisite, mentor, cursed], 'power', 'clothing')['key'], 'mentor')
+        self.assertEqual(best([exquisite, cursed], 'power', 'clothing')['key'], 'exquisite',
+                         'a curse is worse than nothing')
+        self.assertEqual(best([exquisite, mentor, cursed], 'enchantment', 'clothing')['key'], 'exquisite',
+                         'only a blank piece takes your own enchantment')
+
+    def test_armour_ranks_on_protection_and_an_enchantment_breaks_a_tie(self):
+        from build_gear_rows import best
+        plain = candidate('plain', 20, True)
+        charmed = candidate('charmed', 20, True) | {'enchanted': {'worth': 30}}
+        heavier = candidate('heavier', 25, True)
+        self.assertEqual(best([plain, charmed], 'power', 'armor')['key'], 'charmed')
+        self.assertEqual(best([plain, charmed, heavier], 'power', 'armor')['key'], 'heavier')
+
+    def test_the_rows_split_the_two_questions(self):
+        buckets = {('clothing', 'ring', None, None): {(False, False, False): [
+            self.ring('mentor', 100, 100.1), self.ring('exquisite', 1200)]}}
+        rows = {r['objective']: r for r in assemble(buckets, {'clothing'}, ('power', 'enchantment'))
+                if r['slot'] == 'ring' and r['toggles'] == {'theft': False, 'endgame': False, 'nearStart': False}}
+        self.assertEqual(rows['power']['primary']['key'], 'mentor')
+        self.assertEqual(rows['enchantment']['primary']['key'], 'exquisite')
+
+
 class AmbushTests(unittest.TestCase):
     """Tribunal's assassins: gear a script sends at a sleeping player, under its own toggle."""
     AMBUSH = {'toggle': 'darkBrotherhood', 'label': 'Dark Brotherhood armor',

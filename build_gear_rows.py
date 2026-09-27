@@ -21,8 +21,9 @@ import time
 
 from build_acquisition_index import metadata
 from door_access import door_access
-from evaluate_policy import (assess, check_near_start, is_endgame, load_policy, load_category,
-                             profile_cells, resolve_limits)
+from build_app_bundle import newest
+from evaluate_policy import (assess, check_near_start, is_endgame, load_named, load_policy,
+                             load_category, profile_cells, resolve_limits)
 from export_items import ExportError
 from extract_foundation import ROOT, load_config
 from inspect_acquisition_index import query_item
@@ -87,6 +88,62 @@ def enchantment(record):
     return record.get('enchantp') or 0
 
 
+EFFECT_FLAGS = ('harmful', 'noMagnitude', 'noDuration')
+
+
+def effect_flags(directory, profile):
+    """The engine's flags for each effect id, from the rules library. The plugins' MGEF
+    flags leave the hardcoded ones out: Harmful, NoMagnitude and NoDuration among them."""
+    path = newest(directory, profile)
+    if path is None:
+        raise ExportError(f'No rules library for {profile} in {directory}; build it first '
+                          '(build_rules_library.py), since enchantments are judged on it')
+    return {r['effectId']: {flag: bool(r.get(flag)) for flag in EFFECT_FLAGS}
+            for r in json.loads(path.read_text(encoding='utf-8'))['records']}
+
+
+def enchanted(record, catalogs, profile, flags=None):
+    """What an item's own enchantment does, and what it is worth in enchant points.
+
+    Worth is the engine's sum for making it (Enchanting::getEnchantPoints): per effect
+    ((min + max) x duration + area) x base cost x fEffectCostMult x 0.05, half again at
+    range, with a constant effect lasting fEnchantmentConstantDurationMult. It is on the
+    scale the game shows capacity on, so Mentor's Ring's two +10 attributes come to about
+    100 against an Exquisite Ring's 120 of room. A harmful effect on the wearer is a curse
+    and counts against. The records' own cost field is 0 on every constant effect.
+    A NoMagnitude effect counts as magnitude 1 and a NoDuration one as lasting 0, as
+    the engine prices them, and neither shows the number it does not have."""
+    enchantment = load_named(catalogs, profile, 'Enchantments').get(
+        str(record.get('enchantmentId') or '').casefold())
+    if not enchantment:
+        return None
+    settings = {k: v.get('value') for k, v in load_named(catalogs, profile, 'GameSettings').items()}
+    effects_by_id = {r.get('effectId'): r for r in load_named(catalogs, profile, 'MagicEffects').values()}
+    constant = enchantment.get('castType') == 'constant_effect'
+    mult = settings.get('feffectcostmult', 0.5)
+    lasting = settings.get('fenchantmentconstantdurationmult', 100)
+    worth, effects = 0.0, []
+    for effect in enchantment.get('effects') or []:
+        known = (flags or {}).get(effect.get('effectId')) or {}
+        magnitude = {} if known.get('noMagnitude') else effect.get('magnitude') or {}
+        low, high = max(1, magnitude.get('min') or 0), max(1, magnitude.get('max') or 0)
+        timeless = known.get('noDuration')
+        seconds = 0 if timeless else lasting if constant else (effect.get('durationSeconds') or 0)
+        base = (effects_by_id.get(effect.get('effectId')) or {}).get('baseCost') or 0
+        cost = ((low + high) * seconds + max(1, effect.get('areaFeet') or 0)) * base * mult * 0.05
+        if effect.get('range') == 'target':
+            cost *= 1.5
+        drawback = bool(known.get('harmful')) and effect.get('range') == 'self'
+        worth += -cost if drawback else cost
+        effects.append({'name': effect.get('name'), 'attribute': effect.get('attribute'),
+                        'skill': effect.get('skill'), 'min': magnitude.get('min'),
+                        'max': magnitude.get('max'),
+                        'seconds': None if constant or timeless else effect.get('durationSeconds'),
+                        'range': effect.get('range'), 'drawback': drawback})
+    return {'castType': enchantment.get('castType'), 'worth': round(worth, 1),
+            'charges': None if constant else enchantment.get('charges'), 'effects': effects}
+
+
 def same_row(record, summoned):
     """Whether a conjured piece fills this item's own row: a weapon of the same skill,
     armour for the same slot. A helm that conjures gloves helps the gauntlet row, not
@@ -149,13 +206,16 @@ def beast_wearable(record):
     return True
 
 
-def pick(record, verdict, route, catalogs=None, profile=None):
+def pick(record, verdict, route, catalogs=None, profile=None, flags=None):
     base = strength(record)
     summons = conjured(record, verdict.get('summons'), catalogs, profile)
     # Ranked on what the player actually swings: a Devil Tanto's own 6 damage, or the 20
     # of the Bound Dagger it conjures.
     lifted = max([base] + [s['strength'] for s in summons if s['sameRow']])
     extra = {'baseStrength': base, 'summons': summons} if summons else {}
+    spell = enchanted(record, catalogs, profile, flags) if catalogs is not None else None
+    if spell:
+        extra['enchanted'] = spell
     return {'key': record['key'], 'name': record['name'], 'strength': lifted, **extra,
             'enchantment': enchantment(record),
             'beastWearable': beast_wearable(record),
@@ -226,19 +286,45 @@ def carried_by(static, actor):
     return None
 
 
-def ambush_pick(record, carrier, ambush, policy, catalogs=None, profile=None):
+def ambush_pick(record, carrier, ambush, policy, catalogs=None, profile=None, flags=None):
     """A piece taken from an ambusher's body: nothing paid, nobody robbed, no fixed place."""
     verdict = {'endgame': is_endgame(record, policy['earlyGame']['endgame']), 'summons': [],
                'evidenceTruncated': False}
     route = {'acquisition': 'ambush', 'price': None, 'value': record.get('value'), 'cellKey': None,
              'place': ambush['place'], 'seller': None, 'nearStart': True, 'needsRepair': False,
              'condition': None, 'holder': {'name': carrier['name']}, 'theftRequired': False}
-    return pick(record, verdict, route, catalogs, profile) | {'note': ambush['note']}
+    return pick(record, verdict, route, catalogs, profile, flags) | {'note': ambush['note']}
 
 
-def best(candidates, field='strength'):
+def worth(candidate):
+    return (candidate.get('enchanted') or {}).get('worth') or 0
+
+
+def rank(candidate, objective='power', category=None):
+    """What a row compares, larger is better.
+
+    `enchantment` is room for your own enchantment, and only a blank piece takes one:
+    OpenMW's enchanting window lists unenchanted items alone. So every blank ranks
+    before any enchanted piece, whatever its capacity.
+
+    Clothing's `power` is its enchantment. One already on it beats room for one a new
+    character cannot yet afford to make, so enchanted clothing ranks first, on its
+    worth, then blank clothing on its room, then clothing whose only effect is a curse.
+
+    Armour and weapons rank on protection or damage; an enchantment settles a tie."""
+    spell = candidate.get('enchanted')
+    if objective == 'enchantment':
+        return (0 if spell else 1, candidate['enchantment'])
+    if category == 'clothing':
+        tier = 1 if not spell else 2 if worth(candidate) > 0 else 0
+        return (tier, worth(candidate) if tier == 2 else candidate['strength'])
+    return (candidate['strength'], worth(candidate))
+
+
+def best(candidates, objective='power', category=None):
     # Best on the objective first; among equals the one that costs least.
-    return max(candidates, key=lambda c: (c[field], -(c['price'] or 0)), default=None)
+    return max(candidates, key=lambda c: (*rank(c, objective, category), -(c['price'] or 0)),
+               default=None)
 
 
 def objectives_from(policy):
@@ -256,7 +342,8 @@ def objectives_from(policy):
 
 
 def build(world, acquisition, services, catalogs, profile, policy, categories, limits,
-          max_placements, max_nodes, max_edges, max_depth, limit=None, access=None, ambushes=()):
+          max_placements, max_nodes, max_edges, max_depth, limit=None, access=None, ambushes=(),
+          flags=None):
     settings = {r['key']: r['value'] for r in _settings(catalogs, profile)}
     wanted = {'ARMO': 'armor', 'WEAP': 'weapon', 'CLOT': 'clothing'}
     variants = [(toggles, variant(policy, toggles)) for toggles in toggle_sets()]
@@ -284,7 +371,7 @@ def build(world, acquisition, services, catalogs, profile, policy, categories, l
                 carrier = carried_by(static, ambush['actor']) if key[0] in ambush['categories'] else None
                 if carrier:
                     buckets.setdefault(key, {}).setdefault(bucket_for({ambush['toggle']: True}), []).append(
-                        ambush_pick(record, carrier, ambush, policy, catalogs, profile))
+                        ambush_pick(record, carrier, ambush, policy, catalogs, profile, flags))
             for toggles, rules in variants:
                 verdict = assess(world, services, catalogs, profile, static, {'events': []},
                                  rules, limits, static['truncated'], cache, access)
@@ -293,7 +380,8 @@ def build(world, acquisition, services, catalogs, profile, policy, categories, l
                     continue
                 bucket = buckets.setdefault(key, {}).setdefault(
                     (toggles['theft'], toggles['endgame'], toggles['nearStart']), [])
-                bucket.append(pick(record, verdict, verdict['routes'][chosen], catalogs, profile))
+                bucket.append(pick(record, verdict, verdict['routes'][chosen], catalogs, profile,
+                                   flags))
             if index % 200 == 0:
                 print(f'  {index:,}/{len(records):,}', flush=True)
     return assemble(buckets, categories, objectives_from(policy), [a['toggle'] for a in ambushes])
@@ -322,18 +410,19 @@ def assemble(buckets, categories, objectives=('power',), ambushes=()):
             # the policy already evaluated, so answering a second question about the
             # same list is free. Only the choosing changes.
             for objective in objectives:
-                field = OBJECTIVES[objective]
-                primary = best(near, field) or best(far, field)
-                strongest = best(far, field)
+                primary = best(near, objective, category) or best(far, objective, category)
+                strongest = best(far, objective, category)
                 # A beast race gets its own pick from the same candidates: an Argonian
                 # in a boots row has nothing at all, and in a helmet row wants the best
                 # open helm rather than the best helm.
                 beast_near = [c for c in near if c['beastWearable']]
                 beast_far = [c for c in far if c['beastWearable']]
-                beast_primary = best(beast_near, field) or best(beast_far, field)
+                beast_primary = (best(beast_near, objective, category)
+                                 or best(beast_far, objective, category))
                 # An "or" row only earns its place when it beats the close pick.
                 alternative = (strongest if primary and strongest and primary['nearStart']
-                               and strongest[field] > primary[field] else None)
+                               and rank(strongest, objective, category)
+                               > rank(primary, objective, category) else None)
                 rows.append({'key': row_identity(category, slot, armour, weapon, toggles,
                                                  objective),
                              'category': category, 'slot': slot, 'armorClass': armour,
@@ -453,9 +542,11 @@ def main(argv=None):
                 # Pathgrids live in the foundation; doors in the world catalog.
                 access = door_access(world, game, profile)
                 ambushes = ambushes_in(game, profile, policy)
+                flags = effect_flags(root/'rules', profile)
                 rows = build(world, acquisition, services, catalogs, profile, policy,
                              categories, limits, args.max_placements, args.max_nodes,
-                             args.max_edges, args.max_depth, args.limit, access, ambushes)
+                             args.max_edges, args.max_depth, args.limit, access, ambushes,
+                             flags)
                 destination, size = publish(rows, args.output or root/'gear-rows', profile,
                                             policy, limits, snapshot, categories, ambushes)
                 filled = sum(1 for r in rows if r['primary'])

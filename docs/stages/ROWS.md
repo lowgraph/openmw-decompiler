@@ -120,8 +120,8 @@ items:
 
 | Objective | Ranks on |
 | --- | --- |
-| `power` | armour rating on armour and shields, best damage on weapons, capacity on clothing, which has no other purpose |
-| `enchantment` | enchantment capacity, which decides what a constant effect can cost |
+| `power` | armour rating on armour and shields, best damage on weapons, and on clothing its enchantment (below) |
+| `enchantment` | room for your own enchantment, which decides what a constant effect can cost |
 
 Every slot is answered once per objective, so the row count doubles to 848, and the key
 gains a fifth segment: `armor/cuirass/heavy/000/power`. Both are authored in
@@ -146,6 +146,34 @@ armor/greaves/medium  power Orcish Greaves (30ar)          -> enchantment Imperi
 The objective applies to the whole row, not just the primary: the "or" row is judged on
 it, and so is `beastPrimary`. An alternative that is stronger on power but weaker on
 capacity earns no "or" in the enchantment row.
+
+### An enchantment already on a piece comes first
+
+Ranking clothing on capacity recommended a blank Exquisite Ring over Mentor's Ring: 120
+points of room against a ring that already fortifies Intelligence and Willpower by 10.
+A level 1 character cannot afford to fill that room, so the room is not what they want.
+Every pick now carries `enchanted`, the item's own enchantment with what making it would
+cost in enchant points, the engine's sum from `Enchanting::getEnchantPoints`: per effect
+`((min + max) x duration + area) x baseCost x fEffectCostMult x 0.05`, half again at
+range, a constant effect lasting `fEnchantmentConstantDurationMult`. The records' own
+cost is 0 on every constant effect, so it cannot be used. Mentor's Ring comes to 100.1,
+on the same scale the game shows the Exquisite Ring's 120 of room.
+
+The engine's hardcoded effect flags come from the rules library, because the plugins'
+MGEF flags leave them out: a harmful effect on the wearer is a curse and counts against,
+and a NoMagnitude or NoDuration effect is priced as magnitude 1 or duration 0 and shows
+neither number. The builder refuses to run without a rules library for the profile.
+
+| Objective | Clothing | Armour and weapons |
+| --- | --- | --- |
+| `power` | enchanted first, on worth; then blank, on capacity; then cursed | strength; worth settles a tie |
+| `enchantment` | blank first, on capacity; enchanted after | the same |
+
+Only a blank piece takes your own enchantment, since OpenMW's enchanting window lists
+unenchanted items alone, so the enchantment objective puts every blank piece first.
+On vanilla the power ring row now reads Mentor's Ring from Samarys, and the power amulet
+row the Amulet of Mighty Blows, 15 gold in Caldera; the enchantment rows keep the
+Exquisite Ring and Amulet at Milie Hastien's in Balmora.
 
 **It is free at build time.** The candidates and the policy verdicts are gathered once;
 an objective only changes which of them wins. Vanilla took 188s for 848 rows against

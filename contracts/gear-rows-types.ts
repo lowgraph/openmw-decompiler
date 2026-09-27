@@ -53,6 +53,8 @@ export type Pick = {
   summons?: Summon[];
   /** Enchantment capacity, which decides what a constant effect can cost. */
   enchantment: number;
+  /** Present only when the item carries its own enchantment. Additive to schema 1.0.0. */
+  enchanted?: Enchanted;
   /** Undamaged catalog value, for comparison against the route's own price. */
   baseValue: number;
   endgame: boolean;
@@ -80,6 +82,31 @@ export type Pick = {
   evidenceTruncated: boolean;
   /** On an ambush pick: how the actor comes and what to do. */
   note?: string;
+};
+
+/** An item's own enchantment. Additive to schema 1.0.0. */
+export type Enchanted = {
+  castType: "constant_effect" | "when_used" | "when_strikes" | "cast_once";
+  /** What making it would cost in enchant points, on the scale the game shows capacity
+   *  on (the record's points times fEnchantmentMult): the engine's per-effect sum, with a
+   *  constant effect lasting fEnchantmentConstantDurationMult. A harmful effect on the
+   *  wearer counts against, so a cursed piece can be negative. Mentor's Ring is 100.1. */
+  worth: number;
+  /** Full charge, for the charged cast types; null on a constant effect. */
+  charges: number | null;
+  effects: Array<{
+    name: string;
+    attribute: string | null;
+    skill: string | null;
+    /** Null when the effect has no magnitude (Recall). */
+    min: number | null;
+    max: number | null;
+    /** Null on a constant effect, or an effect with no duration. */
+    seconds: number | null;
+    range: "self" | "touch" | "target";
+    /** A harmful effect on the wearer: a curse, not a bonus. */
+    drawback: boolean;
+  }>;
 };
 
 /** One Bound piece an item conjures on use. Additive to schema 1.0.0. */
@@ -118,9 +145,12 @@ export type GearRow = {
   nearStart: number;
   /** Closest source first, even when it costs more. Null when the row is empty. */
   primary: Pick | null;
-  /** Which question this row answers. `power` ranks on `strength`, `enchantment` on
-   *  `enchantment`, and every pick in the row — primary, alternative and beastPrimary
-   *  alike — was chosen on it. */
+  /** Which question this row answers, and every pick in the row — primary, alternative
+   *  and beastPrimary alike — was chosen on it. `power` ranks armour and weapons on
+   *  `strength`, an enchantment's worth settling a tie; clothing on its enchantment,
+   *  enchanted pieces first by `enchanted.worth`, then blank ones by `strength`, then a
+   *  piece whose only effect is a curse. `enchantment` ranks every blank piece before
+   *  any enchanted one, since only a blank takes your own, then on `enchantment`. */
   objective: Objective;
   /** A strictly stronger piece from farther away; null unless it beats a near primary.
    *  "Stronger" means stronger *on this row's objective*. */
