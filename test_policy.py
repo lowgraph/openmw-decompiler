@@ -819,6 +819,7 @@ class NearStartPlaceTests(unittest.TestCase):
 class ProfileCellTests(unittest.TestCase):
     def test_cells_are_grouped_by_profile_and_folded(self):
         db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
         db.execute('CREATE TABLE cells(profile_id,cell_key)')
         db.executemany('INSERT INTO cells VALUES(?,?)',
                        [('vanilla', 'Interior:Balmora'), ('tr', 'interior:narsis')])

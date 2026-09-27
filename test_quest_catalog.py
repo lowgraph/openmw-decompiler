@@ -20,6 +20,7 @@ class JournalFixture(unittest.TestCase):
     def journal(self, topics):
         """topics: {key: [(stage, quest_status, text), ...]}, or {key: (kind, entries)}."""
         db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
         db.executescript("""
           CREATE TABLE topics(version_id,topic_key,editor_id,type_raw,type_name,plugin);
           CREATE TABLE profile_topics(profile_id,topic_key,version_id,origin_plugin);

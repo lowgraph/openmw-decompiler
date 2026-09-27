@@ -39,6 +39,7 @@ class Fixture(unittest.TestCase):
     def services(self, providers):
         """providers: [(actor, name, record_type, services_raw, stats, cell)]"""
         db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
         db.executescript("""
           CREATE TABLE service_flags(bit,code,kind);
           CREATE TABLE profile_providers(profile_id,actor_key,version_id,origin_plugin);
@@ -61,6 +62,7 @@ class Fixture(unittest.TestCase):
 
     def game(self, actors):
         db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
         db.executescript("""
           CREATE TABLE resolved_records(profile_id,record_type,record_key,origin_plugin_id,winner_id);
           CREATE TABLE record_versions(id,plugin_id,ordinal,file_offset,record_type,record_key,

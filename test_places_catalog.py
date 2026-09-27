@@ -14,6 +14,7 @@ SHACK = ("interior:aalmu ouradas' shack", "Aalmu Ouradas' Shack", 1, None, None,
 class Fixture(unittest.TestCase):
     def services(self, rows, profile='tr'):
         db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
         db.executescript("""
           CREATE TABLE cells(profile_id,cell_key,name,interior,grid_x,grid_y,region_key,synthetic);
           CREATE TABLE metadata(key,value);""")

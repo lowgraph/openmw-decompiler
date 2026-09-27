@@ -112,6 +112,7 @@ class ParseTests(unittest.TestCase):
 class Databases(unittest.TestCase):
     def game(self, factions):
         db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
         db.executescript("""
           CREATE TABLE resolved_records(profile_id,record_type,record_key,origin_plugin_id,winner_id);
           CREATE TABLE record_versions(id,plugin_id,ordinal,file_offset,record_type,record_key,
@@ -126,6 +127,7 @@ class Databases(unittest.TestCase):
 
     def world(self, owned):
         db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
         db.executescript("""
           CREATE TABLE placements(version_id,faction_key);
           CREATE TABLE profile_placements(profile_id,reference_key,version_id,origin_plugin);
