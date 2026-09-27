@@ -329,3 +329,108 @@ class PartialRunTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class BoundSummonTests(unittest.TestCase):
+    """A Devil Tanto costs 157 gold and conjures a Bound Dagger that hits like Daedric."""
+
+    def setUp(self):
+        import json, tempfile
+        from evaluate_policy import _CATEGORIES
+        _CATEGORIES.clear()
+        self.addCleanup(_CATEGORIES.clear)
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.catalogs = Path(folder.name)
+        (self.catalogs/'p').mkdir()
+        def weapon(key, name, kind, top, ench=None, value=100):
+            return {'key': key, 'name': name, 'recordType': 'WEAP', 'type': kind, 'value': value,
+                    'chop': {'min': 1, 'max': top}, 'slash': {'min': 1, 'max': top},
+                    'thrust': {'min': 1, 'max': top}, 'enchantmentId': ench}
+        records = {
+            'Weapons': [weapon('devil tanto', 'Devil Tanto', 'SB1H', 6, 'Devil Tanto_en', 157),
+                        weapon('bound_dagger', 'Bound Dagger', 'SB1H', 20, value=0),
+                        weapon('bound_longbow', 'Bound Longbow', 'BOW', 50, value=0),
+                        weapon('stinger', 'Stinger', 'SB1H', 9, 'stinger_en'),
+                        weapon('archer blade', 'Archer Blade', 'SB1H', 7, 'archer_en')],
+            'Armor': [{'key': 'devil helm', 'name': 'Devil Helm', 'recordType': 'ARMO', 'type': 'helmet',
+                       'armorRating': 5, 'value': 1000, 'enchantmentId': 'devil helm_en'},
+                      {'key': 'bound_gauntlet_left', 'name': 'Bound Gauntlet', 'recordType': 'ARMO',
+                       'type': 'left_gauntlet', 'armorRating': 80, 'value': 0},
+                      {'key': 'bound_gauntlet_right', 'name': 'Bound Gauntlet', 'recordType': 'ARMO',
+                       'type': 'right_gauntlet', 'armorRating': 80, 'value': 0}],
+            'Enchantments': [
+                {'key': 'devil tanto_en', 'castType': 'when_used', 'charges': 70, 'cost': 14,
+                 'effects': [{'effectId': 4, 'name': 'Fire Shield', 'durationSeconds': 10},
+                             {'effectId': 120, 'name': 'Bound Dagger', 'durationSeconds': 60}]},
+                {'key': 'stinger_en', 'castType': 'when_strikes', 'charges': 70, 'cost': 14,
+                 'effects': [{'effectId': 120, 'name': 'Bound Dagger', 'durationSeconds': 60}]},
+                {'key': 'archer_en', 'castType': 'when_used', 'charges': 15, 'cost': 3,
+                 'effects': [{'effectId': 125, 'name': 'Bound Longbow', 'durationSeconds': 30}]},
+                {'key': 'devil helm_en', 'castType': 'when_used', 'charges': 655, 'cost': 131,
+                 'effects': [{'effectId': 131, 'name': 'Bound Gloves', 'durationSeconds': 60}]}],
+            'GameSettings': [{'key': k, 'value': v} for k, v in {
+                'smagicbounddaggerid': 'Bound_Dagger', 'smagicboundlongbowid': 'bound_longbow',
+                'smagicboundleftgauntletid': 'bound_gauntlet_left',
+                'smagicboundrightgauntletid': 'bound_gauntlet_right'}.items()]}
+        for name, rows in records.items():
+            (self.catalogs/'p'/f'{name}.json').write_text(json.dumps({'records': rows}), encoding='utf-8')
+
+    def record(self, record_type, key):
+        from evaluate_policy import catalog_record
+        return catalog_record(self.catalogs, 'p', record_type, key)
+
+    def summons(self, record_type, key):
+        from evaluate_policy import bound_summons
+        return bound_summons(self.catalogs, 'p', self.record(record_type, key))
+
+    def pick(self, record_type, key):
+        from build_gear_rows import pick
+        route = {'acquisition': 'purchase', 'price': 157, 'value': 157, 'cellKey': 'shop',
+                 'nearStart': True, 'needsRepair': False, 'condition': None,
+                 'holder': {'name': 'Audenian Valius'}, 'theftRequired': False}
+        verdict = {'endgame': True, 'evidenceTruncated': False,
+                   'summons': self.summons(record_type, key)}
+        return pick(self.record(record_type, key), verdict, route, self.catalogs, 'p')
+
+    def test_the_setting_names_the_conjured_item_in_any_case(self):
+        [dagger] = self.summons('WEAP', 'devil tanto')
+        self.assertEqual((dagger['key'], dagger['name']), ('bound_dagger', 'Bound Dagger'))
+        self.assertEqual((dagger['seconds'], dagger['uses']), (60, 5), '70 charge at 14 a cast')
+        self.assertEqual(self.summons('WEAP', 'stinger'), [], 'Cast When Strikes is not at will')
+        self.assertEqual(self.summons('WEAP', 'bound_dagger'), [], 'no enchantment, no summon')
+
+    def test_bound_gloves_fill_both_hands(self):
+        self.assertEqual([s['key'] for s in self.summons('ARMO', 'devil helm')],
+                         ['bound_gauntlet_left', 'bound_gauntlet_right'])
+
+    def test_a_summoner_is_endgame_only_when_the_policy_says_so(self):
+        from evaluate_policy import is_endgame
+        rules = {'armorRating': 50, 'armorValue': 2000, 'anyValue': 10000}
+        tanto, summons = self.record('WEAP', 'devil tanto'), self.summons('WEAP', 'devil tanto')
+        self.assertFalse(is_endgame(tanto, rules, summons), 'off by default')
+        self.assertTrue(is_endgame(tanto, rules | {'boundSummons': True}, summons))
+        self.assertFalse(is_endgame(tanto, rules | {'boundSummons': True}, []), '157 gold is not endgame')
+
+    def test_a_weapon_ranks_on_what_it_conjures_in_its_own_skill(self):
+        tanto = self.pick('WEAP', 'devil tanto')
+        self.assertEqual((tanto['strength'], tanto['baseStrength']), (20, 6))
+        self.assertEqual(tanto['summons'], [{'key': 'bound_dagger', 'name': 'Bound Dagger', 'strength': 20,
+                                             'seconds': 60, 'uses': 5, 'sameRow': True}])
+        blade = self.pick('WEAP', 'archer blade')
+        self.assertEqual(blade['strength'], 7, 'a short blade that conjures a bow is still a 7 damage blade')
+        self.assertFalse(blade['summons'][0]['sameRow'])
+
+    def test_a_helm_that_conjures_gloves_is_not_a_better_helm(self):
+        helm = self.pick('ARMO', 'devil helm')
+        self.assertEqual(helm['strength'], 5)
+        self.assertEqual([s['strength'] for s in helm['summons']], [80, 80], 'but the gloves are shown')
+
+    def test_ordinary_picks_carry_no_summon_fields(self):
+        dagger = self.pick('WEAP', 'bound_dagger')
+        self.assertNotIn('summons', dagger)
+        self.assertNotIn('baseStrength', dagger)
+
+    def test_the_shipped_policy_counts_summoners_as_endgame(self):
+        policy = load_policy(Path(__file__).parent/'policy/early-game.json')
+        self.assertIs(policy['earlyGame']['endgame']['boundSummons'], True)

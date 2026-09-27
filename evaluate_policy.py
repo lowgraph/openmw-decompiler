@@ -27,6 +27,14 @@ CONDITION_MAX = {'WEAP': 'health', 'ARMO': 'health', 'LOCK': 'uses', 'PROB': 'us
 CATEGORY_FILES = {'WEAP': 'Weapons', 'ARMO': 'Armor', 'CLOT': 'Clothing', 'BOOK': 'Books',
                   'ALCH': 'Potions', 'INGR': 'Ingredients', 'APPA': 'Apparatus', 'LOCK': 'Lockpicks',
                   'PROB': 'Probes', 'REPA': 'RepairTools', 'LIGH': 'Lights', 'MISC': 'Miscellaneous'}
+# What each Bound effect conjures, as OpenMW's getBoundItemsMap has it
+# (apps/openmw/mwmechanics/spelleffects.cpp): the item a game setting names. Bound Gloves
+# fills both hands.
+BOUND_ITEM_SETTINGS = {
+    120: ('smagicbounddaggerid',), 121: ('smagicboundlongswordid',), 122: ('smagicboundmaceid',),
+    123: ('smagicboundbattleaxeid',), 124: ('smagicboundspearid',), 125: ('smagicboundlongbowid',),
+    127: ('smagicboundcuirassid',), 128: ('smagicboundhelmid',), 129: ('smagicboundbootsid',),
+    130: ('smagicboundshieldid',), 131: ('smagicboundleftgauntletid', 'smagicboundrightgauntletid')}
 
 
 def load_policy(path):
@@ -54,6 +62,8 @@ def load_policy(path):
     endgame = early.get('endgame') or {}
     if not all(isinstance(endgame.get(k), (int, float)) for k in ('armorRating', 'armorValue', 'anyValue')):
         raise ExportError('Policy earlyGame.endgame needs armorRating, armorValue and anyValue')
+    if not isinstance(endgame.get('boundSummons', False), bool):
+        raise ExportError('Policy earlyGame.endgame.boundSummons must be true or false')
     near = early.get('nearStart') or {}
     if not isinstance(near.get('required'), bool) or not isinstance(near.get('places'), list) or not near['places']:
         raise ExportError('Policy earlyGame.nearStart needs required and a non-empty places list')
@@ -65,8 +75,15 @@ def load_policy(path):
     return policy
 
 
-def is_endgame(record, rules):
-    """Item tier, judged on undamaged worth: a worn Glass Cuirass is still endgame."""
+def is_endgame(record, rules, summons=()):
+    """Item tier, judged on undamaged worth: a worn Glass Cuirass is still endgame.
+
+    Worth misses the summoners. A Devil Tanto is priced at 157 gold and conjures a
+    Bound Dagger that hits like a 14,000 gold Daedric Tanto, so with boundSummons on,
+    anything whose on-use enchantment conjures Bound gear is endgame too.
+    """
+    if summons and rules.get('boundSummons'):
+        return True
     value = record.get('value')
     if value is None:
         return False
@@ -293,6 +310,53 @@ def catalog_record(catalogs, profile, record_type, key):
     return load_category(catalogs, profile, record_type).get(key)
 
 
+def load_named(catalogs, profile, name):
+    """A non-item catalog (Enchantments, GameSettings), indexed by folded key and cached.
+
+    Items reference enchantments and settings name ids in whatever case the plugin used,
+    so these are looked up case-insensitively.
+    """
+    if catalogs is None:
+        return {}
+    path = Path(catalogs)/profile/f'{name}.json'
+    if not path.is_file():
+        return {}
+    key = (str(path), 'folded')
+    if key not in _CATEGORIES:
+        _CATEGORIES[key] = {str(r['key']).casefold(): r
+                            for r in json.loads(path.read_text(encoding='utf-8'))['records'] if r.get('key')}
+    return _CATEGORIES[key]
+
+
+def bound_summons(catalogs, profile, record):
+    """The Bound gear an item's on-use enchantment conjures, and for how long.
+
+    Only Cast When Used counts: that is the charge a player spends at will. Each Bound
+    effect conjures the item its game setting names; uses are whole casts from a full
+    charge at the enchantment's listed cost, before the Enchant skill lowers it.
+    """
+    enchantment = load_named(catalogs, profile, 'Enchantments').get(
+        str(record.get('enchantmentId') or '').casefold())
+    if not enchantment or enchantment.get('castType') != 'when_used':
+        return []
+    settings = load_named(catalogs, profile, 'GameSettings')
+    cost = enchantment.get('cost') or 0
+    uses = (enchantment.get('charges') or 0) // cost if cost > 0 else None
+    summons = []
+    for effect in enchantment.get('effects') or ():
+        for setting in BOUND_ITEM_SETTINGS.get(effect.get('effectId'), ()):
+            item = str((settings.get(setting) or {}).get('value') or '').casefold()
+            for record_type in ('WEAP', 'ARMO'):
+                summoned = catalog_record(catalogs, profile, record_type, item)
+                if summoned:
+                    summons.append({'effectId': effect['effectId'], 'effect': effect.get('name'),
+                                    'key': summoned['key'], 'name': summoned.get('name'),
+                                    'recordType': record_type,
+                                    'seconds': effect.get('durationSeconds'), 'uses': uses})
+                    break
+    return summons
+
+
 def assess(world, services, catalogs, profile, static, script, policy, limits=None, truncated=False,
            cache=None):
     early = policy['earlyGame']
@@ -306,7 +370,8 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
     # Exact keys, never a pattern: "Nchuleftingth, Test of Pattern" is a real dungeon.
     excluded = {key.casefold() for key in early['excludedCells']}
     record = catalog_record(catalogs, profile, root['recordType'], root['key']) or {}
-    endgame = is_endgame(record, early['endgame'])
+    summons = bound_summons(catalogs, profile, record)
+    endgame = is_endgame(record, early['endgame'], summons)
     # Wearing a uniform the character has no right to is trouble wherever it came from:
     # OrdinatorUniform sets WearingOrdinatorUni on equip, and Ordinators react to it.
     uniform = str(record.get('script') or '').casefold() in {
@@ -351,7 +416,9 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
         if lock and early['requireUnlocked']:
             reasons.append(f'locked (level {lock})')
         if endgame and not early['allowEndgameEarly']:
-            reasons.append('endgame piece; enable endgame gear early to include it')
+            conjured = ', '.join(s['name'] for s in summons if s.get('name'))
+            reasons.append(f'endgame piece{f" (summons {conjured})" if conjured else ""}; '
+                           'enable endgame gear early to include it')
         if near['required'] and not close:
             reasons.append('not in or around a starting area')
         if quality == RANDOM:
@@ -413,6 +480,7 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
         'obtainable': obtainable,
         'endgame': endgame,
         'uniform': uniform,
+        'summons': summons,
         'theftRequired': None if not routes else all(r['theftRequired'] for r in routes),
         'evidenceTruncated': bool(truncated),
         'saleStatus': 'restocking' if restocks else 'stocked' if purchases else 'not_sold',

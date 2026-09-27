@@ -85,6 +85,31 @@ def enchantment(record):
     return record.get('enchantp') or 0
 
 
+def same_row(record, summoned):
+    """Whether a conjured piece fills this item's own row: a weapon of the same skill,
+    armour for the same slot. A helm that conjures gloves helps the gauntlet row, not
+    the helmet row, so it does not lift the helm."""
+    if summoned.get('recordType', record.get('recordType')) != record.get('recordType'):
+        return False
+    if record.get('recordType') == 'WEAP':
+        skill = WEAPON_ROWS.get(record.get('type'), (None,))[0]
+        return skill is not None and WEAPON_ROWS.get(summoned.get('type'), (None,))[0] == skill
+    return record.get('type') is not None and summoned.get('type') == record.get('type')
+
+
+def conjured(record, summons, catalogs, profile):
+    """Each summon with the conjured piece's own strength, marked when it fills this row."""
+    out = []
+    for summon in summons or ():
+        piece = load_category(catalogs, profile, summon['recordType']).get(summon['key'])
+        if piece is None:
+            continue
+        out.append({'key': summon['key'], 'name': summon.get('name') or piece.get('name'),
+                    'strength': strength(piece), 'seconds': summon.get('seconds'),
+                    'uses': summon.get('uses'), 'sameRow': same_row(record, piece)})
+    return out
+
+
 # What each objective ranks on. A row is answered once per objective, and the two
 # disagree often: Eleidon's Ward carries 30,000 points at 100 armour, while the best
 # cuirass in the game has 100 armour at 1,500.
@@ -122,8 +147,14 @@ def beast_wearable(record):
     return True
 
 
-def pick(record, verdict, route):
-    return {'key': record['key'], 'name': record['name'], 'strength': strength(record),
+def pick(record, verdict, route, catalogs=None, profile=None):
+    base = strength(record)
+    summons = conjured(record, verdict.get('summons'), catalogs, profile)
+    # Ranked on what the player actually swings: a Devil Tanto's own 6 damage, or the 20
+    # of the Bound Dagger it conjures.
+    lifted = max([base] + [s['strength'] for s in summons if s['sameRow']])
+    extra = {'baseStrength': base, 'summons': summons} if summons else {}
+    return {'key': record['key'], 'name': record['name'], 'strength': lifted, **extra,
             'enchantment': enchantment(record),
             'beastWearable': beast_wearable(record),
             'baseValue': record['value'], 'endgame': verdict['endgame'],
@@ -191,7 +222,7 @@ def build(world, acquisition, services, catalogs, profile, policy, categories, l
                     continue
                 bucket = buckets.setdefault(key, {}).setdefault(
                     (toggles['theft'], toggles['endgame'], toggles['nearStart']), [])
-                bucket.append(pick(record, verdict, verdict['routes'][chosen]))
+                bucket.append(pick(record, verdict, verdict['routes'][chosen], catalogs, profile))
             if index % 200 == 0:
                 print(f'  {index:,}/{len(records):,}', flush=True)
     return assemble(buckets, categories, objectives_from(policy))

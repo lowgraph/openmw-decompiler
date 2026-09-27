@@ -12,6 +12,7 @@
     "Site toggles: allowTheft, allowEndgameEarly, nearStart.required.",
     "Samarys is a starting-area place: the benchmark item must pass its own benchmark.",
     "Faction-owned items are theft for a level 1 character, who belongs to no faction yet: Redoran's vaults and the Imperial Cult's chapels hold plenty of loose gear, and taking it is a crime until you join and rise far enough. assumeFactionAccess was true until 2026-09-27, which offered those as free.",
+    "endgame.boundSummons: an item whose Cast When Used enchantment conjures Bound gear is endgame, whatever it costs. The Devil, Demon and Fiend weapons are priced like steel and conjure a Bound weapon that hits like Daedric: a 157 gold Devil Tanto gives a Bound Dagger to match a 14,000 gold Daedric Tanto, five 60-second casts per charge. Gear rows rank such a weapon on what it conjures in its own skill, and armour on a conjured piece for its own slot.",
     "uniformScripts name item scripts that make the wearer an impostor. OrdinatorUniform sets WearingOrdinatorUni on equip, and Ordinators react to it (Tamriel Rebuilt exempts members of T_Mw_Ordinators). Only the helmets and cuirasses that carry the script are excluded; the rest of an Indoril set is safe to wear.",
     "excludedCells lists exact keys: a substring match on 'test' would wrongly drop Nchuleftingth's Test of Pattern and Atestas' Pawn & Loan."
   ],
@@ -44,7 +45,8 @@
     "endgame": {
       "armorRating": 50,
       "armorValue": 2000,
-      "anyValue": 10000
+      "anyValue": 10000,
+      "boundSummons": true
     },
     "nearStart": {
       "required": false,

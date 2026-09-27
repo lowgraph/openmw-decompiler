@@ -36,8 +36,14 @@ export type Pick = {
   key: string;
   name: string;
   /** What the piece is for: armour rating on armour and shields, best damage on
-   *  weapons, enchantment capacity on clothing, which has no other purpose. */
+   *  weapons, enchantment capacity on clothing, which has no other purpose. For an item
+   *  whose Cast When Used enchantment conjures Bound gear for its own row, the conjured
+   *  piece's strength when it is higher: a Devil Tanto ranks on its Bound Dagger. */
   strength: number;
+  /** Present only with `summons`: the item's own strength, before what it conjures. */
+  baseStrength?: number;
+  /** Present only when the item's Cast When Used enchantment conjures Bound gear. */
+  summons?: Summon[];
   /** Enchantment capacity, which decides what a constant effect can cost. */
   enchantment: number;
   /** Undamaged catalog value, for comparison against the route's own price. */
@@ -57,6 +63,21 @@ export type Pick = {
   theftRequired: boolean;
   /** The item's search was capped, so a better source may exist. */
   evidenceTruncated: boolean;
+};
+
+/** One Bound piece an item conjures on use. Additive to schema 1.0.0. */
+export type Summon = {
+  key: string;
+  name: string;
+  /** The conjured piece's own strength: damage or armour rating. */
+  strength: number;
+  /** How long one cast lasts. */
+  seconds: number | null;
+  /** Whole casts from a full charge at the listed cost; the Enchant skill lowers the cost. */
+  uses: number | null;
+  /** True when it fills the item's own row (a weapon of the same skill, armour for the
+   *  same slot) and so lifted `strength`; a helm that conjures gloves is false. */
+  sameRow: boolean;
 };
 
 export type GearRow = {

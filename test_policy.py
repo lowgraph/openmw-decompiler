@@ -123,6 +123,12 @@ class PolicyDocumentTests(unittest.TestCase):
         self.assertIn('ordinatoruniform', policy['earlyGame']['uniformScripts'])
         self.assertTrue(policy['earlyGame']['vendorOwnedPlacementsArePurchasable'])
 
+    def test_bound_summons_must_be_a_boolean(self):
+        broken = copy.deepcopy(POLICY)
+        broken['earlyGame']['endgame']['boundSummons'] = 'yes'
+        with self.assertRaises(ExportError):
+            load_policy(self.write(broken))
+
     def test_uniform_scripts_must_be_a_list_of_ids(self):
         for bad in ('ordinatoruniform', [''], [3]):
             broken = copy.deepcopy(POLICY)
