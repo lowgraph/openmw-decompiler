@@ -243,3 +243,16 @@ The old runtime remains unloaded. Next agent: first run `npm test`, then inspect
 those two builder components and remove their remaining DOM hooks while preserving
 native gear recommendations and local save behavior. No extraction is needed.
 Changes remain local; nothing was deployed in this batch.
+
+
+## SEO architecture and multi-route static shells, 27 September 2026
+
+No exported dataset or schema changes. Implemented Phases 1-3 of the SEO architecture plan:
+1. Phase 1: High-intent metadataBase (`https://siltstrider.tools`), OpenGraph social preview (`/og-image.png`), Twitter cards, JSON-LD `WebApplication` schema, semantic `<h1>` hero hierarchy, keyword-enriched tool descriptions in `lib/home-data.mjs`, static crawler endpoints `app/robots.js` and `app/sitemap.js`.
+2. Phase 2: Engine mechanics and formula documentation in `AboutView`, semantic `<h2>` workstation headings across Alchemy, Spellmaking, Enchanting, and Travel, and exact OpenMW 0.51 engine microcopy.
+3. Phase 3: Dedicated static page route shells (`app/builder`, `app/leveler`, `app/alchemy`, `app/travel`, `app/enchanting`, `app/spellmaking`, `app/factions`, `app/challenge`, `app/vault`, `app/about`, `app/changelog`), allowing individual search engine indexation for each tool. Extended `lib/permalink-codec.mjs` and `components/shell-context.jsx` with `defaultView` and `initialView` props to prerender the target workstation on static export without hash dependency, while retaining 100% SPA state preservation and permalink backwards compatibility. Document access in `gear-advisor.jsx` guarded for SSR prerendering. Updated `app/sitemap.js` with all 14 canonical URLs.
+
+Validation: 510 site tests passed (`npm test`); 498 pipeline tests passed; static production build (`npm run build`) and Cloudflare export build (`npm run build:cloudflare`) succeed cleanly (18/18 static routes prerendered).
+
+Next agent: first run `npm test` in `A:\Claude\morrowind-tools`. No extraction or bundle rebuild required.
+
