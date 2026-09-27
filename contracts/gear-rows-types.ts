@@ -55,6 +55,12 @@ export type Pick = {
   /** This copy's worth after condition. */
   value: number | null;
   cellKey: string;
+  /** What to call `cellKey` on screen: the cell's name, or for an unnamed exterior its
+   *  region and grid ("Grazelands Region (10, 10)"). Additive; absent in older rows. */
+  place?: string | null;
+  /** Who you buy it from, on a purchase: the merchant, not the crate they keep stock
+   *  in. Null for anything not bought. Additive; absent in older rows. */
+  seller?: string | null;
   nearStart: boolean;
   /** Condition 0: free and repairable, no armour rating until repaired. */
   needsRepair: boolean;

@@ -104,6 +104,41 @@ def cell_label(world, profile, cell_key, cache=None):
     return label
 
 
+def cell_place(world, profile, cell_key, cache=None):
+    """The name a player would recognise: the cell's own name, or for the nine in ten
+    exterior cells that have none, their region and grid, never a bare key."""
+    if cache is not None and ('place', profile, cell_key) in cache:
+        return cache['place', profile, cell_key]
+    row = world.execute('SELECT name, region_key, grid_x, grid_y FROM cells WHERE profile_id=? AND cell_key=?',
+                        (profile, cell_key)).fetchone()
+    name, region, x, y = row if row else (None, None, None, None)
+    if name:
+        place = name
+    elif region:
+        area = ' '.join(word[:1].upper() + word[1:] for word in region.split(' '))
+        area = '-'.join(part[:1].upper() + part[1:] for part in area.split('-'))
+        place = f'{area} ({x}, {y})' if x is not None and y is not None else area
+    else:
+        place = cell_key.split(':', 1)[-1]
+    if cache is not None:
+        cache['place', profile, cell_key] = place
+    return place
+
+
+def actor_name(world, profile, object_key, cache=None):
+    """An actor's display name in this profile, for saying who sells a thing."""
+    if not object_key:
+        return None
+    if cache is not None and ('name', profile, object_key) in cache:
+        return cache['name', profile, object_key]
+    row = world.execute('''SELECT o.name FROM profile_objects p JOIN objects o ON o.version_id=p.version_id
+        WHERE p.profile_id=? AND p.object_key=?''', (profile, object_key)).fetchone()
+    name = row[0] if row and row[0] else None
+    if cache is not None:
+        cache['name', profile, object_key] = name
+    return name
+
+
 def near_start(label, places):
     return any(place.casefold() in label for place in places)
 
@@ -439,8 +474,15 @@ def assess(world, services, catalogs, profile, static, script, policy, limits=No
                 reasons.append('purchase price unknown: no catalog value available')
             elif worth > early['maxGoldPerItem']:
                 reasons.append(f'costs {worth} gold, above the {early["maxGoldPerItem"]} gold cap')
+        # A merchant's stock often sits in a crate they own; the buyer deals with them.
+        seller = None
+        if purchasable:
+            seller = (holder['name'] if holder['recordType'] in ('NPC_', 'CREA')
+                      else actor_name(world, profile, vendor, cache))
         routes.append({
             'holder': {'key': holder['key'], 'name': holder['name'], 'recordType': holder['recordType']},
+            'seller': seller,
+            'place': cell_place(world, profile, placement['cellKey'], cache),
             'quality': QUALITY_NAMES[quality],
             'sourceQuality': 'random' if quality == RANDOM else 'guaranteed',
             'acquisition': 'purchase' if purchasable else 'pickpocket' if carrier else 'theft' if theft

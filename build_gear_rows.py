@@ -159,7 +159,8 @@ def pick(record, verdict, route, catalogs=None, profile=None):
             'beastWearable': beast_wearable(record),
             'baseValue': record['value'], 'endgame': verdict['endgame'],
             'acquisition': route['acquisition'], 'price': route['price'], 'value': route['value'],
-            'cellKey': route['cellKey'], 'nearStart': route['nearStart'],
+            'cellKey': route['cellKey'], 'place': route.get('place'), 'seller': route.get('seller'),
+            'nearStart': route['nearStart'],
             'needsRepair': route['needsRepair'], 'condition': route['condition'],
             'holder': route['holder']['name'], 'theftRequired': route['theftRequired'],
             'evidenceTruncated': verdict['evidenceTruncated']}

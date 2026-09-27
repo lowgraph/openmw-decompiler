@@ -5,7 +5,7 @@ import sqlite3
 import tempfile
 import unittest
 
-from evaluate_policy import (assess, cell_danger, check_near_start, effective_value,
+from evaluate_policy import (assess, cell_danger, cell_place, check_near_start, effective_value,
                              load_policy, profile_cells, reachability, resolve_limits,
                              with_obstacle, within_limits,
                              DIRECT, INVENTORY, RESTOCKING, RANDOM)
@@ -32,7 +32,7 @@ CREATE TABLE leveled_lists(version_id INTEGER PRIMARY KEY,chance_none INTEGER);
 CREATE TABLE leveled_entries(list_version_id INTEGER,object_key TEXT,minimum_level INTEGER);
 CREATE TABLE placements(version_id INTEGER PRIMARY KEY,reference_key TEXT,object_key TEXT,cell_key TEXT);
 CREATE TABLE profile_placements(profile_id TEXT,reference_key TEXT,version_id INTEGER);
-CREATE TABLE cells(profile_id TEXT,cell_key TEXT,name TEXT);
+CREATE TABLE cells(profile_id TEXT,cell_key TEXT,name TEXT,region_key TEXT,grid_x INTEGER,grid_y INTEGER);
 CREATE INDEX placement_cell ON placements(cell_key,version_id);
 CREATE INDEX object_lookup ON profile_objects(profile_id,object_key);
 '''
@@ -69,8 +69,8 @@ class World:
                 self.db.execute('INSERT INTO leveled_entries VALUES(?,?,?)', (version, target, minimum))
         return version
 
-    def cell(self, cell_key, name):
-        self.db.execute('INSERT INTO cells VALUES(?,?,?)', ('p', cell_key, name))
+    def cell(self, cell_key, name, region=None, grid=(None, None)):
+        self.db.execute('INSERT INTO cells VALUES(?,?,?,?,?,?)', ('p', cell_key, name, region, *grid))
 
     def place(self, key, cell):
         version = self.next
@@ -408,6 +408,32 @@ class AssessmentTests(unittest.TestCase):
         strict = copy.deepcopy(POLICY)
         strict['earlyGame']['assumeFactionAccess'] = False
         self.assertFalse(self.assess(graph, policy=strict)['earlyGameEligible'])
+
+    def test_a_place_reads_as_a_player_would_name_it(self):
+        self.world.cell('exterior:-2,6', 'Ald-ruhn', 'ashlands region', (-2, 6))
+        self.world.cell('interior:old ebonheart, arnulf: smith', 'Old Ebonheart, Arnulf: Smith')
+        self.world.cell('exterior:8,-51', None, 'shipal-shin region', (8, -51))
+        db = self.world.db
+        self.assertEqual(cell_place(db, 'p', 'exterior:-2,6'), 'Ald-ruhn', 'not exterior:-2,6')
+        self.assertEqual(cell_place(db, 'p', 'interior:old ebonheart, arnulf: smith'), 'Old Ebonheart, Arnulf: Smith')
+        self.assertEqual(cell_place(db, 'p', 'exterior:8,-51'), 'Shipal-Shin Region (8, -51)',
+                         'an unnamed exterior gives its region and grid')
+        self.assertEqual(cell_place(db, 'p', 'interior:nowhere'), 'nowhere', 'an unknown cell falls back to its key')
+
+    def test_a_purchase_names_the_merchant_not_their_crate(self):
+        self.world.object('greaves', 'ARMO')
+        self.world.object('crate', 'CONT', name='Crate')
+        self.world.object('arnulf', 'NPC_', name='Arnulf', level=10, health=100, fight=0)
+        self.world.merchant('arnulf', 2)
+        crate = self.assess(static([node(1, 'greaves', 'ARMO'), node(2, 'crate', 'CONT', 'Crate')],
+                                   [edge(2, 1)], [placement(2, 'shop', owner='arnulf')]))['routes'][0]
+        self.assertEqual((crate['acquisition'], crate['holder']['name'], crate['seller']), ('purchase', 'Crate', 'Arnulf'))
+        counter = self.assess(static([node(1, 'greaves', 'ARMO'), node(3, 'arnulf', 'NPC_', 'Arnulf')],
+                                     [edge(3, 1, restocking=True)], [placement(3, 'shop')]))['routes'][0]
+        self.assertEqual(counter['seller'], 'Arnulf', 'stock carried by the merchant')
+        loose = self.free('tomb')['routes'][0]
+        self.assertIsNone(loose['seller'], 'nothing is bought, nobody sells it')
+        self.assertEqual(loose['place'], 'tomb')
 
     def test_a_dangerous_cell_fails_with_the_measured_numbers(self):
         self.world.object('sword', 'WEAP')
