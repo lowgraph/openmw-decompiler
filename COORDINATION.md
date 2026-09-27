@@ -307,3 +307,16 @@ No exported dataset or schema changes. Transitioned workstation and tool navigat
 Validation: 533 site tests passed (`npm test` in `A:\Claude\morrowind-tools`); 555 pipeline tests passed (`python -B -m unittest` in `OpenMW Decompiler`); static production build (`npm run build`) and Cloudflare static export (`npm run build:cloudflare`) succeed cleanly (18/18 static pages prerendered). Automated test suite directly verifies popstate Back/Forward browser traversal, legacy hash auto-migration (`/#TR`, `/#ARCE`, `/#alchemy`), and clean query permalink payloads.
 
 Next agent: first run `npm test` in `A:\Claude\morrowind-tools`. No extraction or bundle rebuild required.
+
+## Workstation SEO Realignment, Deep Structured Data & Thin-Content Mitigation, 27 September 2026
+
+No exported dataset or schema changes. Implemented the complete 3-phase SEO optimization sequence:
+1. Workstation `<h1>` Realignment: Injected semantic `<h1 className="sr-only">{Page Title}</h1>` across all 11 tool routes (`builder`, `leveler`, `alchemy`, `travel`, `spellmaking`, `enchanting`, `factions`, `challenge`, `vault`, `about`, `changelog`), establishing proper single-h1 page hierarchy for search engine crawlers without disturbing inner `<h2>` component headings or visual layout.
+2. Route-Specific Social Cards: Added `twitter: { card: 'summary_large_image', title, description, images: ['/og-image.png'] }` to all 13 route files (tools + legal pages).
+3. Deep Structured Data: Added `TOOL_SCHEMAS`, `getToolJsonLd(view)`, `TOOL_FAQS`, and `getToolFaqJsonLd(view)` to `lib/seo-breadcrumbs.mjs`. Injected Schema.org `WebApplication` schemas (with comprehensive `featureList`) and `FAQPage` rich snippets on key tool routes (`leveler`, `alchemy`, `enchanting`, `travel`, `about`).
+4. Thin-Content Mitigation: Enriched `app/alchemy/page.jsx` with an accessible SSR mechanics guide detailing Mortar and Pestle, Alembic, Calcinator, and Retort roles, verified OpenMW 0.51 mwmechanics formulas, and multi-world data provenance, lifting prerendered word count from 118 words to 1030 words (and >630 words across all static pages).
+
+Validation: 553 site tests passed (`npm test` in `A:\Claude\morrowind-tools`); 555 pipeline tests passed (`python -B -m unittest` in `OpenMW Decompiler`); static production build and Cloudflare static export (`npm run build:cloudflare`) succeed cleanly (22/22 routes prerendered). Verified static `.next-export/*.html` outputs for valid semantic `<h1>`, Twitter metadata, rich JSON-LD scripts, and comprehensive word counts.
+
+Next agent: first run `npm test` in `A:\Claude\morrowind-tools`. No extraction or bundle rebuild required.
+
