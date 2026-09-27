@@ -523,3 +523,29 @@ No exported dataset or schema changes; site only. No rebuild needed.
 Validation: 598 site tests passed. Checked in the browser with two real saves (a
 Mages Guild associate standing in the Ascadian Isles, and an 87-gold character whose
 route with a follower costs 165) and with a shared link through a world switch.
+
+## The loaded save survives a page reload, 27 September 2026
+
+No exported dataset or schema changes; site only. No rebuild needed.
+
+- `lib/active-save-store.mjs`: `rememberSave`, `recallSave` and `forgetSave` keep the
+  parsed save in this browser's localStorage (`silt-active-save`), packed with the SLT1
+  codec (2 to 7 KB across the user's 141 saves). A record that does not decode is
+  removed, never half-restored.
+- `components/character-context.jsx`: `loadSave` remembers a save; a remembered save is
+  restored on the next page load (`loadSave(save, { restored: true })`, which leaves the
+  visitor's current world alone). `clearSave`, a shared build link and a new challenge
+  run forget it. The builder's notice says the save is kept until cleared.
+- `lib/cloud-save-codec.mjs`:
+  - Section 10, an optional position extension (`identity.position`,
+    `lastExteriorPosition`) after section 9. FORMAT_VERSION stays 1; older payloads
+    decode with the fields absent.
+  - Browser fallbacks: in a browser bundle `node:zlib` and `node:crypto` are stand-ins
+    that reject a Uint8Array ("Not a string or buffer"), so `compressDeflateAsync`,
+    `decompressDeflateAsync` and `computeSha256` fall back to CompressionStream,
+    DecompressionStream and the pure-JS SHA-256. Packing in the browser had never run:
+    the vault packs in the Worker.
+
+Validation: 603 site tests passed; all 141 real saves stored and restored intact in
+Node; in the browser a real save was stored, restored after reloads into the home page,
+travel planner and builder, and forgotten by Clear save.
