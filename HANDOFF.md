@@ -88,6 +88,8 @@ Every stage is built and tested. `python -m unittest discover -p "test_*.py"` ru
 | **Journal quests** | `build_quest_catalog.py` | QUESTS.md | 754 vanilla / 2573 TR topics |
 | **Merchants** | `build_merchant_catalog.py` | MERCHANTS.md | 660 vanilla / 2575 TR providers |
 | **Places** | `build_places_catalog.py` | PLACES.md | 2887 vanilla / 10784 TR cells |
+| **Intervention** | `build_intervention_catalog.py` | INTERVENTION.md | Divine and Almsivi landing for every place |
+| **Access** | `build_access_catalog.py` | ACCESS.md | Door chain out of every interior; land mask |
 | **Factions** | `build_faction_catalog.py` | FACTIONS.md | 27 vanilla / 103 TR factions |
 | **Late-game best-in-slot** | `build_best_in_slot_catalog.py` | BEST_IN_SLOT.md | 61 / 103 builds, 141 / 644 items |
 

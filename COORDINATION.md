@@ -394,3 +394,73 @@ legs only, as before.
 
 Validation: 583 pipeline tests and 571 site tests passed. A preview bundle built from
 the real data was staged, checked in the browser at desktop and 375 px, and unstaged.
+
+## Divine and Almsivi Intervention, 27 September 2026
+
+A new catalog, `Intervention`, schema 1.0.0; see `contracts/intervention-types.ts` and
+`docs/stages/INTERVENTION.md`. Additive: no existing catalog changes.
+
+Data (pipeline):
+- `build_intervention_catalog.py` runs OpenMW 0.51.0's `World::getClosestMarker` from
+  every cell Places publishes. Records are `{key, divine, almsivi}`, indices into the
+  carried `markers.divine` and `markers.almsivi` (each with cell, pos, name, town), or
+  null where the spell fails. `ambiguous` lists other possible indices where the
+  engine's door or cell order, which the data approximates, could decide differently.
+- Vanilla: 8 Divine and 6 Almsivi markers, 18 KB gzipped. TR: 25 and 20, 71 KB;
+  tr_arce inherits. 167 TR places have no answer; 6 Divine and 14 Almsivi are ambiguous.
+- `rebuild.py` runs it after places; the bundle checks its keys and landing cells
+  against Places. It is pinned to OpenMW 0.51.0 like the other transcriptions.
+
+Site:
+- `FEATURE_OPTIONAL_CATALOGS` in `lib/bundle-loader.mjs`: a catalog a feature uses when
+  the release declares it, and does without otherwise. `travel` lists `Intervention`,
+  so the code can ship before or after the data. Required catalogs are unchanged.
+- `lib/travel-graph.mjs`: `addInterventionEdges` adds free, instant legs from every
+  stop and landing spot; `interventionsFromSave` reads the spell or a scroll from a
+  loaded save; `journeyGold` prices a `free` leg at 0; route steps carry `spell` and
+  `ambiguous`.
+- The workstation has Divine and Almsivi toggles (a loaded save sets them), shows
+  "Cast ..." legs and warns on ambiguous ones. Forts and courtyards a spell lands in
+  become destinations. The map draws spell legs only on the chosen route.
+
+Rebuild before release: `python build_intervention_catalog.py` (seconds), then
+`python build_app_bundle.py` and `npm run data:stage`.
+
+Validation: 602 pipeline tests and 576 site tests passed. A preview bundle from the
+real data was staged, checked in the browser, and unstaged.
+
+## Every location: doors in, walking legs, 27 September 2026
+
+A new catalog, `Access`, schema 1.0.0; see `contracts/access-types.ts` and
+`docs/stages/ACCESS.md`. Additive: no existing catalog changes.
+
+Data (pipeline):
+- `build_access_catalog.py`: for every interior, `depth` (doors to the outside), `via`
+  (the next room outward) and up to four `exits` (world points where the nearest way out
+  opens); null depth for sealed rooms. Carries `land`, an 8 x 8 land mask per exterior
+  cell from the VHGT heights, and `walking`, OpenMW 0.51.0's run speed formula.
+- TR: 5,729 of 5,974 interiors reach the outside, 3,936 land cells, 127 KB gzipped.
+  Vanilla 30 KB. tr_arce inherits.
+- `rebuild.py` runs it after intervention; the bundle checks its keys and `via` rooms
+  against Places.
+
+Site:
+- `FEATURE_OPTIONAL_CATALOGS.travel` adds `Access`.
+- `lib/travel-walk.mjs`: `onLand` and `longestWater` over the mask, `runSpeed` and
+  `walkHours` (Speed and Athletics, carrying nothing, timescale 30), `stopPoints`,
+  `addStopWalks` (stops within 3 cells), `addPlaces` (any cell as origin or destination:
+  walks to stops within 10 cells, a direct walk between two places, interventions cast
+  from the place), `doorChain`. A walk crossing more than 2,048 units of water is refused.
+- The workstation's searches list matching places as well as stops; a chosen place is a
+  `place:<cellKey>` node. Walk legs show distance, compass direction and time; the first
+  and last legs name the doors out and in. A "Walk between nearby places" toggle, on by
+  default. Forts where interventions land (Wolverine Hall, Windmoth) now walk to the town
+  beside them.
+
+Rebuild before release: `python build_access_catalog.py` (seconds), after
+`python build_intervention_catalog.py` if that has not been run yet, then
+`python build_app_bundle.py` and `npm run data:stage`.
+
+Validation: 618 pipeline tests and 584 site tests passed. A preview bundle from the real
+data was staged, routes to tombs and ruins and out of them checked in the browser at
+desktop and 375 px, and unstaged.

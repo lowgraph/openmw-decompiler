@@ -42,6 +42,10 @@ EXTRA_CATALOGS = {
                   'carry': ('barterFormula', 'serviceFlags', 'derivation', 'coverage')},
     'Places': {'directory': 'places', 'array': 'records',
                'carry': ('regions', 'settlements', 'derivation', 'coverage')},
+    'Intervention': {'directory': 'intervention', 'array': 'records',
+                     'carry': ('rule', 'markers', 'derivation', 'coverage')},
+    'Access': {'directory': 'access', 'array': 'records',
+               'carry': ('walking', 'landMask', 'land', 'derivation', 'coverage')},
     'Factions': {'directory': 'factions', 'array': 'records',
                  'carry': ('derivation', 'coverage')},
     'BestInSlot': {'directory': 'best-in-slot', 'array': 'records',
@@ -82,6 +86,13 @@ CELL_REFERENCES = {
     'Travel': lambda payload: set(payload.get('nodes') or ()),
     'Merchants': lambda payload: {cell for record in payload['records']
                                   for cell in record.get('cells') or ()},
+    # Intervention answers for every place, and lands on a marker's cell.
+    'Intervention': lambda payload: ({record['key'] for record in payload['records']}
+                                     | {marker['cell'] for markers in payload['markers'].values()
+                                        for marker in markers}),
+    # Access covers every interior and names the room nearer the outside.
+    'Access': lambda payload: ({record['key'] for record in payload['records']}
+                               | {record['via'] for record in payload['records'] if record.get('via')}),
     'GearRows': lambda payload: {record[side]['cellKey']
                                  for record in payload['rows']
                                  for side in ('primary', 'alternative', 'beastPrimary')

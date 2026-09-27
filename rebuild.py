@@ -43,6 +43,8 @@ PIPELINE = [
     ('quests', 'build_quest_catalog.py'),
     ('merchants', 'build_merchant_catalog.py'),
     ('places', 'build_places_catalog.py'),
+    ('intervention', 'build_intervention_catalog.py'),
+    ('access', 'build_access_catalog.py'),
     ('factions', 'build_faction_catalog.py'),
     ('best-in-slot', 'build_best_in_slot_catalog.py'),
     ('bundle', 'build_app_bundle.py'),
