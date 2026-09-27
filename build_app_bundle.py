@@ -46,6 +46,8 @@ EXTRA_CATALOGS = {
                      'carry': ('rule', 'markers', 'derivation', 'coverage')},
     'Access': {'directory': 'access', 'array': 'records',
                'carry': ('walking', 'landMask', 'land', 'derivation', 'coverage')},
+    'Teleports': {'directory': 'teleports', 'array': 'records',
+                  'carry': ('items', 'derivation', 'policyVersion', 'coverage')},
     'Factions': {'directory': 'factions', 'array': 'records',
                  'carry': ('derivation', 'coverage')},
     'BestInSlot': {'directory': 'best-in-slot', 'array': 'records',
@@ -93,6 +95,9 @@ CELL_REFERENCES = {
     # Access covers every interior and names the room nearer the outside.
     'Access': lambda payload: ({record['key'] for record in payload['records']}
                                | {record['via'] for record in payload['records'] if record.get('via')}),
+    # A teleport leaves from the cells it names and lands in one.
+    'Teleports': lambda payload: {cell for record in payload['records']
+                                  for cell in (record.get('from') or []) + [record['to']]},
     'GearRows': lambda payload: {record[side]['cellKey']
                                  for record in payload['rows']
                                  for side in ('primary', 'alternative', 'beastPrimary')

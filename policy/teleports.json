@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0.0",
+  "policyVersion": "2026.09.27",
+  "name": "Silt Strider teleport policy",
+  "notes": [
+    "Authored rules, versioned independently of any extraction snapshot.",
+    "Everyday travel is a teleport a player can take again whenever they like: a Propylon or an item gated only by what the player carries, or a dialogue gated only by an item. Everything else is published as quest-gated, with the reason, and the site hides it unless asked.",
+    "everyday names dialogue transports that are services, open to anyone once met. questOnly names quest teleports the conditions do not reveal. Rules match on source, topic, speaker, to or kind, optionally only in the listed profiles, and the build fails on a rule that matches nothing in a profile it applies to."
+  ],
+  "questOnly": [
+    {
+      "match": {
+        "speaker": "almalexia",
+        "topic": "must be stopped"
+      },
+      "why": "Tribunal's last quest: Almalexia sends you to Sotha Sil's Clockwork City once, to face him."
+    },
+    {
+      "match": {
+        "topic": "birthday party"
+      },
+      "profiles": [
+        "tr",
+        "tr_arce"
+      ],
+      "why": "An Old Ebonheart quest: the hired guard lets you into the Soanix manor party once you wear the tiger helm."
+    }
+  ],
+  "everyday": [
+    {
+      "match": {
+        "speaker": "asciene rane",
+        "topic": "transport to mournhold"
+      },
+      "why": "Tribunal's transport from Ebonheart's Grand Council Chambers to Mournhold, offered to anyone once the Dark Brotherhood attacks begin."
+    },
+    {
+      "match": {
+        "speaker": "effe_tei",
+        "topic": "transport to vvardenfell"
+      },
+      "why": "The return from Mournhold's Royal Palace to Ebonheart."
+    }
+  ]
+}

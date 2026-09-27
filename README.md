@@ -130,7 +130,7 @@ The full rebuild workflow executes in dependency order across the following majo
 - Builds bounded reverse-index query structures to determine how any item can be acquired (direct placement, inventory, leveled list, merchant barter, or quest script).
 
 ### 6. Services, Merchants, Places, Factions, and Travel
-- **Scripts**: [`build_services_catalog.py`](build_services_catalog.py) · [`build_merchant_catalog.py`](build_merchant_catalog.py) · [`build_places_catalog.py`](build_places_catalog.py) · [`build_faction_catalog.py`](build_faction_catalog.py) · [`build_travel_catalog.py`](build_travel_catalog.py) · [`build_intervention_catalog.py`](build_intervention_catalog.py) · [`build_access_catalog.py`](build_access_catalog.py)
+- **Scripts**: [`build_services_catalog.py`](build_services_catalog.py) · [`build_merchant_catalog.py`](build_merchant_catalog.py) · [`build_places_catalog.py`](build_places_catalog.py) · [`build_faction_catalog.py`](build_faction_catalog.py) · [`build_travel_catalog.py`](build_travel_catalog.py) · [`build_intervention_catalog.py`](build_intervention_catalog.py) · [`build_access_catalog.py`](build_access_catalog.py) · [`build_teleport_catalog.py`](build_teleport_catalog.py)
 - **Documentation**: [SERVICES_CATALOG.md](docs/stages/SERVICES_CATALOG.md) · [MERCHANTS.md](docs/stages/MERCHANTS.md) · [PLACES.md](docs/stages/PLACES.md) · [FACTIONS.md](docs/stages/FACTIONS.md) · [TRAVEL.md](docs/stages/TRAVEL.md)
 - Derives high-level domain datasets for service providers, merchant barter calculations, named geographic places, faction rank progressions, and transportation networks.
 

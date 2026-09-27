@@ -464,3 +464,40 @@ Rebuild before release: `python build_access_catalog.py` (seconds), after
 Validation: 618 pipeline tests and 584 site tests passed. A preview bundle from the real
 data was staged, routes to tombs and ruins and out of them checked in the browser at
 desktop and 375 px, and unstaged.
+
+## Propylons and scripted teleports, 27 September 2026
+
+A new catalog, `Teleports`, schema 1.0.0, and a new authored policy,
+`policy/teleports.json` 2026.09.27; see `contracts/teleport-types.ts` and
+`docs/stages/TELEPORTS.md`. Additive: no existing catalog changes. Mark and Recall
+are out of scope by the user's decision.
+
+Data (pipeline):
+- `build_teleport_catalog.py` reads every `Player->PositionCell` / `Player->Position`
+  in scripts and dialogue results from the script evidence sources. Kinds: propylon,
+  dialogue (direct, or a script a dialogue line starts), activator (only when used),
+  item (one destination). Each carries from/to cells, `requires` and `unless` item ids,
+  unevaluated `conditions`, and `questGated` with `gatedBecause`.
+- Everyday travel: Propylons and items gated only by what the player carries, dialogue
+  gated only by an item, and the policy's `everyday` rules (Mournhold both ways).
+  Everything else is published as quest-gated. A policy rule matching nothing in a
+  profile it applies to fails the build.
+- Vanilla: 42 teleports (30 Propylon), 5 quest-gated. TR: 138 (47 Propylon),
+  78 quest-gated. About a second a profile; `CROSS JOIN` fixes the placement lookup.
+- `rebuild.py` runs it after access; the bundle checks its cells against Places.
+
+Site:
+- `FEATURE_OPTIONAL_CATALOGS.travel` adds `Teleports`.
+- `lib/travel-teleports.mjs`: `usableTeleport`, `heldFromSave`, `teleportItems`,
+  `addTeleports` (a stop end joins the stop; any other end becomes a place joined on
+  foot). Route steps carry `teleport`, `label`, `questGated` and `conditions`.
+- The workstation lists "Items you carry" (Propylon indices first; a loaded save ticks
+  its pack) and an "Include quest teleports" toggle, off by default. Teleport legs say
+  whom to ask or what to use and what it needs; door lines show only on walking legs.
+
+Rebuild before release: `python build_teleport_catalog.py` (seconds), then
+`python build_app_bundle.py` and `npm run data:stage`.
+
+Validation: 638 pipeline tests and 590 site tests passed. A preview bundle from the
+real data was staged, Mournhold, Master Index, index-chain, amulet and TR Propylon
+routes checked in the browser at desktop and 375 px, and unstaged.

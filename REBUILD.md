@@ -13,6 +13,7 @@ Rebuild when one of these changes:
 | `policy/early-game.json` | `build_gear_rows.py` and `build_best_in_slot_catalog.py`, then publish |
 | `policy/travel.json` | `build_travel_catalog.py`, then publish |
 | `policy/journal-titles.json` | `build_quest_catalog.py`, then publish |
+| `policy/teleports.json` | `build_teleport_catalog.py`, then publish |
 | A plugin: Tamriel Rebuilt, Tamriel_Data, Project Tamriel or ARCE | [Everything](#full-rebuild) |
 | OpenMW itself | Everything, and [compare two engine functions](#after-an-openmw-update) |
 
@@ -102,6 +103,7 @@ python build_merchant_catalog.py
 python build_places_catalog.py
 python build_intervention_catalog.py
 python build_access_catalog.py
+python build_teleport_catalog.py
 python build_faction_catalog.py
 python build_best_in_slot_catalog.py
 python build_app_bundle.py
@@ -160,6 +162,7 @@ step or later ones, so the earlier output is still good.
 | `effect(s) in policy/late-game.json appear on no candidate` | best-in-slot | The last item carrying it is gone | Remove it, or check its spelling |
 | `Conjurer edge(s) in policy/travel.json match nothing` | travel | A city was renamed, or its guide changed | `conjurerRank.cities` in `policy/travel.json` |
 | `The guild guide rule assumes a provider never mixes` | travel | A guide now mixes guild and other destinations | The guild guide rule in `policy/travel.json` |
+| `rule(s) in policy/teleports.json match no teleport` | teleports | A topic or speaker was renamed, or the teleport is gone | The rule in `policy/teleports.json` |
 | `authored journal title(s) match no untitled quest` | quests | The quest now names itself, or its key changed | Remove or correct it in `policy/journal-titles.json` |
 | `near-start place(s) in the policy match no cell` | gear rows | A starting town was renamed | `earlyGame.nearStart.places` in `policy/early-game.json` |
 | `Benchmark cell ... has no hostiles` | gear rows | The danger benchmark moved or emptied | `earlyGame.danger` in `policy/early-game.json` |
