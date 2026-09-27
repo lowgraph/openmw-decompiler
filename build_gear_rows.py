@@ -105,7 +105,7 @@ def conjured(record, summons, catalogs, profile):
         if piece is None:
             continue
         out.append({'key': summon['key'], 'name': summon.get('name') or piece.get('name'),
-                    'strength': strength(piece), 'seconds': summon.get('seconds'),
+                    'recordType': summon['recordType'], 'strength': strength(piece), 'seconds': summon.get('seconds'),
                     'uses': summon.get('uses'), 'sameRow': same_row(record, piece)})
     return out
 

@@ -69,6 +69,8 @@ export type Pick = {
 export type Summon = {
   key: string;
   name: string;
+  /** WEAP or ARMO: whether `strength` is damage or armour rating. */
+  recordType: "WEAP" | "ARMO";
   /** The conjured piece's own strength: damage or armour rating. */
   strength: number;
   /** How long one cast lasts. */

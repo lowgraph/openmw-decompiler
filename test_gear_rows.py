@@ -415,7 +415,7 @@ class BoundSummonTests(unittest.TestCase):
     def test_a_weapon_ranks_on_what_it_conjures_in_its_own_skill(self):
         tanto = self.pick('WEAP', 'devil tanto')
         self.assertEqual((tanto['strength'], tanto['baseStrength']), (20, 6))
-        self.assertEqual(tanto['summons'], [{'key': 'bound_dagger', 'name': 'Bound Dagger', 'strength': 20,
+        self.assertEqual(tanto['summons'], [{'key': 'bound_dagger', 'name': 'Bound Dagger', 'recordType': 'WEAP', 'strength': 20,
                                              'seconds': 60, 'uses': 5, 'sameRow': True}])
         blade = self.pick('WEAP', 'archer blade')
         self.assertEqual(blade['strength'], 7, 'a short blade that conjures a bow is still a 7 damage blade')
