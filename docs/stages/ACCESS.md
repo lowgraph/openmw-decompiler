@@ -20,7 +20,8 @@ Three questions routing to any place needs, which no other catalog answers:
 - **The way into every interior.** Each record holds `depth`, the number of doors between
   the room and the outside; `via`, the next room towards the outside; and `exits`, up to
   four points outdoors where the nearest way out opens. Follow `via` to depth 0 and read
-  the list backwards for the way in.
+  the list backwards for the way in. A sealed room, one no door chain leads out of, has
+  `depth` null and, since schema 1.2.0, `doors`: the rooms its doors join, either way.
 - **Where land is.** `land` maps every exterior cell with land to 16 hex digits: an 8 x 8
   mask of 1,024-unit blocks, bit `by x 8 + bx` set where any of the block's height
   vertices stands above the water line. A cell missing from `land` is sea.
@@ -41,6 +42,27 @@ Ghostfence  132 pieces joined in a ring, 479 squares, the Ghostgate's 2 portcull
 Checked on the real data: Arkngthand's Heaven's Gallery goes out through Weepingbell Hall
 and the Hall of Centrifuge; the Vivec Guild of Mages goes out through the Foreign
 Quarter plaza; Bamz-Amschend is sealed, reached from Mournhold by script.
+
+## Sealed rooms
+
+A room no door chain leads out of is reached by a teleport, or not at all. Its record
+lists the rooms its doors join (`doors`), so the site can walk from the room a teleport
+arrives in to any room behind it: from Mournhold's arrival to the Great Bazaar, or out
+of Sotha Sil's gearworks to the room its quest teleport leaves from. The site decides
+which teleports count, since the Teleports catalog is built after this one.
+
+As of 27 September 2026, of Tamriel Rebuilt's 245 sealed rooms (vanilla 112):
+
+```
+83 (79)  joined by doors to an everyday teleport's end: Mournhold and Bamz-Amschend,
+         Magas Volar, the Subfuscous Cupola, the Space Gone Missing
+44 (17)  joined to a quest teleport's end: Sotha Sil, Mortrag Glacier, Khalaan, Dusara
+16  (2)  doors, but none leading out: test cells, TR's unfinished tr_hold_ cells
+102 (14) no doors at all: test cells, TR's tr_hold_ cells, NPC holding cells, and a few
+         rooms a one-off quest script moves the player into
+```
+
+`derivation.sealedWithDoors` counts the rooms with a door list.
 
 ## The land mask
 
@@ -127,7 +149,9 @@ with no land or no interiors refused. For the grid: the 46 degree limit either s
 the steep share, square order, swimming across cell borders, walls and gates overriding
 the terrain, the bit packing, the ring joined in order, a gap over `maxGap` counted, an
 opening clearing its squares, placements found by prefix outdoors in the profile, a
-barrier with no pieces refused, and malformed policies refused.
+barrier with no pieces refused, and malformed policies refused. For sealed rooms: doors
+listed either way, a door back into the same room left out, a room with no doors
+listing none, and rooms with a way out listing nothing.
 
 ## What this layer does not do
 

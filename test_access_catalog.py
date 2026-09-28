@@ -101,6 +101,24 @@ class AccessTests(unittest.TestCase):
         self.assertEqual([r['depth'] for r in records], [None, None])
         self.assertTrue(all(r['exits'] == [] and 'via' not in r for r in records))
 
+    def test_a_sealed_room_lists_the_rooms_its_doors_join_either_way(self):
+        # Mournhold: streets and a bazaar joined by doors, none of them outdoors; the
+        # palace entered by a one-way door from the bazaar; a vault with no door at all.
+        d = {'interior:mournhold, streets': [('interior:mournhold, bazaar', 0, 0), ('interior:mournhold, streets', 0, 0)],
+             'interior:mournhold, bazaar': [('interior:mournhold, streets', 0, 0), ('interior:mournhold, palace', 0, 0)],
+             'interior:shack': [('exterior:0,0', 5, 5)]}
+        rooms = ['interior:mournhold, bazaar', 'interior:mournhold, palace', 'interior:mournhold, streets',
+                 'interior:shack', 'interior:vault']
+        records = {r['key']: r for r in access(rooms, d)}
+        self.assertEqual(records['interior:mournhold, bazaar']['doors'],
+                         ['interior:mournhold, palace', 'interior:mournhold, streets'])
+        self.assertEqual(records['interior:mournhold, streets']['doors'], ['interior:mournhold, bazaar'],
+                         'a door back into the same room is no way anywhere')
+        self.assertEqual(records['interior:mournhold, palace']['doors'], ['interior:mournhold, bazaar'],
+                         'a door in counts as a way out: doors are taken to work both ways')
+        self.assertEqual(records['interior:vault']['doors'], [])
+        self.assertNotIn('doors', records['interior:shack'], 'a room with a way out needs no list')
+
     def test_a_room_only_entered_one_way_still_counts_the_door_that_leads_out(self):
         d = {'interior:cellar': [('interior:house', 0, 0)], 'interior:house': [('exterior:0,0', 5, 5)]}
         records = {r['key']: r for r in access(sorted(d), d)}
@@ -145,6 +163,7 @@ class Databases(unittest.TestCase):
         payload = assemble(services, game, 'vanilla', 'snap')
         self.assertEqual(payload['land'], {'exterior:0,0': 'f' * 16}, 'sea and deleted land are left out')
         self.assertEqual(payload['derivation']['sealed'], 1)
+        self.assertEqual(payload['derivation']['sealedWithDoors'], 0, 'the shack has no doors at all')
         self.assertEqual(payload['walking']['source'], 'authored')
 
     def test_with_a_policy_the_payload_carries_the_walkable_grid(self):
@@ -153,7 +172,7 @@ class Databases(unittest.TestCase):
         self.addCleanup(world.close)
         payload = assemble(services, game, 'vanilla', 'snap', world, POLICY | {'barriers': [WallTests.FENCE]})
         walk = payload['walkable']
-        self.assertEqual(payload['schemaVersion'], '1.1.0')
+        self.assertEqual(payload['schemaVersion'], '1.2.0')
         self.assertEqual((walk['squaresPerCell'], walk['squareSize'], walk['maxSlopeDegrees']), (16, 512, 46.0))
         self.assertEqual(walk['barriers'][0]['pieces'], 1)
         self.assertIn('exterior:0,0', walk['cells'])

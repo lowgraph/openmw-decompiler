@@ -33,7 +33,7 @@ from build_acquisition_index import metadata
 from export_items import ExportError
 from extract_foundation import ROOT, load_config
 
-VERSION = '1.1.0'
+VERSION = '1.2.0'
 POLICY_VERSION = '1.0.0'
 PROFILES = ('vanilla', 'tr', 'tr_arce')
 
@@ -379,12 +379,19 @@ def access(interiors, doors):
     `via` is the next room towards the outside; following `via` from a tomb's depths
     and reading the list backwards is the way in. Ties go to the room first in
     case-insensitive name order, so the answer is stable.
+
+    A sealed room, one no door chain leads out of, lists instead the rooms its doors
+    join (`doors`, either way through the door), so a site can walk from it to a room a
+    teleport reaches: Mournhold's streets to the room its transport arrives in.
     """
-    inward = {}
+    inward, joined = {}, {}
     for origin, links in doors.items():
         for destination, _x, _y in links:
             if destination.startswith('interior:') and origin.startswith('interior:'):
                 inward.setdefault(destination, set()).add(origin)
+                if destination != origin:
+                    joined.setdefault(origin, set()).add(destination)
+                    joined.setdefault(destination, set()).add(origin)
     depth, via, outer = {}, {}, {}
     frontier = sorted((c for c in interiors if exits_of(c, doors)), key=str.casefold)
     for cell in frontier:
@@ -403,7 +410,8 @@ def access(interiors, doors):
     records = []
     for cell in sorted(interiors):
         if cell not in depth:
-            records.append({'key': cell, 'depth': None, 'exits': []})
+            records.append({'key': cell, 'depth': None, 'exits': [],
+                            'doors': sorted(joined.get(cell, ()), key=str.casefold)})
             continue
         record = {'key': cell, 'depth': depth[cell], 'exits': exits_of(outer[cell], doors)}
         if cell in via:
@@ -437,12 +445,14 @@ def assemble(services, game, profile, snapshot, world=None, policy=None):
                       "exterior cell's height grid reduced to a land mask",
             'interiors': len(records), 'reachable': len(reached),
             'sealed': len(records) - len(reached),
+            'sealedWithDoors': sum(1 for r in records if r['depth'] is None and r['doors']),
             'deepest': max((r['depth'] for r in reached), default=0),
             'landCells': len(land)},
         'coverage': 'For every interior, the next room towards the outside (via), how many '
                     'doors away the outside is (depth) and up to four points outdoors its '
                     'nearest exit opens onto (exits). Depth null means no door leads out: '
-                    'reached by a script or a spell, or not at all. The land mask says '
+                    'reached by a script or a spell, or not at all; such a room lists the '
+                    'rooms its doors join (doors), to walk to one a teleport reaches. The land mask says '
                     'where a straight walk stays out of the sea; it is not a path over the '
                     'terrain. Doors are assumed to work both ways, as nearly all do.',
         'builtAtUnix': time.time(), 'records': records}

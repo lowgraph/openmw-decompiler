@@ -1,11 +1,11 @@
 /**
- * Contract for access schema 1.1.0: the way into every interior, where land is, and
+ * Contract for access schema 1.2.0: the way into every interior, where land is, and
  * where a walk can go.
  *
  * Records cover every interior Places publishes. Exteriors need none: a grid square is
  * reached by walking to it. 1.1.0 adds `walkable`, a grid graded from the terrain's
  * heights that a site finds paths over; 1.0.0 readers ignore it and walk the straight
- * line checked against the land mask, as before.
+ * line checked against the land mask, as before. 1.2.0 adds `doors` to sealed rooms.
  */
 import type { Profile } from "./catalog-types";
 
@@ -20,6 +20,10 @@ export type AccessRecord = {
   via?: string;
   /** Up to four points outdoors, world units [x, y], where the nearest way out opens. */
   exits: Array<[number, number]>;
+  /** Since 1.2.0, on sealed rooms (depth null) only: the rooms this one's doors join,
+   *  either way through the door. Walk them to a room a teleport reaches, as Mournhold's
+   *  streets lead to the room its transport arrives in. Empty when the room has no doors. */
+  doors?: string[];
 };
 
 /** A wall policy/walking.json names, as it was drawn in this profile. */
@@ -58,7 +62,7 @@ export type Walkable = {
 };
 
 export type AccessCatalog = {
-  schemaVersion: "1.0.0" | "1.1.0";
+  schemaVersion: "1.0.0" | "1.1.0" | "1.2.0";
   profile: Profile["id"];
   snapshotId: string;
   /** OpenMW 0.51.0's walk, run and swim speed, described; the settings come from GameSettings. */
@@ -74,6 +78,8 @@ export type AccessCatalog = {
   walkable?: Walkable;
   derivation: {
     method: string; interiors: number; reachable: number; sealed: number;
+    /** Since 1.2.0: sealed rooms with at least one door to another room. */
+    sealedWithDoors?: number;
     deepest: number; landCells: number;
     /** Since 1.1.0. */
     walkableCells?: number; landSquares?: number; blockedSquares?: number;

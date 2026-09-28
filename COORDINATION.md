@@ -611,3 +611,36 @@ Site:
 Validation: 662 pipeline tests and 612 site tests passed. Checked in the browser on
 the real data: Dagoth Ur to Ald'ruhn goes out by the Ghostgate (19.1 cells, 4 h), where
 the straight line crossed the fence; Ilunibi to Balmora 1.2 times the straight line.
+
+## Rooms with no door outside, 27 September 2026
+
+Access schema 1.2.0, additive: sealed rooms (`depth` null) gain `doors`, the rooms their
+doors join either way, and `derivation.sealedWithDoors`. Bundle
+`a20a1f1c0ae3ffa9ab052da7`. See `contracts/access-types.ts` and `docs/stages/ACCESS.md`.
+
+Why rooms are sealed, TR (vanilla): 83 (79) are joined by doors to an everyday
+teleport's end (Mournhold with Bamz-Amschend, Magas Volar, the Subfuscous Cupola); 44
+(17) to a quest teleport's end (Sotha Sil, Mortrag Glacier, Khalaan, Dusara); 118 (16)
+have no way in the game offers: test cells, TR's `tr_hold_` cells, NPC holding cells,
+and a few rooms a one-off quest script moves the player into. Those are left out.
+
+Data (pipeline): `build_access_catalog.py` lists each sealed room's doors; nothing else
+changes. The Teleports catalog is built after Access, so the site decides which
+teleport ends count.
+
+Site:
+- `lib/travel-walk.mjs`: `roomsThrough` (the rooms a sealed room's doors lead to,
+  nearest first, with the rooms passed). `addPlaces` takes `nodes` (travel nodes) and
+  joins a sealed place to every room the network knows through its doors (a teleport's
+  arrival or departure room, or a stop) with an Indoors leg both ways: `indoors`,
+  `doors` (the rooms passed), no gold, no time. Every place is a node before any is
+  linked, so two sealed rooms added together join.
+- `planRoute` keeps `indoors` and `doors` on steps. The leg reads "Go through the doors:
+  A → B → C", with "time indoors not counted".
+- The place pickers say how a sealed room is reached: by teleport, by quest teleport, or
+  no way in known.
+
+Validation: 662 pipeline tests and 616 site tests passed. On the rebuilt data: Balmora to
+Mournhold's Great Bazaar (Guild Guide, walk, transport, then indoors through the Palace
+courtyard and Plaza Brindisi Dorom), and with quest teleports on, Balmora to Sotha Sil's
+Central Gearworks by Almalexia in the High Chapel.
