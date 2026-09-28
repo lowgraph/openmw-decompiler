@@ -644,3 +644,37 @@ Validation: 662 pipeline tests and 616 site tests passed. On the rebuilt data: B
 Mournhold's Great Bazaar (Guild Guide, walk, transport, then indoors through the Palace
 courtyard and Plaza Brindisi Dorom), and with quest teleports on, Balmora to Sotha Sil's
 Central Gearworks by Almalexia in the High Chapel.
+
+## Walking with a load, Levitate and Water Walking, 27 September 2026
+
+No exported dataset or schema changes; site only. No rebuild needed.
+
+- `lib/travel-movement.mjs` (new), from OpenMW 0.51.0 `Npc::getWalkSpeed`,
+  `Npc::getMaxSpeed`, `Actor::getEncumbrance` and `Class::getNormalizedEncumbrance`:
+  `movementFor` cuts run, swim and fly speeds by fEncumberedMoveEffect times the load
+  over Strength x fEncumbranceStrMult (Feather off, Burden on), and past capacity nobody
+  moves; fly speed is fMinFlySpeed + 0.01 x (Speed + Levitate) x (fMaxFlySpeed -
+  fMinFlySpeed). `carriedWeight` weighs a save's pack from the item catalogs and its own
+  records; `constantEffects` reads Levitate, Water Walking, Feather and Burden from worn
+  constant-effect enchantments, the player's own items, abilities and diseases.
+- `lib/travel-walk.mjs`: `waterWalk` makes any water, open sea too, walkable at the run
+  speed with no swim limit; a `fly` speed adds a straight flight wherever it is quicker
+  than the ground path, or the only way (over the Ghostfence). Legs carry `levitate` or
+  `waterWalk`, and `planRoute` keeps them on steps.
+- `lib/omwsave-parser.mjs`: `stuff.created`, the player-made items the player holds
+  (dynamic ARMO, CLOT, WEAP and BOOK records and their ENCH): id, kind, name, weight and
+  the effects of a constant enchantment. `parseCreatedItems` exposes it for tests.
+- `lib/cloud-save-codec.mjs`: SLT1 section 11 carries `stuff.created`, after section 10;
+  FORMAT_VERSION stays 1, older payloads decode with none, and an empty list is not
+  stored.
+- `lib/bundle-loader.mjs`: a `carrying` feature (the item catalogs, Enchantments,
+  Spells), loaded by the travel page only while a save is loaded.
+- The travel page: Carrying (of capacity), Constant Levitate and Constant Water Walking
+  controls, filled from a loaded save with a note on where each came from, and a warning
+  when over-encumbered.
+
+Validation: 626 site tests passed; the user's 141 real saves parsed, every stack weighed
+against the TR catalogs, and player-made items survived the codec round trip. In the
+browser: Levitate 50 flies Dagoth Ur to Ald'ruhn over the Ghostfence in 53 min (walking
+about 4 h); Water Walking takes Vivec to Ebonheart across the water in 29 min (58 min);
+carrying 300 of 250 shows the warning and routes no walk.
