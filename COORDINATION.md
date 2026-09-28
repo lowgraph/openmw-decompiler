@@ -1,5 +1,17 @@
 # Coordination
 
+## Build-aware gear ranking and two rings — 2026-09-28
+
+Additive to gear-row schema 1.0.0 (`contracts/gear-rows-types.ts`). Clothing rows answering `power` carry `candidates`, a shortlist of at most 40 picks: what the row chose, the blank piece with the most room, and for each effect (attribute or skill, constant apart from charged) the piece carrying the most of it, close and far apart. Each enchantment effect carries its own `worth` and `value`. Pipeline `2dc71d0`, site `32e7fa2` (majors before minors for weapon and armour), `72bdb15` (benchmark), `e236b1f` (ranking).
+
+Site: `lib/build-traits.mjs` reads a build with the leveler's `detectArchetype`, counts a caster by casting schools (two per major, one per minor, four or more), and weighs each effect for the build. The Gear Advisor merges each slot from the shortlists, offers a second, different ring (`slotKey: ring_2`, equipped on the right hand), and notes why a piece suits the build. Rows without shortlists rank as before. `test/gear-benchmark.test.js` requires every caster class and a custom caster to be shown Mentor's Ring; TR is TODO until the staged rows carry shortlists, then it is enforced.
+
+Rebuild before release: `python build_gear_rows.py` (about 20 minutes per profile), then the bundle and `npm run data:stage`. First verification command: `npm test` in the site repository; the TR benchmark must pass, not stay TODO.
+
+## Current-only site contract — 2026-09-28
+
+The user authorized removal of pre-release compatibility. Site sharing uses canonical paths and query parameters; hash aliases are retired. The SLT1 envelope now requires format version 2 and all snapshot sections; original OpenMW import remains supported. No game-data catalog schema changed. Standalone index.html, archive/legacy, global catalog hooks and the prototype test API were removed; database history and stored rows were not modified. Migration 0006 is prepared but not applied: production saved_characters was verified empty, and the migration refuses populated tables before removing it. First verification command: `npm test` in the site repository, then `npm run build:cloudflare`. Old version 1 cloud payloads need reimport from the original OpenMW save after deployment.
+
 Three agents work on Silt Strider in parallel. This file is identical in both
 repositories. If you change it, change both copies in the same session.
 
