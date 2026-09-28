@@ -1,5 +1,11 @@
 # Coordination
 
+## Launch notice and operations preparation — 2026-09-28
+
+Site changes add the shared OpenMW-only / vanilla, TR and TR + ARCE compatibility notice at both importers and About, a bug-report email template in the footer/About, and Worker 5xx reporting with user-visible reference IDs. Wrangler observability is configured with query redaction, custom failure logs, and sampled traces; it takes effect only when deployed. No game-data schema, equipment optimizer, or save-format changes. Recovery procedures are in `docs/LAUNCH_OPERATIONS.md`: production D1 Time Travel was checked and a schema-only export restored locally; no full private-data export, production restore, or rollback was performed. Automatic approval review declined the full private-data export; the owner can run the documented backup command.
+
+First verification command: `npm test` in the site repository, then `npm run build:cloudflare`. At preparation, 558 tests passed, zero failed, and the existing TR gear benchmark remained TODO pending new data. Home/vault/About checks passed in both themes at desktop/mobile widths, as did the Worker deployment dry run. These checks do not replace the final frozen-code-and-bundle acceptance pass after Claude's equipment work and Discord setup. This preparation is not yet deployed. Rechecked the same day after the equipment release (`7e72528`, bundle `3da03202`): 559 tests pass with the TR gear benchmark enforced, and the Cloudflare build and Worker dry run pass; the equipment work is finished, so the acceptance pass can use that bundle. Still for the owner: Discord in Clerk, the full D1 export, and the production sign-in and cloud-save checks.
+
 ## Build-aware gear ranking and two rings — 2026-09-28
 
 Additive to gear-row schema 1.0.0 (`contracts/gear-rows-types.ts`). Clothing rows answering `power` carry `candidates`, a shortlist of at most 40 picks: what the row chose, the blank piece with the most room, and for each effect (attribute or skill, constant apart from charged) the piece carrying the most of it, close and far apart. Each enchantment effect carries its own `worth` and `value`. Pipeline `2dc71d0`, site `32e7fa2` (majors before minors for weapon and armour), `72bdb15` (benchmark), `e236b1f` (ranking).
