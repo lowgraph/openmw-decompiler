@@ -549,3 +549,27 @@ No exported dataset or schema changes; site only. No rebuild needed.
 Validation: 603 site tests passed; all 141 real saves stored and restored intact in
 Node; in the browser a real save was stored, restored after reloads into the home page,
 travel planner and builder, and forgotten by Clear save.
+
+## Gear rows weigh enchantments by usefulness, 27 September 2026
+
+Additive dataset change; rebuilt gear rows, best-in-slot and bundle `11120b5348547d5df9d4ec5d`.
+
+- `policy/early-game.json` (policy 2026.09.27.2) gains `enchantmentUsefulness`: tiers
+  essential 1.0, situational 0.5, convenience 0.2 and none 0, and a tier for every one
+  of the 141 vanilla effects. An entry such as "Fortify Attribute: Personality" overrides
+  one attribute or skill. Checked against community consensus: Resist Normal Weapons is
+  situational (silver, Daedric and enchanted weapons ignore it), and a Drain on an enemy
+  is convenience (it wears off; Damage Attribute lasts).
+- `build_gear_rows.py`: each enchanted pick carries `enchanted.value` (engine cost times
+  the tier's weight; a curse still counts in full against) and a `tier` on each effect.
+  Rows rank on `value`, falling back to `worth`. The build refuses a table name the
+  profile's MagicEffects lacks, and the payload lists effects that fell to the default
+  tier under `policy.enchantmentUsefulness.defaulted` (none in any profile).
+- `contracts/gear-rows-types.ts`: `value?` and effect `tier?`, both optional.
+- Site `lib/gear-rows.mjs`: `pickRank` compares `value ?? worth`.
+
+Effect on picks: vanilla primaries unchanged; in TR, 8 right-glove rows now pick the
+Glove of the Cosmic Doorknob (Recall) over the Glove of the Dextrous Handshake (Charm).
+Alternatives changed in 2 vanilla and 12 TR rows.
+
+Validation: 75 gear-row tests and the full pipeline suite; 604 site tests passed.

@@ -102,7 +102,53 @@ def effect_flags(directory, profile):
             for r in json.loads(path.read_text(encoding='utf-8'))['records']}
 
 
-def enchanted(record, catalogs, profile, flags=None):
+class Usefulness:
+    """How much each effect of an item's own enchantment counts, from the policy's tiers.
+
+    An effect's weight is its tier's: "Fortify Attribute: Personality" decides that one
+    attribute, then "Fortify Attribute" the effect, then the default tier. Every effect
+    that falls to the default is remembered, so the build can say which ones the table
+    does not place yet.
+    """
+
+    def __init__(self, table):
+        self.table = table
+        self.weights = table['tiers']
+        self.default = table['defaultTier']
+        self.tier_of = {name.strip().casefold(): tier
+                        for tier, names in table['effects'].items() for name in names}
+        self.defaulted = set()
+
+    def names(self):
+        """The effect names the table lists, without their ': attribute' parts."""
+        return {name.split(':', 1)[0].strip() for names in self.table['effects'].values() for name in names}
+
+    def tier(self, effect):
+        name = str(effect.get('name') or '').strip()
+        target = effect.get('attribute') or effect.get('skill')
+        for key in ([f'{name}: {target}'] if target else []) + [name]:
+            if key.casefold() in self.tier_of:
+                return self.tier_of[key.casefold()]
+        self.defaulted.add(name)
+        return self.default
+
+    def summary(self):
+        return {'tiers': self.weights, 'defaultTier': self.default, 'effects': self.table['effects'],
+                'defaulted': sorted(self.defaulted)}
+
+
+def check_effect_names(usefulness, catalogs, profile):
+    """Refuse a table naming an effect this profile does not have, before any row is built:
+    a misspelt name would otherwise fall silently to the default tier."""
+    known = {str(r.get('name') or '').casefold() for r in load_named(catalogs, profile, 'MagicEffects').values()}
+    unknown = sorted(n for n in usefulness.names() if n.casefold() not in known)
+    if unknown:
+        raise ExportError(f'{profile}: enchantmentUsefulness in the policy names effect(s) the '
+                          f'MagicEffects catalog does not have: {", ".join(unknown[:6])}\n  Check the '
+                          'spelling against the effect names the game uses.')
+
+
+def enchanted(record, catalogs, profile, flags=None, usefulness=None):
     """What an item's own enchantment does, and what it is worth in enchant points.
 
     Worth is the engine's sum for making it (Enchanting::getEnchantPoints): per effect
@@ -112,7 +158,11 @@ def enchanted(record, catalogs, profile, flags=None):
     100 against an Exquisite Ring's 120 of room. A harmful effect on the wearer is a curse
     and counts against. The records' own cost field is 0 on every constant effect.
     A NoMagnitude effect counts as magnitude 1 and a NoDuration one as lasting 0, as
-    the engine prices them, and neither shows the number it does not have."""
+    the engine prices them, and neither shows the number it does not have.
+
+    With the policy's usefulness table, `value` weighs each effect by its tier, so a
+    Feather belt no longer outranks a Fortify Endurance ring of the same cost. A curse
+    still counts in full against. Ranking uses `value`; `worth` stays the engine's sum."""
     enchantment = load_named(catalogs, profile, 'Enchantments').get(
         str(record.get('enchantmentId') or '').casefold())
     if not enchantment:
@@ -122,7 +172,7 @@ def enchanted(record, catalogs, profile, flags=None):
     constant = enchantment.get('castType') == 'constant_effect'
     mult = settings.get('feffectcostmult', 0.5)
     lasting = settings.get('fenchantmentconstantdurationmult', 100)
-    worth, effects = 0.0, []
+    worth, value, effects = 0.0, 0.0, []
     for effect in enchantment.get('effects') or []:
         known = (flags or {}).get(effect.get('effectId')) or {}
         magnitude = {} if known.get('noMagnitude') else effect.get('magnitude') or {}
@@ -135,13 +185,21 @@ def enchanted(record, catalogs, profile, flags=None):
             cost *= 1.5
         drawback = bool(known.get('harmful')) and effect.get('range') == 'self'
         worth += -cost if drawback else cost
-        effects.append({'name': effect.get('name'), 'attribute': effect.get('attribute'),
-                        'skill': effect.get('skill'), 'min': magnitude.get('min'),
-                        'max': magnitude.get('max'),
-                        'seconds': None if constant or timeless else effect.get('durationSeconds'),
-                        'range': effect.get('range'), 'drawback': drawback})
-    return {'castType': enchantment.get('castType'), 'worth': round(worth, 1),
-            'charges': None if constant else enchantment.get('charges'), 'effects': effects}
+        entry = {'name': effect.get('name'), 'attribute': effect.get('attribute'),
+                 'skill': effect.get('skill'), 'min': magnitude.get('min'),
+                 'max': magnitude.get('max'),
+                 'seconds': None if constant or timeless else effect.get('durationSeconds'),
+                 'range': effect.get('range'), 'drawback': drawback}
+        if usefulness is not None:
+            tier = usefulness.tier(effect)
+            entry['tier'] = tier
+            value += -cost if drawback else cost * usefulness.weights[tier]
+        effects.append(entry)
+    out = {'castType': enchantment.get('castType'), 'worth': round(worth, 1),
+           'charges': None if constant else enchantment.get('charges'), 'effects': effects}
+    if usefulness is not None:
+        out['value'] = round(value, 1)
+    return out
 
 
 def same_row(record, summoned):
@@ -206,14 +264,14 @@ def beast_wearable(record):
     return True
 
 
-def pick(record, verdict, route, catalogs=None, profile=None, flags=None):
+def pick(record, verdict, route, catalogs=None, profile=None, flags=None, usefulness=None):
     base = strength(record)
     summons = conjured(record, verdict.get('summons'), catalogs, profile)
     # Ranked on what the player actually swings: a Devil Tanto's own 6 damage, or the 20
     # of the Bound Dagger it conjures.
     lifted = max([base] + [s['strength'] for s in summons if s['sameRow']])
     extra = {'baseStrength': base, 'summons': summons} if summons else {}
-    spell = enchanted(record, catalogs, profile, flags) if catalogs is not None else None
+    spell = enchanted(record, catalogs, profile, flags, usefulness) if catalogs is not None else None
     if spell:
         extra['enchanted'] = spell
     return {'key': record['key'], 'name': record['name'], 'strength': lifted, **extra,
@@ -286,18 +344,22 @@ def carried_by(static, actor):
     return None
 
 
-def ambush_pick(record, carrier, ambush, policy, catalogs=None, profile=None, flags=None):
+def ambush_pick(record, carrier, ambush, policy, catalogs=None, profile=None, flags=None,
+                usefulness=None):
     """A piece taken from an ambusher's body: nothing paid, nobody robbed, no fixed place."""
     verdict = {'endgame': is_endgame(record, policy['earlyGame']['endgame']), 'summons': [],
                'evidenceTruncated': False}
     route = {'acquisition': 'ambush', 'price': None, 'value': record.get('value'), 'cellKey': None,
              'place': ambush['place'], 'seller': None, 'nearStart': True, 'needsRepair': False,
              'condition': None, 'holder': {'name': carrier['name']}, 'theftRequired': False}
-    return pick(record, verdict, route, catalogs, profile, flags) | {'note': ambush['note']}
+    return pick(record, verdict, route, catalogs, profile, flags, usefulness) | {'note': ambush['note']}
 
 
 def worth(candidate):
-    return (candidate.get('enchanted') or {}).get('worth') or 0
+    """What a piece's own enchantment counts for: its useful value when the policy weighs
+    effects, the engine's cost when it does not."""
+    spell = candidate.get('enchanted') or {}
+    return spell.get('value', spell.get('worth')) or 0
 
 
 def rank(candidate, objective='power', category=None):
@@ -343,7 +405,7 @@ def objectives_from(policy):
 
 def build(world, acquisition, services, catalogs, profile, policy, categories, limits,
           max_placements, max_nodes, max_edges, max_depth, limit=None, access=None, ambushes=(),
-          flags=None):
+          flags=None, usefulness=None):
     settings = {r['key']: r['value'] for r in _settings(catalogs, profile)}
     wanted = {'ARMO': 'armor', 'WEAP': 'weapon', 'CLOT': 'clothing'}
     variants = [(toggles, variant(policy, toggles)) for toggles in toggle_sets()]
@@ -371,7 +433,7 @@ def build(world, acquisition, services, catalogs, profile, policy, categories, l
                 carrier = carried_by(static, ambush['actor']) if key[0] in ambush['categories'] else None
                 if carrier:
                     buckets.setdefault(key, {}).setdefault(bucket_for({ambush['toggle']: True}), []).append(
-                        ambush_pick(record, carrier, ambush, policy, catalogs, profile, flags))
+                        ambush_pick(record, carrier, ambush, policy, catalogs, profile, flags, usefulness))
             for toggles, rules in variants:
                 verdict = assess(world, services, catalogs, profile, static, {'events': []},
                                  rules, limits, static['truncated'], cache, access)
@@ -381,7 +443,7 @@ def build(world, acquisition, services, catalogs, profile, policy, categories, l
                 bucket = buckets.setdefault(key, {}).setdefault(
                     (toggles['theft'], toggles['endgame'], toggles['nearStart']), [])
                 bucket.append(pick(record, verdict, verdict['routes'][chosen], catalogs, profile,
-                                   flags))
+                                   flags, usefulness))
             if index % 200 == 0:
                 print(f'  {index:,}/{len(records):,}', flush=True)
     return assemble(buckets, categories, objectives_from(policy), [a['toggle'] for a in ambushes])
@@ -444,12 +506,13 @@ def _settings(catalogs, profile):
     return json.loads(path.read_text(encoding='utf-8'))['records']
 
 
-def publish(rows, output, profile, policy, limits, snapshot, categories, ambushes=()):
+def publish(rows, output, profile, policy, limits, snapshot, categories, ambushes=(), usefulness=None):
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     payload = {'schemaVersion': VERSION, 'profile': profile, 'snapshotId': snapshot,
                'policy': {'version': policy['policyVersion'], 'schemaVersion': policy['schemaVersion'],
-                          'name': policy.get('name')},
+                          'name': policy.get('name'),
+                          **({'enchantmentUsefulness': usefulness.summary()} if usefulness else {})},
                'limits': limits, 'categories': sorted(categories),
                'objectives': [{'key': key, 'ranksOn': OBJECTIVES[key],
                                'note': (policy.get('objectiveNotes') or {}).get(key)}
@@ -543,12 +606,19 @@ def main(argv=None):
                 access = door_access(world, game, profile)
                 ambushes = ambushes_in(game, profile, policy)
                 flags = effect_flags(root/'rules', profile)
+                table = policy.get('enchantmentUsefulness')
+                usefulness = Usefulness(table) if table else None
+                if usefulness:
+                    check_effect_names(usefulness, catalogs, profile)
                 rows = build(world, acquisition, services, catalogs, profile, policy,
                              categories, limits, args.max_placements, args.max_nodes,
                              args.max_edges, args.max_depth, args.limit, access, ambushes,
-                             flags)
+                             flags, usefulness)
                 destination, size = publish(rows, args.output or root/'gear-rows', profile,
-                                            policy, limits, snapshot, categories, ambushes)
+                                            policy, limits, snapshot, categories, ambushes, usefulness)
+                if usefulness and usefulness.defaulted:
+                    print(f'{profile}: effects the usefulness table does not place, counted as '
+                          f'{usefulness.default}: {", ".join(sorted(usefulness.defaulted))}', flush=True)
                 filled = sum(1 for r in rows if r['primary'])
                 print(f'Gear rows complete: {destination}\n'
                       f'{len(rows)} rows, {filled} filled, {len(rows)-filled} empty, '

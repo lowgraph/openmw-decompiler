@@ -92,6 +92,11 @@ export type Enchanted = {
    *  constant effect lasting fEnchantmentConstantDurationMult. A harmful effect on the
    *  wearer counts against, so a cursed piece can be negative. Mentor's Ring is 100.1. */
   worth: number;
+  /** Additive since policy 2026.09.27.2: `worth` with each effect weighed by the policy's
+   *  `enchantmentUsefulness` tier (essential 1, situational 0.5, convenience 0.2, none 0);
+   *  a curse still counts in full against. Rows rank on this when it is present, and on
+   *  `worth` in rows built before it. */
+  value?: number;
   /** Full charge, for the charged cast types; null on a constant effect. */
   charges: number | null;
   effects: Array<{
@@ -106,6 +111,8 @@ export type Enchanted = {
     range: "self" | "touch" | "target";
     /** A harmful effect on the wearer: a curse, not a bonus. */
     drawback: boolean;
+    /** Additive: the usefulness tier this effect counted in, when the rows weigh them. */
+    tier?: string;
   }>;
 };
 

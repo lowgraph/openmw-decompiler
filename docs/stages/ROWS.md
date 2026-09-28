@@ -164,9 +164,34 @@ MGEF flags leave them out: a harmful effect on the wearer is a curse and counts 
 and a NoMagnitude or NoDuration effect is priced as magnitude 1 or duration 0 and shows
 neither number. The builder refuses to run without a rules library for the profile.
 
+### What an enchantment is worth, and what it is worth to you
+
+`worth` is what the engine charges to make an enchantment, and on its own it overvalues
+cheap utility effects: a constant Feather belt or Light ring costs as much as a real
+bonus. Since policy 2026.09.27.2, `enchantmentUsefulness` in `policy/early-game.json`
+puts every effect in a tier, and each pick's enchantment also carries `value`: each
+effect's cost times its tier's weight, with the tier on each effect.
+
+| Tier | Weight | For example |
+| --- | --- | --- |
+| essential | 1.0 | Fortify attributes and skills, Restore, Shields, Reflect, Resist Magicka, Levitate, Recall, strike damage |
+| situational | 0.5 | elemental Resists, Cure, Dispel, Drain and Absorb on enemies, crowd control, summons |
+| convenience | 0.2 | Feather, Light, Night Eye, Water Breathing, Swift Swim, SlowFall, Detect |
+| none | 0 | Corprus, Vampirism, Sun Damage, Stunted Magicka |
+
+A curse on the wearer still counts in full against, whatever its tier. An entry can name
+one attribute or skill, as "Fortify Attribute: Personality", to override its effect for
+that alone. The build refuses a name the profile's MagicEffects catalog does not have
+before it spends twenty minutes, and prints every effect that fell to `defaultTier`, so
+a new plugin's effects get placed rather than guessed. The table travels in the payload
+under `policy.enchantmentUsefulness`, with `defaulted`.
+
+Rows rank on `value` where it exists, and the site's `pickRank` does the same, falling
+back to `worth` for rows built before the table.
+
 | Objective | Clothing | Armour and weapons |
 | --- | --- | --- |
-| `power` | enchanted first, on worth; then blank, on capacity; then cursed | strength; worth settles a tie |
+| `power` | enchanted first, on value; then blank, on capacity; then cursed | strength; value settles a tie |
 | `enchantment` | blank first, on capacity; enchanted after | the same |
 
 Only a blank piece takes your own enchantment, since OpenMW's enchanting window lists

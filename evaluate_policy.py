@@ -85,7 +85,38 @@ def load_policy(path):
     toggles = [a['toggle'] for a in ambushes]
     if len(set(toggles)) != len(toggles) or set(toggles) & {'theft', 'endgame', 'nearStart'}:
         raise ExportError('Policy earlyGame.ambushes toggles must be unique and not a policy toggle')
+    check_usefulness(policy.get('enchantmentUsefulness'))
     return policy
+
+
+def check_usefulness(table):
+    """The enchantment usefulness table, when there is one: tiers with weights, and each
+    effect named in exactly one tier. A name may carry ': attribute' or ': skill' to
+    override its effect for that attribute or skill alone."""
+    if table is None:
+        return
+    tiers = table.get('tiers') if isinstance(table, dict) else None
+    if not (isinstance(tiers, dict) and tiers and all(
+            isinstance(k, str) and k and isinstance(v, (int, float)) and not isinstance(v, bool)
+            and 0 <= v <= 2 for k, v in tiers.items())):
+        raise ExportError('Policy enchantmentUsefulness.tiers must map tier names to weights '
+                          'between 0 and 2')
+    if table.get('defaultTier') not in tiers:
+        raise ExportError('Policy enchantmentUsefulness.defaultTier must be one of its tiers')
+    effects = table.get('effects')
+    if not isinstance(effects, dict) or set(effects) - set(tiers):
+        raise ExportError('Policy enchantmentUsefulness.effects must list effect names under '
+                          'tiers it defines: ' + ', '.join(sorted(set(effects or {}) - set(tiers))))
+    seen = {}
+    for tier, names in effects.items():
+        if not isinstance(names, list) or not all(isinstance(n, str) and n.strip() for n in names):
+            raise ExportError(f'Policy enchantmentUsefulness.effects.{tier} must be a list of effect names')
+        for name in names:
+            folded = name.strip().casefold()
+            if folded in seen:
+                raise ExportError(f'Policy enchantmentUsefulness names {name!r} under both '
+                                  f'{seen[folded]} and {tier}')
+            seen[folded] = tier
 
 
 def is_endgame(record, rules, summons=()):

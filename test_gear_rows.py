@@ -356,10 +356,10 @@ class EnchantedTests(unittest.TestCase):
                  'effects': [effect(16, 'Frost Damage', 2, 4, seconds=3, reach='target')]},
                 {'key': 'recall_en', 'castType': 'when_used', 'cost': 5, 'charges': 50,
                  'effects': [effect(61, 'Recall', 1, 1, seconds=1)]}],
-            'MagicEffects': [{'key': '79', 'effectId': 79, 'baseCost': 1},
-                             {'key': '17', 'effectId': 17, 'baseCost': 1},
-                             {'key': '16', 'effectId': 16, 'baseCost': 5},
-                             {'key': '61', 'effectId': 61, 'baseCost': 350}],
+            'MagicEffects': [{'key': '79', 'effectId': 79, 'baseCost': 1, 'name': 'Fortify Attribute'},
+                             {'key': '17', 'effectId': 17, 'baseCost': 1, 'name': 'Drain Attribute'},
+                             {'key': '16', 'effectId': 16, 'baseCost': 5, 'name': 'Frost Damage'},
+                             {'key': '61', 'effectId': 61, 'baseCost': 350, 'name': 'Recall'}],
             'GameSettings': [{'key': 'fEffectCostMult', 'value': 0.5},
                              {'key': 'fEnchantmentConstantDurationMult', 'value': 100}]}
         for name, rows in records.items():
@@ -420,6 +420,91 @@ class EnchantedTests(unittest.TestCase):
         heavier = candidate('heavier', 25, True)
         self.assertEqual(best([plain, charmed], 'power', 'armor')['key'], 'charmed')
         self.assertEqual(best([plain, charmed, heavier], 'power', 'armor')['key'], 'heavier')
+
+    TABLE = {'tiers': {'essential': 1.0, 'situational': 0.5, 'convenience': 0.2, 'none': 0.0},
+             'defaultTier': 'situational',
+             'effects': {'essential': ['Fortify Attribute'], 'convenience': ['Frost Damage'],
+                         'none': ['Drain Attribute']}}
+
+    def weighed(self, enchantment_id, table=None):
+        from build_gear_rows import Usefulness, enchanted
+        usefulness = Usefulness(table or self.TABLE)
+        return enchanted({'enchantmentId': enchantment_id}, self.catalogs, 'p', self.FLAGS, usefulness), usefulness
+
+    def test_value_weighs_each_effect_by_its_tier(self):
+        mentor, _ = self.weighed("the master's circle")
+        self.assertEqual(mentor['value'], mentor['worth'], 'essential effects count in full')
+        self.assertEqual([e['tier'] for e in mentor['effects']], ['essential', 'essential'])
+        frost, _ = self.weighed('frost_en')
+        self.assertAlmostEqual(frost['value'], round(2.375 * 0.2, 1))
+        self.assertEqual(frost['worth'], 2.4, 'the engine cost is kept beside it')
+
+    def test_one_attribute_can_be_tiered_apart_from_its_effect(self):
+        table = self.TABLE | {'effects': self.TABLE['effects'] | {
+            'convenience': ['Frost Damage', 'Fortify Attribute: willpower']}}
+        mentor, _ = self.weighed("the master's circle", table)
+        # Each attribute costs (20 x 100 + 1) x 0.025 = 50.025: intelligence in full,
+        # willpower at 0.2.
+        self.assertAlmostEqual(mentor['value'], round(50.025 + 50.025 * 0.2, 1))
+        self.assertEqual([e['tier'] for e in mentor['effects']], ['essential', 'convenience'])
+
+    def test_a_curse_counts_in_full_against_whatever_its_tier(self):
+        cursed, _ = self.weighed('cursed_en')
+        self.assertLess(cursed['value'], 0)
+        self.assertEqual(cursed['value'], cursed['worth'], 'even in the none tier')
+
+    def test_an_effect_the_table_does_not_place_takes_the_default_and_is_named(self):
+        recall, usefulness = self.weighed('recall_en')
+        self.assertEqual(recall['effects'][0]['tier'], 'situational')
+        self.assertEqual(recall['value'], round(8.75 * 0.5, 1))
+        self.assertEqual(usefulness.summary()['defaulted'], ['Recall'])
+
+    def test_rows_rank_on_the_useful_value_not_the_cost(self):
+        from build_gear_rows import best
+        feather = self.ring('feather', 100) | {'enchanted': {'worth': 120, 'value': 24, 'effects': []}}
+        fortify = self.ring('fortify', 100) | {'enchanted': {'worth': 60, 'value': 60, 'effects': []}}
+        self.assertEqual(best([feather, fortify], 'power', 'clothing')['key'], 'fortify')
+        older = self.ring('older', 100, 120)  # a row published before the table: worth only
+        self.assertEqual(best([older, fortify], 'power', 'clothing')['key'], 'older',
+                         'without a value, the worth decides as before')
+
+    def test_without_a_table_nothing_changes(self):
+        mentor = self.spell("the master's circle")
+        self.assertNotIn('value', mentor)
+        self.assertNotIn('tier', mentor['effects'][0])
+
+    def test_a_table_naming_an_effect_the_profile_lacks_is_refused(self):
+        from build_gear_rows import Usefulness, check_effect_names
+        from export_items import ExportError
+        check_effect_names(Usefulness(self.TABLE), self.catalogs, 'p')
+        typo = self.TABLE | {'effects': {'essential': ['Fortify Atribute']}}
+        with self.assertRaises(ExportError) as caught:
+            check_effect_names(Usefulness(typo), self.catalogs, 'p')
+        self.assertIn('Fortify Atribute', str(caught.exception))
+        check_effect_names(Usefulness(self.TABLE | {'effects': {'essential': ['Fortify Attribute: luck']}}),
+                           self.catalogs, 'p')
+
+    def test_a_malformed_table_is_refused_by_the_policy_loader(self):
+        from evaluate_policy import check_usefulness
+        from export_items import ExportError
+        check_usefulness(None)
+        check_usefulness(self.TABLE)
+        for broken in ({'tiers': {}, 'defaultTier': 'x', 'effects': {}},
+                       self.TABLE | {'tiers': {'essential': 3}},
+                       self.TABLE | {'tiers': {'essential': True}},
+                       self.TABLE | {'defaultTier': 'legendary'},
+                       self.TABLE | {'effects': {'legendary': ['Feather']}},
+                       self.TABLE | {'effects': {'essential': 'Feather'}},
+                       self.TABLE | {'effects': {'essential': ['Feather'], 'convenience': ['feather']}}):
+            with self.assertRaises(ExportError, msg=repr(broken)):
+                check_usefulness(broken)
+
+    def test_the_shipped_policy_places_every_effect_once(self):
+        from evaluate_policy import load_policy
+        table = load_policy(Path(__file__).parent/'policy/early-game.json')['enchantmentUsefulness']
+        names = [n for names in table['effects'].values() for n in names]
+        self.assertEqual(len(names), len({n.casefold() for n in names}))
+        self.assertGreaterEqual(len(names), 141, 'every vanilla effect has a tier')
 
     def test_the_rows_split_the_two_questions(self):
         buckets = {('clothing', 'ring', None, None): {(False, False, False): [
