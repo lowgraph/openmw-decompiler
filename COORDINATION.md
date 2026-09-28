@@ -573,3 +573,39 @@ Glove of the Cosmic Doorknob (Recall) over the Glove of the Dextrous Handshake (
 Alternatives changed in 2 vanilla and 12 TR rows.
 
 Validation: 75 gear-row tests and the full pipeline suite; 604 site tests passed.
+
+## Walking follows the terrain, 27 September 2026
+
+Access schema 1.1.0, additive: a new `walkable` field and a new authored policy,
+`policy/walking.json` 2026.09.27. Bundle `5abcaf76d4b4a704e5037cb6`. See
+`contracts/access-types.ts` and `docs/stages/ACCESS.md`.
+
+Data (pipeline):
+- `build_access_catalog.py` grades every exterior cell into 16 x 16 squares of 512 units
+  from the VHGT heights: land, too steep (at least 60% of the square's triangles past
+  OpenMW 0.51.0's 46 degree `sMaxSlope`), water within two squares of land to swim, and
+  open sea. Two bits a square, base64 per cell.
+- Barriers from policy: the Ghostfence's 132 fence and pylon placements joined in a
+  ring as walls, the Ghostgate portcullis squares forced open. A barrier matching no
+  placement fails the build. Reads `world.sqlite` for placements.
+- `steepShare` calibrated on fourteen known vanilla walks; the policy records how.
+- `walking.gameSettings` adds fSwimRunBase and fSwimRunAthleticsMult.
+- TR: 748,087 land squares, 72,216 too steep or walled, 89,745 to swim; the Access
+  catalog is 226 KB gzipped (vanilla 63 KB). About 30 seconds for all three profiles.
+- `build_app_bundle.py` carries `walkable` in Access metadata.
+
+Site:
+- `lib/travel-walk.mjs`: `walkGrid`, `squareAt`, `findWalk` (A*, no corner cutting, ends
+  moved up to two squares onto footing, at most 4,096 units swum), `walksFrom` (one
+  search for all stops around a place), `swimSpeed` (getSwimSpeedImpl). `addStopWalks`
+  and `addPlaces` take `grid` and `swim`; a place that reaches nothing within 1.5 times
+  its reach searches once more to three times it (inside the Ghostfence). Without a
+  grid, the straight line as before.
+- Walk legs carry `terrain`, `straight` and `water`; `planRoute` keeps them on steps.
+  The leg reads "round high ground: N x the straight line" and the swim, if any.
+- Fixes: the waypoint chain names places instead of printing `place:` ids, and a leg's
+  kind badge no longer wraps.
+
+Validation: 662 pipeline tests and 612 site tests passed. Checked in the browser on
+the real data: Dagoth Ur to Ald'ruhn goes out by the Ghostgate (19.1 cells, 4 h), where
+the straight line crossed the fence; Ilunibi to Balmora 1.2 times the straight line.

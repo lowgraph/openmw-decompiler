@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0.0",
+  "policyVersion": "2026.09.27",
+  "name": "Silt Strider walking policy",
+  "notes": [
+    "Authored choices, versioned independently of any extraction snapshot, for the walkable grid the Access catalog publishes.",
+    "The engine facts are not here: the 46 degree steepest walkable slope is OpenMW 0.51.0's, transcribed in build_access_catalog.py. This file holds the judgement calls: how coarse the grid is, how much of a square must be too steep before it blocks, how far from land a swimmer goes, and the walls terrain cannot show.",
+    "Only the terrain's heights are read. Rocks, buildings and trees are meshes the grid does not see, so a path it finds can still meet a boulder, and a gap in a ridge it leaves open can be closed by rocks in the game."
+  ],
+  "squaresPerCell": 16,
+  "squaresPerCellNote": "512-unit squares: fine enough that a cliff one or two squares thick stays a wall, small enough to ship the whole of Tamriel Rebuilt in about 100 KB gzipped.",
+  "steepShare": 0.6,
+  "steepShareNote": "A land square blocks when at least this share of its terrain triangles is steeper than the engine lets an actor walk. Calibrated on 2026-09-27 against fourteen walks known to work in vanilla (the Ghostgate to each Red Mountain citadel, Foyada Mamaea to Balmora, Ald'ruhn to Maar Gan, Maar Gan to Kogoruhn and Falasmaryon, Vos to Zainab Camp, town roads) and one known not to (into the fence but by the gate): at 0.3 and 0.5 half the citadels were unreachable or twice as far as the road; 0.6 is the strictest share where eleven of fourteen are within 1.5 times the straight line, the rest being climbs up Red Mountain, and the fence still sends a walk round by the gate.",
+  "swimReach": 2,
+  "swimReachNote": "Water within this many squares of land is swum; beyond it is open sea. Two squares either side lets a walk cross about 2,048 units of water, as the straight-line walks did.",
+  "barriers": [
+    {
+      "name": "Ghostfence",
+      "objects": ["ex_gg_fence_", "ex_gg_pylon_"],
+      "openings": ["ex_gg_portcullis_"],
+      "openingRadius": 768,
+      "maxGap": 4096,
+      "why": "The Tribunal's wall around Red Mountain: meshes, not terrain, so the heights cannot show it. Its pieces are joined in order around the ring, and the Ghostgate's portcullis, raised from the switches beside it, is the one way through."
+    }
+  ]
+}

@@ -2,8 +2,16 @@ import sqlite3
 import struct
 import unittest
 
-from build_access_catalog import (LAND_SIZE, access, assemble, exits_of, heights, land_mask,
-                                  subrecord)
+import base64
+import json
+import math
+from pathlib import Path
+import tempfile
+
+from build_access_catalog import (BLOCKED, LAND, LAND_SIZE, SEA, SWIM, access, assemble,
+                                  barrier_squares, encode, exits_of, grade_cell, heights,
+                                  land_mask, load_walking_policy, opening_squares, placed,
+                                  subrecord, walkable, walls_for)
 from export_items import ExportError
 
 
@@ -139,6 +147,21 @@ class Databases(unittest.TestCase):
         self.assertEqual(payload['derivation']['sealed'], 1)
         self.assertEqual(payload['walking']['source'], 'authored')
 
+    def test_with_a_policy_the_payload_carries_the_walkable_grid(self):
+        services, game = self.dbs(['interior:shack'], land=[('exterior:0,0', vhgt(offset=10.0), 0)])
+        world = world_db([('vanilla', 'ex_fence_01', 'exterior:0,0', 100.0, 100.0)])
+        self.addCleanup(world.close)
+        payload = assemble(services, game, 'vanilla', 'snap', world, POLICY | {'barriers': [WallTests.FENCE]})
+        walk = payload['walkable']
+        self.assertEqual(payload['schemaVersion'], '1.1.0')
+        self.assertEqual((walk['squaresPerCell'], walk['squareSize'], walk['maxSlopeDegrees']), (16, 512, 46.0))
+        self.assertEqual(walk['barriers'][0]['pieces'], 1)
+        self.assertIn('exterior:0,0', walk['cells'])
+        self.assertIn('exterior:1,0', walk['cells'], 'the shore beyond is swum')
+        self.assertEqual(payload['derivation']['landSquares'], 256 - 1, 'one square is the fence')
+        self.assertIn('fSwimRunBase', payload['walking']['gameSettings'])
+        self.assertNotIn('walkable', assemble(services, game, 'vanilla', 'snap'), 'no policy, no grid')
+
     def test_a_profile_without_land_is_refused(self):
         services, game = self.dbs(['interior:shack'])
         with self.assertRaises(ExportError):
@@ -148,6 +171,157 @@ class Databases(unittest.TestCase):
         services, game = self.dbs([], land=[('exterior:0,0', vhgt(offset=10.0), 0)])
         with self.assertRaises(ExportError):
             assemble(services, game, 'vanilla', 'snap')
+
+
+FLAT = [10.0] * LAND_SIZE ** 2
+POLICY = {'schemaVersion': '1.0.0', 'policyVersion': 'test', 'squaresPerCell': 16, 'steepShare': 0.6,
+          'swimReach': 2, 'barriers': []}
+
+
+def ramp(rise):
+    """Heights climbing `rise` units a vertex eastward."""
+    return [10.0 + rise * (i % LAND_SIZE) for i in range(LAND_SIZE ** 2)]
+
+
+class GradeTests(unittest.TestCase):
+    """A square is too steep past OpenMW 0.51.0's 46 degrees, Constants::sMaxSlope."""
+
+    def test_flat_land_and_open_sea(self):
+        self.assertEqual(set(grade_cell(FLAT, 16, 0.6)), {LAND})
+        self.assertEqual(set(grade_cell([-50.0] * LAND_SIZE ** 2, 16, 0.6)), {SEA})
+
+    def test_the_limit_is_forty_six_degrees(self):
+        steepest = math.tan(math.radians(46)) * 128  # about 132.5 units a vertex
+        self.assertEqual(set(grade_cell(ramp(steepest - 1), 16, 0.6)), {LAND}, 'just walkable')
+        self.assertEqual(set(grade_cell(ramp(steepest + 1), 16, 0.6)), {BLOCKED}, 'just too steep')
+
+    def test_a_cliff_blocks_only_where_enough_of_the_square_is_steep(self):
+        grid = list(FLAT)
+        for y in range(LAND_SIZE):  # a 400-unit step between vertex columns 1 and 2
+            for x in range(2, LAND_SIZE):
+                grid[y * LAND_SIZE + x] += 400
+        # Square 0 spans vertex columns 0 to 4: one of its four quad columns is steep.
+        self.assertEqual(grade_cell(grid, 16, 0.2)[0], BLOCKED, 'a quarter steep blocks at 0.2')
+        self.assertEqual(grade_cell(grid, 16, 0.6)[0], LAND, 'but not at 0.6')
+        self.assertEqual(grade_cell(grid, 16, 0.2)[1], LAND, 'the square beyond the cliff is flat')
+
+    def test_squares_run_west_to_east_then_south_to_north(self):
+        grid = [-50.0] * LAND_SIZE ** 2
+        grid[LAND_SIZE * LAND_SIZE - 1] = 50.0  # the north-east corner vertex
+        codes = grade_cell(grid, 16, 0.6)
+        self.assertEqual(codes[-1], LAND)
+        self.assertEqual(sum(1 for c in codes if c == LAND), 1)
+
+
+class GridTests(unittest.TestCase):
+    def test_water_near_land_is_swum_across_cell_borders(self):
+        grid = walkable({(0, 0): FLAT}, POLICY)
+        self.assertEqual(set(grid[(0, 0)]), {LAND})
+        east = grid[(1, 0)]
+        self.assertEqual([east[c] for c in (0, 1, 2)], [SWIM, SWIM, SEA], 'two squares out from the shore')
+        self.assertEqual(east[15 * 16 + 1], SWIM, 'along the whole shore')
+        self.assertIn((1, 1), grid, 'the diagonal neighbour has its corner swum')
+        self.assertNotIn((3, 0), grid, 'a cell all open sea is left out')
+
+    def test_walls_block_and_gates_open_whatever_the_terrain(self):
+        grid = walkable({(0, 0): FLAT, (1, 0): ramp(200)}, POLICY, walls={(3, 3), (99, 99)}, gates={(17, 0)})
+        self.assertEqual(grid[(0, 0)][3 * 16 + 3], BLOCKED)
+        self.assertEqual(grid[(1, 0)][1], LAND, 'a gate is built: it is walked however steep')
+        self.assertEqual(grid[(1, 0)][2], BLOCKED)
+
+    def test_squares_encode_two_bits_each_first_in_the_low_bits(self):
+        self.assertEqual(base64.b64decode(encode([LAND, BLOCKED, SWIM, SEA, LAND])),
+                         bytes([0b00111001, 0b01]))
+
+
+class BarrierTests(unittest.TestCase):
+    BARRIER = {'name': 'Fence', 'openingRadius': 600, 'maxGap': 3000}
+
+    def ring(self, radius=8000, pieces=24):
+        return [(radius * math.cos(2 * math.pi * i / pieces), radius * math.sin(2 * math.pi * i / pieces))
+                for i in reversed(range(pieces))]
+
+    def test_pieces_are_joined_round_the_ring_in_order(self):
+        squares, report = barrier_squares(self.ring(), [], self.BARRIER, 512)
+        self.assertEqual((report['pieces'], report['joined'], report['unjoined']), (24, 24, 0))
+        self.assertIn((15, 0), squares, 'east of the middle')
+        self.assertIn((-16, 0), squares, 'west of it')
+        self.assertNotIn((0, 0), squares, 'the middle is not a wall')
+
+    def test_a_gap_wider_than_max_gap_is_left_and_counted(self):
+        pieces = [p for p in self.ring() if not (p[0] > 7000 and abs(p[1]) < 2500)]
+        _, report = barrier_squares(pieces, [], self.BARRIER, 512)
+        self.assertEqual(report['unjoined'], 1)
+
+    def test_an_opening_clears_the_squares_around_it(self):
+        gate = (8000.0, 0.0)
+        squares, _ = barrier_squares(self.ring(), [gate], self.BARRIER, 512)
+        self.assertNotIn((15, 0), squares)
+        self.assertEqual(opening_squares([gate], 600, 512) & squares, set())
+        self.assertIn((15, 0), opening_squares([gate], 600, 512))
+
+
+class PolicyTests(unittest.TestCase):
+    def load(self, policy):
+        handle = tempfile.NamedTemporaryFile('w', suffix='.json', delete=False, encoding='utf-8')
+        json.dump(policy, handle)
+        handle.close()
+        path = Path(handle.name)
+        self.addCleanup(path.unlink)
+        return load_walking_policy(path)
+
+    def test_the_shipped_policy_loads(self):
+        policy = load_walking_policy(Path(__file__).parent/'policy/walking.json')
+        self.assertEqual(policy['barriers'][0]['name'], 'Ghostfence')
+
+    def test_malformed_policies_are_refused(self):
+        fence = {'name': 'Fence', 'objects': ['ex_'], 'openings': [], 'openingRadius': 1, 'maxGap': 1, 'why': 'x'}
+        for broken in (POLICY | {'schemaVersion': '2.0.0'}, POLICY | {'squaresPerCell': 10},
+                       POLICY | {'squaresPerCell': True}, POLICY | {'steepShare': 0},
+                       POLICY | {'steepShare': 1.5}, POLICY | {'swimReach': -1}, POLICY | {'swimReach': 2.5},
+                       POLICY | {'barriers': {}}, POLICY | {'barriers': [fence | {'objects': []}]},
+                       POLICY | {'barriers': [fence | {'maxGap': 0}]},
+                       POLICY | {'barriers': [fence | {'profiles': ['morrowind']}]},
+                       POLICY | {'barriers': [fence, fence | {'name': 'fence'}]}):
+            with self.assertRaises(ExportError, msg=repr(broken)):
+                self.load(broken)
+        self.assertEqual(self.load(POLICY | {'barriers': [fence]})['barriers'][0]['name'], 'Fence')
+
+
+def world_db(rows):
+    world = sqlite3.connect(':memory:')
+    world.executescript("""
+      CREATE TABLE placements(version_id INTEGER PRIMARY KEY, reference_key, object_key, cell_key, x, y);
+      CREATE TABLE profile_placements(profile_id, reference_key, version_id);""")
+    for i, (profile, obj, cell, x, y) in enumerate(rows, 1):
+        world.execute('INSERT INTO placements VALUES(?,?,?,?,?,?)', (i, f'ref{i}', obj, cell, x, y))
+        world.execute('INSERT INTO profile_placements VALUES(?,?,?)', (profile, f'ref{i}', i))
+    return world
+
+
+class WallTests(unittest.TestCase):
+    FENCE = {'name': 'Fence', 'objects': ['ex_fence_'], 'openings': ['ex_gate_'], 'openingRadius': 600,
+             'maxGap': 3000, 'why': 'x'}
+
+    def test_placements_are_found_by_prefix_outdoors_in_the_profile(self):
+        world = world_db([('vanilla', 'ex_fence_01', 'exterior:0,0', 1.0, 2.0),
+                          ('vanilla', 'ex_fence_02', 'exterior:0,0', 3.0, 4.0),
+                          ('vanilla', 'ex_fencepost', 'exterior:0,0', 5.0, 6.0),
+                          ('vanilla', 'ex_fence_03', 'interior:hall', 7.0, 8.0),
+                          ('tr', 'ex_fence_04', 'exterior:0,0', 9.0, 9.0)])
+        self.addCleanup(world.close)
+        self.assertEqual(placed(world, 'vanilla', 'EX_FENCE_'), [(1.0, 2.0), (3.0, 4.0)])
+
+    def test_a_barrier_with_no_pieces_fails_unless_it_is_for_another_profile(self):
+        world = world_db([('vanilla', 'ex_fence_01', 'exterior:0,0', 0.0, 0.0)])
+        self.addCleanup(world.close)
+        policy = POLICY | {'barriers': [self.FENCE]}
+        _walls, _gates, report = walls_for(world, 'vanilla', policy)
+        self.assertEqual(report[0]['pieces'], 1)
+        with self.assertRaises(ExportError):
+            walls_for(world, 'tr', policy)
+        self.assertEqual(walls_for(world, 'tr', POLICY | {'barriers': [self.FENCE | {'profiles': ['vanilla']}]}),
+                         (set(), set(), []))
 
 
 if __name__ == '__main__':

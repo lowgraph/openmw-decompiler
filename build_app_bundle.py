@@ -45,7 +45,7 @@ EXTRA_CATALOGS = {
     'Intervention': {'directory': 'intervention', 'array': 'records',
                      'carry': ('rule', 'markers', 'derivation', 'coverage')},
     'Access': {'directory': 'access', 'array': 'records',
-               'carry': ('walking', 'landMask', 'land', 'derivation', 'coverage')},
+               'carry': ('walking', 'landMask', 'land', 'walkable', 'derivation', 'coverage')},
     'Teleports': {'directory': 'teleports', 'array': 'records',
                   'carry': ('items', 'derivation', 'policyVersion', 'coverage')},
     'Factions': {'directory': 'factions', 'array': 'records',
