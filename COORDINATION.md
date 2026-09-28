@@ -599,8 +599,10 @@ Site:
   moved up to two squares onto footing, at most 4,096 units swum), `walksFrom` (one
   search for all stops around a place), `swimSpeed` (getSwimSpeedImpl). `addStopWalks`
   and `addPlaces` take `grid` and `swim`; a place that reaches nothing within 1.5 times
-  its reach searches once more to three times it (inside the Ghostfence). Without a
-  grid, the straight line as before.
+  its reach searches once more, letting the path run to three times it (inside the
+  Ghostfence). Only stops within the reach in a straight line count either way (fixed in
+  the follow-up: the first release let the far search reach stops 30 cells off, so Dagoth
+  Ur walked 29 cells to Vivec). Without a grid, the straight line as before.
 - Walk legs carry `terrain`, `straight` and `water`; `planRoute` keeps them on steps.
   The leg reads "round high ground: N x the straight line" and the swim, if any.
 - Fixes: the waypoint chain names places instead of printing `place:` ids, and a leg's
