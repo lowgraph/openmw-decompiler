@@ -379,10 +379,13 @@ class EnchantedTests(unittest.TestCase):
         self.assertEqual(mentor['castType'], 'constant_effect')
         self.assertEqual([(e['attribute'], e['min'], e['seconds']) for e in mentor['effects']],
                          [('intelligence', 10, None), ('willpower', 10, None)])
+        self.assertEqual([e['worth'] for e in mentor['effects']], [50.0, 50.0],
+                         'each effect carries its own share, for the site to weigh per build')
 
     def test_a_curse_on_the_wearer_counts_against(self):
         cursed = self.spell('cursed_en')
         self.assertLess(cursed['worth'], 0)
+        self.assertLess(cursed['effects'][0]['worth'], 0, 'and so does its own share')
         self.assertTrue(cursed['effects'][0]['drawback'])
         self.assertGreater(self.spell('cursed_en', flags={})['worth'], 0,
                            'harm is read from the rules library, not guessed')
@@ -513,6 +516,70 @@ class EnchantedTests(unittest.TestCase):
                 if r['slot'] == 'ring' and r['toggles'] == {'theft': False, 'endgame': False, 'nearStart': False}}
         self.assertEqual(rows['power']['primary']['key'], 'mentor')
         self.assertEqual(rows['enchantment']['primary']['key'], 'exquisite')
+
+
+def spelled(name, near, *effects, cast='constant_effect', price=None, capacity=100):
+    """A candidate ring whose enchantment has these (effect, target, share) effects."""
+    shares = [{'name': effect, 'attribute': target, 'skill': None, 'value': share, 'worth': share,
+               'drawback': share < 0} for effect, target, share in effects]
+    return candidate(name, capacity, near, price=price, enchantment=capacity) | {
+        'enchanted': {'castType': cast, 'value': sum(s['value'] for s in shares), 'effects': shares}}
+
+
+class CandidateTests(unittest.TestCase):
+    """A clothing row offers a shortlist for the site to rank for one build."""
+
+    def keys(self, pieces, **options):
+        from build_gear_rows import shortlist
+        return [p['key'] for p in shortlist(pieces, **options)]
+
+    def test_each_effect_keeps_its_best_carrier(self):
+        mentor = spelled('mentor', True, ('Fortify Attribute', 'intelligence', 50), ('Fortify Attribute', 'willpower', 50))
+        weaker = spelled('weaker', True, ('Fortify Attribute', 'intelligence', 20))
+        strong = spelled('strong', True, ('Fortify Attribute', 'strength', 30))
+        poison = spelled('poison', True, ('Poison', None, 144), cast='when_used')
+        self.assertEqual(self.keys([weaker, poison, mentor, strong]), ['poison', 'mentor', 'strong'],
+                         'a weaker Intelligence ring adds nothing; Strength is its own offer')
+
+    def test_always_on_and_on_use_are_different_offers(self):
+        constant = spelled('constant', True, ('Fortify Attribute', 'intelligence', 50))
+        charged = spelled('charged', True, ('Fortify Attribute', 'intelligence', 60), cast='when_used')
+        self.assertEqual(sorted(self.keys([constant, charged])), ['charged', 'constant'])
+
+    def test_close_and_far_each_keep_their_own_best_and_their_blank(self):
+        near = spelled('near', True, ('Shield', None, 10))
+        far = spelled('far', False, ('Shield', None, 30))
+        blank_near = candidate('blank near', 120, True, enchantment=1200)
+        blank_far = candidate('blank far', 300, False, enchantment=3000)
+        self.assertEqual(self.keys([near, far, blank_near, blank_far]),
+                         ['near', 'blank near', 'far', 'blank far'], 'close first, then by worth')
+
+    def test_curses_and_worthless_effects_keep_no_piece(self):
+        cursed = spelled('cursed', True, ('Drain Attribute', 'strength', -12.5))
+        idle = spelled('idle', True, ('Light', None, 0))
+        self.assertEqual(self.keys([cursed, idle]), [])
+
+    def test_what_the_row_chose_is_always_on_the_list(self):
+        cursed = spelled('cursed', True, ('Drain Attribute', 'strength', -12.5))
+        self.assertEqual(self.keys([cursed], chosen=(cursed, None)), ['cursed'])
+
+    def test_past_the_limit_the_smallest_offers_go_first(self):
+        pieces = [spelled(f'r{n}', True, (f'Effect {n}', None, n)) for n in range(1, 8)]
+        chosen = pieces[0]
+        kept = self.keys(pieces, chosen=(chosen,), limit=4)
+        self.assertEqual(sorted(kept), ['r1', 'r5', 'r6', 'r7'], 'the chosen piece stays, then the largest')
+        self.assertEqual(self.keys([], chosen=()), [])
+
+    def test_only_the_clothing_power_row_carries_the_list(self):
+        ring = ('clothing', 'ring', None, None)
+        helm = ('armor', 'helmet', 'light', None)
+        buckets = {ring: {(False, False, False): [spelled('mentor', True, ('Fortify Attribute', 'intelligence', 50))]},
+                   helm: {(False, False, False): [candidate('helm', 10, True)]}}
+        rows = {r['key']: r for r in assemble(buckets, {'clothing', 'armor'}, ('power', 'enchantment'))}
+        self.assertEqual([c['key'] for c in rows['clothing/ring/-/000/power']['candidates']], ['mentor'])
+        self.assertNotIn('candidates', rows['clothing/ring/-/000/enchantment'])
+        self.assertNotIn('candidates', rows['armor/helmet/light/000/power'])
+        self.assertEqual(rows['clothing/belt/-/000/power']['candidates'], [], 'an empty row offers nothing')
 
 
 class AmbushTests(unittest.TestCase):

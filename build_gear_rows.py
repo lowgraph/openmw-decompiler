@@ -189,11 +189,16 @@ def enchanted(record, catalogs, profile, flags=None, usefulness=None):
                  'skill': effect.get('skill'), 'min': magnitude.get('min'),
                  'max': magnitude.get('max'),
                  'seconds': None if constant or timeless else effect.get('durationSeconds'),
-                 'range': effect.get('range'), 'drawback': drawback}
+                 'range': effect.get('range'), 'drawback': drawback,
+                 # Each effect's own share, so the site can weigh them for one build:
+                 # Mentor's Ring's Intelligence counts for a mage, not for a warrior.
+                 'worth': round(-cost if drawback else cost, 1)}
         if usefulness is not None:
             tier = usefulness.tier(effect)
+            share = -cost if drawback else cost * usefulness.weights[tier]
             entry['tier'] = tier
-            value += -cost if drawback else cost * usefulness.weights[tier]
+            entry['value'] = round(share, 1)
+            value += share
         effects.append(entry)
     out = {'castType': enchantment.get('castType'), 'worth': round(worth, 1),
            'charges': None if constant else enchantment.get('charges'), 'effects': effects}
@@ -389,6 +394,55 @@ def best(candidates, objective='power', category=None):
                default=None)
 
 
+def effect_key(effect, cast_type):
+    """One thing a piece can do: the effect, its attribute or skill, and whether it is always
+    on. A constant Fortify Intelligence and one cast on use are different offers."""
+    return (effect.get('name'), effect.get('attribute') or effect.get('skill'),
+            cast_type == 'constant_effect')
+
+
+CANDIDATE_LIMIT = 40
+
+
+def shortlist(candidates, chosen=(), limit=CANDIDATE_LIMIT):
+    """The pieces a row offers for a build-aware choice, not only the one it chose.
+
+    A row ranks the same way for every character; the site ranks again for the one in
+    front of it, so it needs more than the winner. Kept, from the close candidates and
+    the far ones alike: every piece the row chose, the blank piece with the most room,
+    and for each effect the piece that carries the most of it. Tamriel Rebuilt has 172
+    eligible rings and the row picks a Poison ring; the best constant Fortify Intelligence
+    and Willpower, Mentor's Ring, stays on the list for a caster. Effects worth nothing
+    and curses keep no piece. Past `limit`, the carriers of the smallest effects go.
+    """
+    must, offers = [piece for piece in chosen if piece], []
+    for near in (True, False):
+        pool = [c for c in candidates if bool(c['nearStart']) == near]
+        blanks = [c for c in pool if not c.get('enchanted')]
+        if blanks:
+            must.append(max(blanks, key=lambda c: (c['enchantment'], -(c['price'] or 0), c['key'])))
+        carriers = {}
+        for piece in pool:
+            spell = piece.get('enchanted') or {}
+            for effect in spell.get('effects') or []:
+                share = effect.get('value', effect.get('worth')) or 0
+                if effect.get('drawback') or share <= 0:
+                    continue
+                key = effect_key(effect, spell.get('castType'))
+                score = (share, worth(piece), -(piece['price'] or 0), piece['key'])
+                if key not in carriers or score > carriers[key][0]:
+                    carriers[key] = (score, piece)
+        offers.extend(carriers.values())
+    kept = {}
+    for piece in must:
+        kept.setdefault(piece['key'], piece)
+    for _, piece in sorted(offers, key=lambda pair: pair[0], reverse=True):
+        if len(kept) >= limit:
+            break
+        kept.setdefault(piece['key'], piece)
+    return sorted(kept.values(), key=lambda c: (not c['nearStart'], -worth(c), c['key']))
+
+
 def objectives_from(policy):
     """The objectives the policy asks for, checked against the ones we can measure."""
     named = policy.get('objectives')
@@ -485,17 +539,21 @@ def assemble(buckets, categories, objectives=('power',), ambushes=()):
                 alternative = (strongest if primary and strongest and primary['nearStart']
                                and rank(strongest, objective, category)
                                > rank(primary, objective, category) else None)
-                rows.append({'key': row_identity(category, slot, armour, weapon, toggles,
-                                                 objective),
-                             'category': category, 'slot': slot, 'armorClass': armour,
-                             'skill': weapon[0] if weapon else None,
-                             'hands': weapon[1] if weapon else None,
-                             'toggles': toggles, 'objective': objective,
-                             'eligible': len(candidates),
-                             'nearStart': len(near), 'primary': primary,
-                             'alternative': alternative,
-                             'beastEligible': len(beast_near) + len(beast_far),
-                             'beastPrimary': beast_primary})
+                row = {'key': row_identity(category, slot, armour, weapon, toggles, objective),
+                       'category': category, 'slot': slot, 'armorClass': armour,
+                       'skill': weapon[0] if weapon else None,
+                       'hands': weapon[1] if weapon else None,
+                       'toggles': toggles, 'objective': objective,
+                       'eligible': len(candidates),
+                       'nearStart': len(near), 'primary': primary,
+                       'alternative': alternative,
+                       'beastEligible': len(beast_near) + len(beast_far),
+                       'beastPrimary': beast_primary}
+                # Clothing is for its enchantment, and which one matters depends on who
+                # wears it; the power row carries the shortlist for the site to rank.
+                if category == 'clothing' and objective == 'power':
+                    row['candidates'] = shortlist(candidates, (primary, alternative, beast_primary))
+                rows.append(row)
     return rows
 
 

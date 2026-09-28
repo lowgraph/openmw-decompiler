@@ -113,6 +113,12 @@ export type Enchanted = {
     drawback: boolean;
     /** Additive: the usefulness tier this effect counted in, when the rows weigh them. */
     tier?: string;
+    /** Additive: this effect's own share of `worth`, negative for a curse. Mentor's Ring's
+     *  Intelligence and Willpower are 50 each. */
+    worth?: number;
+    /** Additive: this effect's own share of `value`, when the rows weigh effects. The site
+     *  weighs these for one build: an Intelligence share counts in full for a caster. */
+    value?: number;
   }>;
 };
 
@@ -169,6 +175,13 @@ export type GearRow = {
    *  every boots row and almost every shoes row — not that the row is empty. When the
    *  primary is already wearable this repeats it, so a caller never has to decide. */
   beastPrimary: Pick | null;
+  /** Additive; clothing rows answering `power` only. The pieces worth ranking again for one
+   *  build, since a row ranks the same way for everyone: primary, alternative and
+   *  beastPrimary, the blank piece with the most room, and for each effect (by attribute or
+   *  skill, constant apart from charged) the piece carrying the most of it, from close and
+   *  far sources alike; at most 40, the carriers of the smallest effects going first. Close
+   *  first, then by `enchanted.value`. Empty when the row is. */
+  candidates?: Pick[];
 };
 
 /** The standalone artifact. In the app bundle these rows ship as the `GearRows` catalog,

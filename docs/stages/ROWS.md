@@ -200,6 +200,31 @@ On vanilla the power ring row now reads Mentor's Ring from Samarys, and the powe
 row the Amulet of Mighty Blows, 15 gold in Caldera; the enchantment rows keep the
 Exquisite Ring and Amulet at Milie Hastien's in Balmora.
 
+### A shortlist, ranked again for each build
+
+A row ranks the same way for every character, so it can only say what is best on
+average. Tamriel Rebuilt has 172 eligible rings and its ring row picks Ring of Toxic
+Cloud; Mentor's Ring, eligible and near a start, never reached the site, and a mage
+could not be offered it however well the site knew the character.
+
+So each clothing row answering `power` carries `candidates`: the pieces worth ranking
+again for one build. It keeps what the row chose (primary, alternative, beastPrimary),
+the blank piece with the most room, and for each effect the piece that carries the most
+of it, keyed by effect, attribute or skill, and whether it is constant, so an always-on
+Fortify Intelligence and one cast on use are different offers. Close and far sources are
+shortlisted apart. Effects worth nothing and curses keep no piece. Past 40, the
+carriers of the smallest effects go. Vanilla's 30 eligible rings shortlist to 16, about
+11 KB per row, with Mentor's Ring on the list.
+
+Each effect of an enchantment also carries its own `worth` and `value`, so the site can
+weigh them for the character: `lib/build-traits.mjs` in the site takes the leveler's
+archetype, counts a build as a caster when it trains magic (two points per casting school
+among its majors, one among its minors, four or more), and weighs a Fortify Attribute
+by the archetype's attribute queue, a Fortify Skill by major, minor or neither, magicka
+effects by whether the build casts, and attack spells at half for a caster, who has
+spells of their own. Armour and weapons carry no shortlist; their rows rank on
+protection and damage, which do not depend on who wears them.
+
 **It is free at build time.** The candidates and the policy verdicts are gathered once;
 an objective only changes which of them wins. Vanilla took 188s for 848 rows against
 184s for 424. Gzipped, the catalog goes from 14 to 24 KB on vanilla and 19 to 34 KB on
