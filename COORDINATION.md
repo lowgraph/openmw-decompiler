@@ -5,6 +5,7 @@
 No game-data schema changes. Items from `docs/LAUNCH_CHECKLIST.md` (finding IDs from `docs/UX_USABILITY_AUDIT.md`), one commit each. Invariants other agents must keep:
 
 - **LVL-1: archetype detection.** Mercantile and Speechcraft count in full toward Diplomat / Merchant only as majors (4 each, 1.5 as minors, +3 for favoured Personality, +5 with both as majors; 8 or more is a Diplomat), so the default character, a fighter with both as minors, is a Warrior and is no longer told to raise Personality first. `explainArchetype(build)` returns the archetype with a reason ("the Warrior class", "major skills Long Blade, Heavy Armor and Block", the most telling skills first) that the Level Simulator shows; `detectArchetype` still returns the archetype alone, and the Gear Advisor's `buildTraits` follows it. `test/archetype-reason.test.js`.
+- **TRV-1: Guild Guides and membership.** Every Guild Guide belongs to the Mages Guild (one TR guide to `T_Cyr_MagesGuild`), and the guild's Service Refusal lines refuse anyone outside it ("same faction" = 0); guides sit at rank 1 to 3, so the "higher rank" refusal never stops a member. Without a save the Travel page keeps Mages Guild on and Conjurer off (owner decision); with one, `guildFromSave` sets both, and `guildGuideNotice` (`lib/travel-graph.mjs`) explains when the character is not a member. Guild Guide legs say "Mages Guild members only". `test/travel-guild-notice.test.js`.
 
 First verification command: `npm test` in the site repository.
 
