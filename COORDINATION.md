@@ -1,5 +1,20 @@
 # Coordination
 
+## Release sprint ownership — 2026-09-29
+
+The owner authorizes any agent to implement release-sprint work in either repository.
+Agent roles are specialties, not exclusive editing or commit permissions. The site's
+`docs/LAUNCH_CHECKLIST.md` sets priorities, task-claim timestamps, completion records,
+the freeze and the cut line. `C` means whichever agent does the work; `O` remains
+owner work. Inspect existing changes and preserve other sessions' work. This policy
+supersedes older agent ownership restrictions in the roadmap and handoffs.
+
+The architecture boundary stays: extraction belongs in the pipeline and the site
+consumes published JSON bundles. Verification, explicit authorization for real-data
+rebuilds, and separate push/deploy authorization still apply. No dataset schema or
+runtime changes. Next agent: read the launch checklist and claim the next available
+item; first verification command is `npm test` in the site repository.
+
 ## UX pass for launch — 2026-09-29
 
 No game-data schema changes. Items from `docs/LAUNCH_CHECKLIST.md` (finding IDs from `docs/UX_USABILITY_AUDIT.md`), one commit each. Invariants other agents must keep:
@@ -11,6 +26,11 @@ No game-data schema changes. Items from `docs/LAUNCH_CHECKLIST.md` (finding IDs 
 - **TRV-3: one entry per town.** `matchPlaces` (`lib/travel-walk.mjs`) is the Travel pickers' place search: same-named exterior cells in one region (a town spans several; 19 in vanilla) are listed once as the most central cell, ties to the first key; rooms never merge; stops stay out. Place buttons carry `bg-transparent border-0`, as every button needs one or the browser paints its grey. `test/travel-place-search.test.js`.
 - **Claims.** No page, card, search description or structured data may call the maths "verified" or "exact", or promise "inter-faction standing"; say it follows OpenMW 0.51's source, and describe the Faction Journal's reactions as how factions regard each other. `test/site-claims.test.js` scans app, components and the SEO data (past changelog entries excepted); LAUNCH_POSTS lists the removed claims.
 - **HOME-2, replaced: a random premade start.** `CharacterProvider` renders `DEFAULT_BUILD` on the server and in the browser's first render (anything random there fails hydration and React discards the prerendered page), then its first effect sets a random premade from `getRandomPremadeBuild` (`lib/premade-data.mjs`: base-game races unless ARCE); links, the sign-in handoff and saves apply after it and win. Leaving ARCE with an ARCE-only race: an untouched random premade is re-drawn, a player's character keeps everything but the race (`canonicalRaceFor`). `test/random-premade-start.test.js`, `test/random-premade-build.test.js`.
+- **The shell is not ready while a page hydrates.** Until then `useShell()` has `ready: false` and the prerender's world (vanilla), whatever the visitor chose; the client's world arrives in the next render. Effects that run at mount and need the world read it directly: `readVisitorProfile()` (address, then storage) or `readStoredProfile()` (storage only), both in `components/shell-context.jsx`. `CharacterProvider`'s world sync waits for `ready`. Test such code with `hydrateRoot` over a `renderToString` page (the `hydrated` helper in `test/random-premade-start.test.js`); `createRoot` hides the problem.
+- **SITE-1: one name per tool on screen.** Character Builder, Level Simulator, Travel Planner, Alchemy, Enchanting, Spellmaking, Faction Journal, Challenge Runs, Cloud Vault in nav, visible headings, buttons, home cards, search and breadcrumbs. The long SEO names stay in page titles, the sr-only h1 (`lib/view-headings.mjs`), the pages' hidden guides and structured data. `test/tool-names.test.js` fails on an old name in `components/`, the home and search data, the 404 page or the challenge export.
+- **LINK-1: a shared link's world wins.** A build or run link that names a world (`world` or `arce` in its query) sets it, as the world switch would; one that names none keeps the visitor's world (it would decode as vanilla). Compare with the kept world, not the hydrating shell. Tests: `test/random-premade-start.test.js` (builder), `test/share-link-world.test.js` (runs).
+- **CALC-1: no results before input.** Spellmaking and Enchanting show `NO_RESULT` (a dash with sr-only "not calculated yet") for chance, cost, school and vendor prices until an effect is chosen, with a `.calc-empty-prompt`; Alchemy until `potion.isValid`. Enchanting's capacity stays a number. Effect pickers label base costs with `baseCostLabel` (float32 noise). `test/calculator-empty-states.test.js`.
+- **SITE-2 / VLT-1: explanations are closed disclosures.** Each tool has exactly one `<details className="calculation-notes">` with `<summary>How this is calculated</summary>`, closed by default, in plain words with any formula inside; no "invariants", "engine rules" or implementation jargon (ArrayBuffer, SQLite, Cloudflare) in player text. `assertCalculationDisclosure` in `test/seo-phase2.test.js`. Codex's work, finished and merged by Claude.
 
 First verification command: `npm test` in the site repository.
 
@@ -73,16 +93,15 @@ The user authorized removal of pre-release compatibility. Site sharing uses cano
 Three agents work on Silt Strider in parallel. This file is identical in both
 repositories. If you change it, change both copies in the same session.
 
-## Who owns what
+## Agent specialties (shared ownership during the release sprint)
 
 | | Antigravity (UI Lead) | Codex (Site Agent) | Claude (Data Agent) |
 | --- | --- | --- | --- |
 | Repository / Focus | Architecture, Design & Specs (`UI_TRANSFORMATION.md`) | Web Application (`lowgraph/siltstrider.tools`) | Data Pipeline (`lowgraph/openmw-decompiler`) |
-| Owns | UI/UX specifications, design tokens, component hierarchy, CRPG aesthetic standards | Next.js 16 App Router, React 19, Tailwind CSS, UI implementation, Clerk, `cloudflare/`, D1 routes & migrations | Extraction, catalogs, policy, gear rows, rules library, engine dumps, app bundle publication |
+| Specializes in | UI/UX specifications, design tokens, component hierarchy, CRPG aesthetic standards | Next.js 16 App Router, React 19, Tailwind CSS, UI implementation, Clerk, `cloudflare/`, D1 routes & migrations | Extraction, catalogs, policy, gear rows, rules library, engine dumps, app bundle publication |
 | Reads | User feedback, in-game references (`Char Creation.png`), legacy runtime | `UI_TRANSFORMATION.md`, `public/game-data/`, legacy workbench | Plugin files, OpenMW engine dumps, local staging workspace |
-| Never | Writes production backend database code | Opens raw SQLite databases or runs extractors | Writes frontend JSX, CSS, or Cloudflare route handlers |
 
-**Respect workspace boundaries.** While agents can inspect files across folders for context, each agent only commits changes within its designated scope. Antigravity authors cross-cutting UI blueprints; Codex implements them in `siltstrider.tools`; Claude implements data features in `openmw-decompiler`.
+**Coordinate shared work.** Any agent may implement and commit launch-checklist work in either repository. Claim the item before starting, preserve concurrent changes, and keep application and extraction code in their respective repositories.
 
 ## The contract is the bundle
 
@@ -139,8 +158,8 @@ Keep that property in anything new.
   `$env:TEMP='A:\Cache'; $env:TMP='A:\Cache'; python -B -m unittest discover -s . -p "test_*.py"`
 * **Scratch & Secret Isolation:** Never stage scratch files (e.g., `<scratchDir>/capture-*.js`), `Char Creation.png`, or `Hey.html`. Always clean up temporary CDP runner scripts after visual evaluation.
 
-### 2. Cross-Repo Boundary Enforcement
-* **Strict Boundary:** The Pipeline agent (`OpenMW Decompiler`) must NEVER directly modify files inside `A:\Claude\morrowind-tools`.
+### 2. Repository Architecture & Shared Ownership
+* **Shared Sprint Ownership:** Any agent may edit either repository for launch-checklist work; keep site implementation in the site and extraction logic in the pipeline.
 * **Contract Sync:** Changes to game parsing outputs or schemas pass exclusively via exported JSON bundles to `public/game-data/` and synchronized updates to `COORDINATION.md` and `UI_TRANSFORMATION.md`.
 * **Legacy HTML Extraction (Retired):** The former prebuild hook (`extract:legacy`) was retired in Phase 13; the application is fully native React. `index.html` is retained strictly as a regression fixture for `test/site.test.js` and `archive/legacy/scripts/dev-server.cjs`.
 

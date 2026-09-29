@@ -4,13 +4,24 @@ Read [COORDINATION.md](COORDINATION.md) before starting, and [HANDOFF.md](HANDOF
 if you are picking this up cold. For canonical repository paths and recent
 restructuring, read [docs/AGENT_PATH_MIGRATION.md](docs/AGENT_PATH_MIGRATION.md).
 
-1. **Claude (Data Agent):** Owns this data pipeline repository (`lowgraph/openmw-decompiler`).
+## Release sprint ownership — 29 September 2026
+
+The owner authorizes any agent to implement release-sprint work in either repository.
+The roles below describe specialties, not exclusive editing or commit permissions.
+Follow the site's launch checklist at `A:\Claude\morrowind-tools\docs\LAUNCH_CHECKLIST.md`
+in priority order, including its task-claim timestamps, completion records, freeze
+and cut line. `C` means the agent doing the work, not Claude exclusively; `O` remains
+owner work. Inspect existing changes before editing and preserve other sessions' work.
+This supersedes older agent ownership restrictions in the roadmap and handoffs.
+Repository architecture, verification, real-data rebuild restrictions, and separate
+push/deploy authorization still apply.
+
+1. **Claude (Data Agent):** Specializes in this data pipeline repository (`lowgraph/openmw-decompiler`).
    Extracts game files, maintains normalized SQLite databases in the local data workspace,
    derives effect rules, evaluates policies, and publishes the app bundle.
-2. **Codex (Site Agent):** Owns the sibling web application repository (`lowgraph/siltstrider.tools`)
+2. **Codex (Site Agent):** Specializes in the sibling web application repository (`lowgraph/siltstrider.tools`)
    and implements the web application consuming the bundle, executing the UI
-   transformation set out in [UI_TRANSFORMATION.md](UI_TRANSFORMATION.md). Do not
-   edit that repository.
+   transformation set out in [UI_TRANSFORMATION.md](UI_TRANSFORMATION.md).
 3. **Antigravity (UI Transformation Lead):** Directs the UI/UX architecture,
    component design, and CRPG authenticity across the project.
 
@@ -24,8 +35,8 @@ restructuring, read [docs/AGENT_PATH_MIGRATION.md](docs/AGENT_PATH_MIGRATION.md)
 - **No Real-Data Rebuilds Without Instruction:** The user runs full game-data extraction commands locally in VS Code. Build code and provide commands; do not rebuild real-data catalogues unless explicitly asked. Verify changes with synthetic fixtures instead.
 - **Provenance:** Preserve separate vanilla, tr, and tr_arce profiles and source provenance.
 
-### 2. Cross-Repo Boundary Enforcement
-- **Strict Boundary:** The Pipeline agent must NEVER directly modify files inside the sibling web application repository (`lowgraph/siltstrider.tools`).
+### 2. Repository Architecture & Shared Ownership
+- **Shared Sprint Ownership:** Any agent may edit either repository for launch-checklist work; keep site implementation in the site and extraction logic in the pipeline.
 - **Contract Sync:** Changes to game parsing outputs or schemas pass exclusively via exported JSON bundles to `public/game-data/` and synchronized updates to `COORDINATION.md` and `UI_TRANSFORMATION.md`.
 - **Canonical Schema Paths:** All SQL schemas reside in `schemas/`. Never recreate schema files in the repository root.
 

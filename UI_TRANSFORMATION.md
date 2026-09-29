@@ -1,8 +1,15 @@
 # UI Transformation Blueprint: Silt Strider
 
-**Owner & Lead:** Antigravity (UI Transformation Lead)  
-**Implementer:** Codex (Site Implementation Agent)  
-**Data Supplier:** Claude (Database / Pipeline Agent)
+- **Design specialty:** Antigravity (UI Transformation Lead)
+- **Site specialty:** Codex (Site Implementation Agent)
+- **Data specialty:** Claude (Database / Pipeline Agent)
+
+**Release sprint, 29 September 2026:** Any agent may implement launch-checklist work
+in either repository. Follow the site's `docs/LAUNCH_CHECKLIST.md` for priorities,
+task claims, completion records, freeze and cut line. These roles are specialties,
+not exclusive ownership. Preserve concurrent work and the pipeline/site architecture
+boundary. This supersedes older role-specific assignments below; current AGENTS.md
+and COORDINATION.md take precedence over historical implementation steps.
 
 ---
 
@@ -26,8 +33,8 @@ The visual and ergonomic benchmark for the Silt Strider UI transformation is Mor
      `$env:TEMP='A:\Cache'; $env:TMP='A:\Cache'; python -B -m unittest discover -s . -p "test_*.py"`
    - **Scratch & Secret Isolation:** Never stage scratch files (e.g., `<scratchDir>/capture-*.js`), `Char Creation.png`, or `Hey.html`. Always clean up temporary CDP runner scripts after visual evaluation.
 
-2. **Cross-Repo Boundary Enforcement:**
-   - **Strict Boundary:** The Pipeline agent (`OpenMW Decompiler`) must NEVER directly modify files inside `A:\Claude\morrowind-tools`.
+2. **Repository Architecture & Shared Ownership:**
+   - **Shared Sprint Ownership:** Any agent may edit either repository for launch-checklist work; keep site implementation in the site and extraction logic in the pipeline.
    - **Contract Sync:** Changes to game parsing outputs or schemas pass exclusively via exported JSON bundles to `public/legacy/` and synchronized updates to `COORDINATION.md` and `UI_TRANSFORMATION.md`.
    - **Legacy HTML Sync Hook:** Whenever `index.html` in the site repo is modified, immediately run `npm run extract:legacy` to regenerate `public/legacy/body.html` before running tests or visual verification. Never leave Next.js running against stale extracted markup.
 
