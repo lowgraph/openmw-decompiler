@@ -332,3 +332,22 @@ The web application consuming this pipeline's published output:
 
 - **Repository**: [`lowgraph/siltstrider.tools`](https://github.com/lowgraph/siltstrider.tools)
 - **Live Site**: [siltstrider.tools](https://siltstrider.tools/)
+
+## Licence
+
+Copyright (C) 2026 lowgraph.
+
+This pipeline is free software: you can redistribute it and/or modify it under the terms
+of the **GNU General Public License** as published by the Free Software Foundation, either
+version 3 of the License, or (at your option) any later version (`GPL-3.0-or-later`),
+like OpenMW itself. See [LICENSE](LICENSE).
+
+Not covered by that licence:
+
+- **Game and mod data.** The Elder Scrolls III: Morrowind, Tribunal and Bloodmoon belong
+  to Bethesda Softworks and ZeniMax Media; Tamriel Rebuilt, Project Tamriel and ARCE
+  belong to their teams. The pipeline reads your own copies of those files; what it
+  extracts from them is theirs, and none of it is in this repository except the small
+  sample records in `items/examples/`, excerpts of Morrowind's data kept to
+  document the output format.
+- **The Silt Strider name and logo**, which are not licensed for reuse.

@@ -1,5 +1,15 @@
 # Coordination
 
+## Licences — 2026-09-29
+
+No game-data schema changes. The site is `AGPL-3.0-or-later` and the pipeline `GPL-3.0-or-later`: `LICENSE` in each repository, a Licence section at the end of each README, and `"license"` in the site's `package.json`. Invariants other agents must keep:
+
+- **The licence covers the code only.** Never add game or mod data to either repository beyond the pipeline's existing `items/examples/` excerpts; the data bundles stay generated and uncommitted. The Pelagiad font keeps the SIL OFL 1.1 (notice in `app/globals.css`), and the Silt Strider name, logo and social card are not licensed for reuse.
+- **Dependencies must stay compatible.** New runtime dependencies need a licence that can be combined with the AGPL or GPL (MIT, BSD, Apache-2.0, ISC, LGPL, GPL-3.0 are fine); ask the owner before adding anything proprietary, source-available, or GPL-2.0-only.
+- **"Open source" means the code.** Public wording (About, structured data, launch posts) may say open source and name the licence, never that the game or mod data is. `test/license.test.js` checks the licence file, the README exclusions and `package.json`.
+
+First verification command: `npm test` in the site repository.
+
 ## Launch fixes: cookies, Worker routing, sign-in handoff — 2026-09-29
 
 No game-data schema changes. Site commits `5bd4e04` through `29cadd8`. Invariants other agents must keep:
