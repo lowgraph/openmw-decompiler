@@ -1,5 +1,19 @@
 # Coordination
 
+## Accessibility and crash fixes from the second audit — 2026-09-29
+
+No game-data schema changes. Site commits `93b7edf` through this entry; findings from re-running the Gemini audit (axe-core, keyboard, forced colors, adversarial inputs) against the 15:31 release. Invariants other agents must keep:
+
+- **Character tables have no prototype.** `adaptCharacterCatalogs` builds races, classes, signs, spell lists and `specSkills` with `Object.create(null)`, so a shared build naming "constructor" or "__proto__" finds nothing instead of Object's built-ins (that crashed the whole app). Do not rebuild them as plain objects. `test/character-catalogs.test.js`.
+- **The Ashfall focus ring is an outline** (2px accent, 2px offset), never a box-shadow: state rules clear box-shadow at higher specificity and Windows high contrast drops it. Do not add `outline: none` to a `:focus-visible` rule except the text-field rule, and keep the forced-colors block last in `app/theme-ashfall.css`. `test/a11y-focus-and-state.test.js`.
+- **Overlays are dialogs.** Anything that covers the page uses `useModalDialog` (`components/use-modal-dialog.js`) on an element with `role="dialog"`, `aria-modal="true"`, `aria-labelledby` and `tabIndex={-1}`: focus in, Tab wraps, Escape closes, focus returns. A layer opened on top (Clerk sign-in from inside the Cloud Vault, the search palette) keeps the keyboard. `test/modal-dialog.test.js`.
+- **Tool headings live in `<main>`.** `lib/view-headings.mjs` holds each tool view's sr-only h1; `AppShell` renders it first inside `<main>` for the view on screen. Pages must not render their own h1. Unknown addresses use `app/not-found.jsx`.
+- **Security headers** for pages and assets are in `public/_headers` (nosniff, frame denial, referrer policy, host-only HSTS). No `script-src` policy until Clerk and the analytics beacon are tested against one. `/api/*` responses come from the Worker and are unaffected.
+
+Left for the UX pass, with the same audit as its acceptance test: text contrast of `fg-13`–`fg-15` on the panels they sit on (Faction Journal, Equipped Loadouts, premade catalog, Challenge), the Level Simulator's 20px attribute buttons, heading levels on the Level Simulator and Vault, focus moving into header menus on open. The Cloud Vault never checks a save's stored SHA-256 on load (low risk).
+
+First verification command: `npm test` in the site repository, then `npm run build:cloudflare`.
+
 ## Licences — 2026-09-29
 
 No game-data schema changes. The site is `AGPL-3.0-or-later` and the pipeline `GPL-3.0-or-later`: `LICENSE` in each repository, a Licence section at the end of each README, and `"license"` in the site's `package.json`. Invariants other agents must keep:
