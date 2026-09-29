@@ -1,5 +1,19 @@
 # Coordination
 
+## Launch fixes: cookies, Worker routing, sign-in handoff — 2026-09-29
+
+No game-data schema changes. Site commits `5bd4e04` through `29cadd8`. Invariants other agents must keep:
+
+- **Only `/api/*` runs the Worker.** `wrangler.jsonc` `assets.run_worker_first` is `["/api/*"]`; pages, scripts and game data are served by the asset store and do not count against the Workers request allowance (about 18 requests for a first visit to `/builder` used to). `www` pages are redirected by the zone's Redirect Rule "www to root" (wildcard `https://www.siltstrider.tools/*` → `https://siltstrider.tools/${1}`, 301, query preserved); the Worker's own redirect covers `/api/*` on `www`. `request_failed` logs and error references cover API failures only. `test/worker-routing.test.js` holds the config. See `docs/DEPLOYMENT.md`.
+- **Clerk loads on demand.** Loading Clerk sets its cookies, and the Privacy Policy says a visit without signing in sets none. On mount, call `ensureClerkIfSignedIn()` (it loads Clerk only when `hasClerkSession()` finds Clerk's `__client_uat` above 0); call `ensureClerk()` only from a user action such as Sign in. `AccountProvider` and the Cloud Vault attach through the `silt-auth-ready` event when Clerk loads later.
+- **Sign-in keeps the builder's character.** Google and Discord sign-in reloads the page, which reset an unsaved character to the default (a TR + ARCE Khajiit was saved as the default Dark Elf). Every sign-in button must dispatch `SIGN_IN_EVENT` (`silt-before-sign-in`, `lib/sign-in-handoff.mjs`) before opening Clerk. `CharacterProvider` keeps the character in the tab's session storage and restores it once on a signed-in return within 15 minutes; `AccountProvider` drops it when an email sign-in completes on the page. A loaded OpenMW save is not kept (it survives reloads already), and a shared build link still wins.
+- **Privacy wording.** The Privacy Policy has "Cookies, local files and browser storage" (no advertising or tracking cookies; Clerk's only once you sign in; Cloudflare Web Analytics without cookies or storage) and its own date (September 29; Terms keep theirs). Structured data must not promise that nothing leaves the browser: `test/seo-workstations-h1-metadata.test.js` checks all of it.
+- **Data.** A full D1 backup was taken and restore-checked on 29 September (encrypted, in the owner's storage). The three cloud saves in SLT1 envelope version 1 were deleted by the owner.
+
+Assessment of the Antigravity verification, open issues and read-only checks: `docs/LAUNCH_VERIFICATION.md`. Launch post copy with claims checked against the live site: `docs/LAUNCH_POSTS.md`.
+
+First verification command: `npm test` in the site repository, then `npm run build:cloudflare`.
+
 ## Launch notice and operations preparation — 2026-09-28
 
 Site changes add the shared OpenMW-only / vanilla, TR and TR + ARCE compatibility notice at both importers and About, a bug-report email template in the footer/About, and Worker 5xx reporting with user-visible reference IDs. Wrangler observability is configured with query redaction, custom failure logs, and sampled traces; it takes effect only when deployed. No game-data schema, equipment optimizer, or save-format changes. Recovery procedures are in `docs/LAUNCH_OPERATIONS.md`: production D1 Time Travel was checked and a schema-only export restored locally; no full private-data export, production restore, or rollback was performed. Automatic approval review declined the full private-data export; the owner can run the documented backup command.
