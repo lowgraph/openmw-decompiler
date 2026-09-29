@@ -47,3 +47,7 @@ restructuring, read [docs/AGENT_PATH_MIGRATION.md](docs/AGENT_PATH_MIGRATION.md)
   - Exported dataset schema changes.
   - Invariants assumed by the downstream Next.js / legacy JS runtime.
   - Exactly which script/command the next agent must run first.
+- **Changelog first.** Before committing, pushing or deploying a major change that visitors
+  will notice once its bundle is staged, say so in `COORDINATION.md` in words fit for players,
+  so the site's changelog (`CHANGELOG.md` and `components/views/changelog-view.jsx`) records it
+  before the site release that ships it.
