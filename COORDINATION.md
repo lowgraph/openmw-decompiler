@@ -1,5 +1,13 @@
 # Coordination
 
+## UX pass for launch — 2026-09-29
+
+No game-data schema changes. Items from `docs/LAUNCH_CHECKLIST.md` (finding IDs from `docs/UX_USABILITY_AUDIT.md`), one commit each. Invariants other agents must keep:
+
+- **LVL-1: archetype detection.** Mercantile and Speechcraft count in full toward Diplomat / Merchant only as majors (4 each, 1.5 as minors, +3 for favoured Personality, +5 with both as majors; 8 or more is a Diplomat), so the default character, a fighter with both as minors, is a Warrior and is no longer told to raise Personality first. `explainArchetype(build)` returns the archetype with a reason ("the Warrior class", "major skills Long Blade, Heavy Armor and Block", the most telling skills first) that the Level Simulator shows; `detectArchetype` still returns the archetype alone, and the Gear Advisor's `buildTraits` follows it. `test/archetype-reason.test.js`.
+
+First verification command: `npm test` in the site repository.
+
 ## Accessibility and crash fixes from the second audit — 2026-09-29
 
 No game-data schema changes. Site commits `93b7edf` through this entry; findings from re-running the Gemini audit (axe-core, keyboard, forced colors, adversarial inputs) against the 15:31 release. Invariants other agents must keep:
