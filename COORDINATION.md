@@ -32,6 +32,10 @@ First verification command: `npm test` in the site repository.
 ## Travel task-first — 30 September
 
 TRV-2, TRV-4/5, TRV-6, TRV-7 and TRV-8 are merged to main (`e3ab542`).
+Live as main `2c113b8`, Worker `3ef09493-cb5a-42e2-96fd-ca54c168d3e2`
+(30 September, 20:32 UTC), with the unchanged bundle `3da03202`. This is its
+own release: rollback to `24bd4ac1-e287-4c14-88d8-80bee20b42f9` removes Travel
+while retaining the earlier launch fixes. No D1 migration was applied.
 No bundle schema,
 loader, extraction or save-format changes. Invariants other agents must keep:
 
@@ -50,8 +54,8 @@ loader, extraction or save-format changes. Invariants other agents must keep:
   labels and fg-9 preset descriptions; do not reintroduce fg-16/fg-17 small print.
 
 First command in the site repository: `npm test`, before every commit. Browser
-command/scope: `docs/BROWSER_TESTS.md`; results: `docs/LAUNCH_VERIFICATION.md` §8.
-Deployment needs a separate owner request and its own Travel release/rollback.
+command/scope: `docs/BROWSER_TESTS.md`; results: `docs/LAUNCH_VERIFICATION.md` §§8–9.
+Further deployment needs a separate owner request.
 
 ## Release sprint ownership — 2026-09-29
 
