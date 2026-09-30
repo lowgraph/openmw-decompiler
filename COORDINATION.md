@@ -1,5 +1,53 @@
 # Coordination
 
+## Small tool polish — 30 September
+
+`launch/small-polish` starts at `db9def9` from `mt-account-settings`; keep its
+account/save/shared-link precedence. No exported dataset, schema or extraction
+change. Unsaved unlinked Travel starts Seyda Neen → Balmora. Objective `real`
+minimizes outdoor movement seconds, then transitions, legs, gold and game hours;
+unknown movement is not zero, and scroll/Magicka budgets still constrain routes.
+Menus, loading and indoors remain uncounted. Pending data shows Loading, while
+genuine network failures retain Retry. Account defaults and shared links accept
+`real`; the settings format remains version 1 before its first public release.
+
+Alchemy hides Secretmaster apparatus in the site adapter and sorts remaining tools
+by quality descending, preserving published records and the Journeyman default.
+Enchanting accepts typed nonnegative integer soul sizes; below 400, Constant
+Effect is disabled and returns to When Used. At 1440 px and wider, all calculators
+are direct links; compact desktop and phone menus group Alchemy, Enchanting and
+Spellmaking. Header rules target `.topbar`, not the removed `#react-header-slot`.
+
+First command: `npm test` in `A:/Claude/mt-small-polish`; then the `polish` suite in
+`docs/BROWSER_TESTS.md`. Verification: `docs/LAUNCH_VERIFICATION.md` §13. Keep this
+branch separate from main and production until the owner requests integration.
+
+## Account settings branch verification — 30 September
+
+The earlier proposal note below is preserved as history. On the branch inherited
+by this polish, `feature/account-settings-preparation`, `db9def9` has incorporated
+main `11c1c96`; migration 0007 lives in `cloudflare/migrations`, and the settings
+API, provider and controls are implemented. The owner decides integration and
+production apply separately. No remote migration or account deployment ran here.
+
+ACC-1 verification: the table retains its reviewed shape; schema tests use
+`node:sqlite` with `--experimental-sqlite` to retain Node >=22.11. The SQLite
+experimental warning remains visible. After the main merge, local migrations
+0001–0007 passed with no pending migrations and 28 historical schema objects
+unchanged; 808 tests passed and the Cloudflare build generated 24 static pages.
+Details in `docs/ACCOUNT_SETTINGS.md`.
+ACC-2 now adds the owner-bound settings API/provider/account controls and connects
+World, theme, Travel, Gear Advisor and Challenge defaults/reset actions on the same
+unmerged branch. Guest preferences stay separate; adoption is explicit. Late loads,
+in-flight edits and account switches cannot overwrite newer choices or another
+account's preferences. Shared routes/seeds and current edits keep priority, and
+Travel's spell/scroll checks still apply. No release registry or gear-row changes:
+modpack/version controls remain unavailable and the two future gear filters hidden.
+Verification details: `docs/LAUNCH_VERIFICATION.md` §12. No remote apply or deployment.
+Latest main `11c1c96` incorporated without rebasing: 876 tests, 24 static pages,
+33 local browser cases and fresh local migrations passed; only settings work differs.
+Owner decides the merge to main and applies production separately.
+
 ## Account settings table before launch — 2026-09-30
 
 No game-data schema changes yet. The owner decided the `account_settings` D1 table is

@@ -1,5 +1,7 @@
 # UI Transformation Blueprint: Silt Strider
 
+Account settings: [ACCOUNT_SETTINGS.md](docs/ACCOUNT_SETTINGS.md) covers migration 0007 (ACC-1), the API and account controls (ACC-2), and future datasets.
+
 - **Design specialty:** Antigravity (UI Transformation Lead)
 - **Site specialty:** Codex (Site Implementation Agent)
 - **Data specialty:** Claude (Database / Pipeline Agent)
