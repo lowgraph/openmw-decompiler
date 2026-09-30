@@ -1,5 +1,29 @@
 # Coordination
 
+## Travel task-first — 30 September
+
+TRV-2, TRV-4/5, TRV-6, TRV-7 and TRV-8 are merged to main (`e3ab542`).
+No bundle schema,
+loader, extraction or save-format changes. Invariants other agents must keep:
+
+- One picker per endpoint joins towns, stops and places; typing does not reroute.
+  Keep canonical stop names and place IDs for routing and shared links.
+- Journey inputs and results precede closed options, quick places and rules.
+  Keep guild/overload warnings beside the answer and one loading/error/Retry line.
+- Browser edits are keyed by save snapshot and profile. Reset only that pair;
+  denied storage keeps session edits. Replanning never spends the imported save.
+- Scroll uses and known current Magicka constrain the whole route. Cast chances
+  use published spells; unknown data must not imply a reliable cast.
+- Real Time Approximation counts outdoor movement seconds separately from
+  transport/spell transitions; omit combat, menus, loading and indoor time.
+  Cheapest compares Fewest legs with identical options and consumable budgets.
+- Keep main's unfaded restricted equipment/rank cards, danger-7 warnings, fg-14
+  labels and fg-9 preset descriptions; do not reintroduce fg-16/fg-17 small print.
+
+First command in the site repository: `npm test`, before every commit. Browser
+command/scope: `docs/BROWSER_TESTS.md`; results: `docs/LAUNCH_VERIFICATION.md` §8.
+Deployment needs a separate owner request and its own Travel release/rollback.
+
 ## Release sprint ownership — 2026-09-29
 
 The owner authorizes any agent to implement release-sprint work in either repository.
