@@ -32,10 +32,12 @@ First verification command: `npm test` in the site repository.
 ## Travel task-first — 30 September
 
 TRV-2, TRV-4/5, TRV-6, TRV-7 and TRV-8 are merged to main (`e3ab542`).
-Live as main `2c113b8`, Worker `3ef09493-cb5a-42e2-96fd-ca54c168d3e2`
-(30 September, 20:32 UTC), with the unchanged bundle `3da03202`. This is its
-own release: rollback to `24bd4ac1-e287-4c14-88d8-80bee20b42f9` removes Travel
-while retaining the earlier launch fixes. No D1 migration was applied.
+Main `2c113b8` was deployed separately at 20:32 UTC, then rolled back at 20:47
+after a mobile saved-choice assertion failed twice without diagnostics. Production
+is back on `1e84b1a`, Worker `24bd4ac1-e287-4c14-88d8-80bee20b42f9`; Travel
+remains on main. Bundle `3da03202` and D1 are unchanged. Failure evidence and the
+unconfirmed cause are in `docs/LAUNCH_VERIFICATION.md` §9. Stop fixes under the
+two-failure rule until the owner authorizes investigation.
 No bundle schema,
 loader, extraction or save-format changes. Invariants other agents must keep:
 
