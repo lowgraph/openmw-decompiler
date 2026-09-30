@@ -1,5 +1,24 @@
 # Coordination
 
+## Account settings and tool polish on main — 30 September
+
+The owner authorized PR #1: `feature/account-settings-preparation` at `6dc207e`
+merged to main in `b45f686` (ACC-1, ACC-2 and the tool polish). Earlier branch
+status notes below are history. No extraction or exported bundle change.
+Keep account identity/generation and revision guards, explicit guest adoption,
+shared-link/current-edit priority, and save-specific settings precedence. The
+least-real-time route still respects scroll/Magicka budgets and leaves loading,
+menus and indoors uncounted. Keep the published apparatus records intact and
+Constant Effect gated at soul size 400. Compact menus contain all calculators.
+
+Production is unchanged. Migration 0007 remote apply remains a separate owner
+step with a fresh recovery bookmark, before any settings API deployment.
+ACC-1/ACC-2 code items are complete; ACC-1 production remains open.
+First command: `npm test` in `A:/Claude/mt-account-main-merge`; then the full
+browser suite in `docs/BROWSER_TESTS.md` on that checkout. Merge checks:
+`docs/LAUNCH_VERIFICATION.md` §14 (887 unit tests, 153 Chrome cases, 24 pages,
+Worker dry-run). Do not treat this merge as a deployment.
+
 ## Small tool polish — 30 September
 
 `launch/small-polish` starts at `db9def9` from `mt-account-settings`; keep its

@@ -1,5 +1,7 @@
 # UI Transformation Blueprint: Silt Strider
 
+Account settings and tool polish merged to main in `b45f686` (ACC-1/ACC-2; owner, 30 September). Production migration and deployment remain separate; see LAUNCH_VERIFICATION §14.
+
 Account settings: [ACCOUNT_SETTINGS.md](docs/ACCOUNT_SETTINGS.md) covers migration 0007 (ACC-1), the API and account controls (ACC-2), and future datasets.
 
 - **Design specialty:** Antigravity (UI Transformation Lead)
