@@ -1,5 +1,21 @@
 # Coordination
 
+## Character world preservation (QA-21/23) — 1 October
+
+`launch/character-preservation` was taken over at 18:14 UTC and includes main's
+QA-24 sign-out fix. Vault modal/workstation loads use `loadBuild`, await the
+build's profile catalogs, and retain the current character/save if validation
+or fetching fails. Legacy builds without a world keep the current world.
+Account settings version 2 adds `worldChosen`; only the account control chooses
+a Preferred world. Header/save/build loads change this session, not the account
+preference. Read version 1 as unchosen without writing it; preserve other settings.
+Keep shared-link/current-edit priority, guest/account isolation and fixed first
+hydration render. Existing version 1 preferences need an explicit choice again;
+old code rejects version 2 documents, so account rollback needs a compatible reader.
+No bundle, extraction, D1 migration or deployment. First command: `npm test` in
+`A:/Claude/mt-calc-4-main-merge`, then `--character-preservation` and
+`--signout-preservation` in `docs/BROWSER_TESTS.md`. Verification: §30.
+
 ## Character through sign-out (QA-24) — 1 October
 
 QA-24 (`aebd6c0`, branch tip `bce1401`) is integrated into main from `0c55696`
