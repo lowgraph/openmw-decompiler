@@ -1,5 +1,17 @@
 # Coordination
 
+## Phone gear tables (QA-08) — 1 October
+
+Claimed 20:51 UTC on `launch/character-preservation`, after QA-10 was pushed.
+Early/late recommendations and expanded runner-ups stack slot, item and source
+at widths up to 640 px. Keep `.gear-table`, the source cell's `data-label`, native
+table headings/column scopes and accessible names; phone CSS must override
+mid-word wrapping and narrow first cells. Desktop keeps its three columns.
+No ranking, dataset, exported schema, migration or production change. First
+command: `npm test`, then Chrome `--suite qa --filter 'QA-08'` and the enforced
+report wrapper in BROWSER_TESTS. Verification: LAUNCH_VERIFICATION §37.
+QA-09 popovers are still open; next priority is QA-16 after owner go-ahead.
+
 ## Beast equipment eligibility (QA-10) — 1 October
 
 Claimed 20:28 UTC on `launch/character-preservation`. BestInSlot filters every
