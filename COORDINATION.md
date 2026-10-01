@@ -1,5 +1,16 @@
 # Coordination
 
+## Launch QA integration — 1 October
+
+Owner-authorized merge of launch/character-preservation (c065581) into main
+(4f9c4bb); no conflicts, dataset/schema changes, migration or deployment.
+Retain character/world precedence, exact link choices, engine-source calculation
+rules, beast eligibility, display-only faction filtering and hydration-safe UI.
+All implementation QA items are now on main; freeze acceptance remains separate.
+Verification: LAUNCH_VERIFICATION §46. First command: `npm test`, then the local
+Chrome and synthetic Vault runners in BROWSER_TESTS against the merged checkout.
+
+
 ## Faction display labels (QA-11) — 1 October
 
 Filter <Deprecated> records from the Journal's roster, selection and displayed
