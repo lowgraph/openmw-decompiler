@@ -404,6 +404,13 @@ published release registry (stable modpack IDs, immutable release IDs mapped to 
 and the Gear Advisor's quest-reward and difficult-encounter settings need gear-row fields
 that tell those picks apart. Until then those settings stay unavailable.
 
+QA-15 (1 October): About credits LowGraph, links the code repository and names
+AGPL-3.0-or-later for the code only. Keep the game/mod-data and branding exclusions,
+Pelagiad's separate OFL credit and AI-assistance disclosure. No exported schema,
+dataset or rebuild. Verification: LAUNCH_VERIFICATION §45; first command remains
+`npm test`, then Chrome QA-15 in BROWSER_TESTS. All three authorized items are
+complete on the site branch; freeze acceptance remains a separate step.
+
 First verification command: `npm test` in the site repository.
 
 ## Travel task-first — 30 September
