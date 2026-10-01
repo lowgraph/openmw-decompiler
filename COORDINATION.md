@@ -1,5 +1,16 @@
 # Coordination
 
+## Faction display labels (QA-11) — 1 October
+
+Filter <Deprecated> records from the Journal's roster, selection and displayed
+counts; keep the full catalog for case-insensitive published relation-name lookup.
+Unknown internal IDs display Unknown faction; ordinary fallback names still work.
+Keep saved memberships, relation adjustments and bundle records unchanged. No
+exported schema, dataset or rebuild. First command: `npm test`, then Chrome
+QA-11 in BROWSER_TESTS (three worlds, both themes, desktop/phone). Verification:
+§44. Next authorized work: QA-15; push after each completed item.
+
+
 ## Premade explanations (QA-12) — 1 October
 
 Each premade card has plays-like/trade-off copy, full Major/Minor skill labels
