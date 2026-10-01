@@ -1,5 +1,17 @@
 # Coordination
 
+## Morrowind Game Theme (DESIGN) — 1 October
+
+The Morrowind UI now closely resembles The Elder Scrolls III: Morrowind game menus:
+- Black windows (`#000000`), off-black page ground (`#0e0d0b`), and game font colors (`#caa560` normal, `#dfc99f` header/hover, `#f3eddd` pressed, `#b3a887` secondary).
+- Procedural noise frames in `public/textures/`: `mw-window.svg` (window border), `mw-button-grain.svg` (button/input bevel), and `mw-panel-grain.svg` (engraved groove line).
+- Title bars (`.mw-caption`) on character cards and tool workstations with authentic groove lines.
+- Game stats window layout for the character card on Home (full attribute names, level/race/class/sign grid, centered bar values) with dual-mode DOM switching that preserves Modern UI (Ashfall) identically.
+- Buttons meet 44px min-height in Morrowind UI.
+- All Morrowind UI override rules strictly isolated in `app/theme-morrowind.css` under `:root[data-theme="morrowind"]` and `:root:not([data-theme="morrowind"])`. Modern UI (`data-theme="ashfall"`) is pixel-identical outside the theme toggle preview.
+- All 1007 tests pass (`npm test`). Leftover-brown audit across all 15 routes shows 0 violations.
+- First command: `npm test` in `A:/Claude/mt-game-theme`.
+
 ## Teleport-only stop aliases (QA-16) — 1 October
 
 When Travel node metadata is absent, buildTransitStops uses a published Places
