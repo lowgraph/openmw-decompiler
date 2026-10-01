@@ -1,5 +1,16 @@
 # Coordination
 
+## Test portability — 1 October
+
+QA catalog tests use `staged()` in `test/helpers/qa-staged-data.cjs`: skip only
+when `public/game-data/current.json` is absent. Preserve TODO metadata; a
+present but malformed/incomplete bundle must fail through the normal loader.
+Apply the same guard to catalog-dependent character, share, Health and hydration
+cases; pure/synthetic tests still run. The BestInSlot fallback fixture includes
+weapon type, boots warnings and runner-ups. No runtime or dataset changes.
+First command: `npm test`; stage a bundle to run the catalog checks too.
+Verification: LAUNCH_VERIFICATION §35. Next target: QA-10, after owner go-ahead.
+
 ## Character identity labels (QA-05) — 1 October
 
 Claimed 19:50 UTC on `launch/character-preservation`. Computed sheets retain
