@@ -1,5 +1,16 @@
 # Coordination
 
+## Teleport-only stop aliases (QA-16) — 1 October
+
+When Travel node metadata is absent, buildTransitStops uses a published Places
+name (or the interior cell name) and its "Town, room" prefix for a boundary alias.
+Explicit Travel metadata wins; keep the full room label and exact stop ID.
+Exterior coordinates remain distinct; aliases expand only origin/destination,
+never graph edges or free intermediate transfers. Apply usableTeleport's quest
+and held-item gates before building the network. No exported schema/rebuild.
+First command: `npm test`, then Chrome `--suite qa --filter 'QA-16'` in
+BROWSER_TESTS. Verification: LAUNCH_VERIFICATION §39. Next: QA-07/25, then QA-06.
+
 ## Configure help placement (QA-09) — 1 October
 
 All five Configurator InfoTips use a body portal with fixed coordinates measured
