@@ -34,15 +34,15 @@ after each authorized item.
 
 ## Morrowind Game Theme (DESIGN) — 1 October
 
-The Morrowind UI now closely resembles The Elder Scrolls III: Morrowind game menus:
-- Black windows (`#000000`), off-black page ground (`#0e0d0b`), and game font colors (`#caa560` normal, `#dfc99f` header/hover, `#f3eddd` pressed, `#b3a887` secondary).
-- Procedural noise frames in `public/textures/`: `mw-window.svg` (window border), `mw-button-grain.svg` (button/input bevel), and `mw-panel-grain.svg` (engraved groove line).
-- Title bars (`.mw-caption`) on character cards and tool workstations with authentic groove lines.
-- Game stats window layout for the character card on Home (full attribute names, level/race/class/sign grid, centered bar values) with dual-mode DOM switching that preserves Modern UI (Ashfall) identically.
-- Buttons meet 44px min-height in Morrowind UI.
-- All Morrowind UI override rules strictly isolated in `app/theme-morrowind.css` under `:root[data-theme="morrowind"]` and `:root:not([data-theme="morrowind"])`. Modern UI (`data-theme="ashfall"`) is pixel-identical outside the theme toggle preview.
-- All 1007 tests pass (`npm test`). Leftover-brown audit across all 15 routes shows 0 violations.
-- First command: `npm test` in `A:/Claude/mt-game-theme`.
+Owner-authorized integration of `design/morrowind-game-theme` (`d85a931`) into
+main: black windows, tan text, procedural SVG frames and the Home stats window.
+Keep theme IDs unchanged, overrides scoped in `app/theme-morrowind.css`, and
+both visual forms in the server-rendered DOM to avoid hydration branching.
+Modern UI keeps its layout; only the theme-toggle preview changes. Preserve the
+recent QA fixes, accessible character labels and semantic status colours. No
+exported schema, bundle, migration or game-asset change. Verification: site's
+LAUNCH_VERIFICATION §47; deployment remains separate. First command: `npm test`
+in the site checkout, then the documented Chrome matrix and QA-08/09 filters.
 
 ## Obtainable apparatus (QA-06) — 1 October
 
