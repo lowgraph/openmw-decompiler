@@ -1,5 +1,18 @@
 # Coordination
 
+## Character identity labels (QA-05) — 1 October
+
+Claimed 19:50 UTC on `launch/character-preservation`. Computed sheets retain
+raceName/signName, gender, class and class choices for normalization; catalog
+race/sign objects are facts, not the selected display labels (ARCE especially).
+Builder, Home and Simulator use `characterName`. New premades carry optional
+`premadeSource`; validate it against the known pool and retain it in build links,
+sanitizing and snapshots. An edited premade title reads "Based on …"; custom
+names and legacy names without that marker remain names. Keep first hydration
+fixed; random draws happen in effects. No exported dataset, migration or
+production change. First command: `npm test` in `A:/Claude/mt-calc-4-main-merge`,
+then Chrome `--suite qa --filter 'QA-05/'` as in BROWSER_TESTS. Verification: §34.
+
 ## Level Health preservation (QA-03/04) — 1 October
 
 Claimed 19:34 UTC on `launch/character-preservation`. OpenMW 0.51.0
