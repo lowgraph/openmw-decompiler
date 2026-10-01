@@ -1,41 +1,59 @@
 # Silt Strider Data Pipeline
 
-A reproducible ETL and analytical data pipeline that extracts, normalizes, validates, and packages structured game datasets from OpenMW and Morrowind for [Silt Strider Tools](https://siltstrider.tools/).
+Independent technical project · AI-assisted development
+
+`openmw-decompiler` is the ETL and analytical data-processing project behind
+[Silt Strider Tools](https://siltstrider.tools/). It extracts game and mod records,
+normalizes them into SQLite, applies validation and authored policies, and packages
+structured catalogs with explicit provenance for the web application.
+
+Despite the repository name, its role is game-data extraction and transformation,
+not decompilation of the OpenMW engine or reconstruction of its source code.
 
 - **Application Repository**: [`lowgraph/siltstrider.tools`](https://github.com/lowgraph/siltstrider.tools)
-- **Live Product**: [siltstrider.tools](https://siltstrider.tools/)
-- **Engineering Case Study**: [docs/stages/RULES.md](docs/stages/RULES.md) · [docs/stages/POLICY.md](docs/stages/POLICY.md) · [docs/stages/BUNDLE.md](docs/stages/BUNDLE.md)
+- **Live Application**: [siltstrider.tools](https://siltstrider.tools/)
+- **Technical References**: [docs/stages/RULES.md](docs/stages/RULES.md) · [docs/stages/POLICY.md](docs/stages/POLICY.md) · [docs/stages/BUNDLE.md](docs/stages/BUNDLE.md)
 
 ---
 
 ## 60-Second Overview
 
-This repository is the data-engineering and analytical modeling engine behind **Silt Strider Tools**.
+Game records are spread across binary plugins, ordered overrides and runtime
+metadata. The pipeline turns those inputs into consistent, profile-specific
+records that the application can query without reading game files or extraction
+databases.
 
-It ingests heterogeneous, 20-year-old binary game and plugin files (`.esm`, `.esp`) from Morrowind, OpenMW, Tamriel Rebuilt, Project Tamriel, and related community mods, transforming them into a normalized, profile-specific SQLite foundation.
+Inputs include Morrowind, Tribunal and Bloodmoon `.esm` files, official and mod
+`.esm` / `.esp` plugins, configured load orders, authored JSON policies, and
+OpenMW Lua runtime dumps. The configured mod profiles include Tamriel Rebuilt,
+Project Tamriel and ARCE. Local paths and approved plugins are defined in
+[export_config.json](export_config.json) and
+[foundation_config.json](foundation_config.json).
 
-The pipeline goes far beyond raw decompilation:
+The workflow:
 
 - **Extracts & Normalizes**: Resolves plugin load orders and override precedence across three profiles (`vanilla`, `tr`, `tr_arce`).
 - **Models Entity Relationships**: Builds relational graphs of cells, containers, placed references, merchant services, transport networks, and faction requirements.
 - **Derives Rules & Evidence**: Discovers bounded item-acquisition paths and joins engine-observed runtime mechanics (from OpenMW Lua dumps) with static record definitions.
 - **Evaluates Analytical Policies**: Applies independently versioned recommendation policies (e.g. early-game budget ceilings, danger thresholds, theft tolerances) to raw evidence without altering source observations.
-- **Guarantees Data Quality**: Implements executable release gates that halt publication on stale version labels, missing references, or snapshot mismatches.
+- **Checks Data Quality**: Implements executable release gates that halt publication on stale version labels, missing references, or snapshot mismatches.
 - **Publishes Content-Addressed Releases**: Emits immutable, SHA-256-verified JSON application bundles with profile inheritance and record deltas for direct browser consumption.
 
-The repository name reflects its origins, but the current project is best understood as a specialized data pipeline and domain modeling platform.
+Outputs include normalized SQLite databases for local analysis, typed JSON
+catalogs, acquisition evidence, policy-based equipment recommendations, and a
+versioned application bundle. Only the bundle is consumed by the site.
 
 ---
 
-## What This Project Demonstrates
+## Technical Work
 
-1. **Complex ETL & Binary Ingestion**: Parsing complex legacy binary record formats (`TES3` chunk-based streams) and OpenMW runtime state into clean, relational, normalized SQLite schemas.
+1. **ETL & Binary Ingestion**: Parsing legacy binary record formats (`TES3` chunk-based streams) and OpenMW runtime state into clean, relational, normalized SQLite schemas.
 2. **Strict Separation of Evidence from Policy**: Decoupling pure physical facts (coordinates, container ownership, lock levels, item stats) from analytical policy (spending limits, danger ratings, theft permissions). Modifying recommendation logic never mutates underlying game observations.
 3. **Uncertainty & Explicit Negative Handling**: Bounded and truncated graph traversals return explicit `unknown` status rather than falsely asserting negative evidence.
-4. **Defense-in-Depth Data Quality**: Replacing manual checklists with executable build guards—stale labels, unlisted plugins, stale engine dumps, or missing entity references immediately abort publication.
-5. **Contract-Driven Release Engineering**: Packaging content-addressed application bundles with SHA-256 manifests, byte counts, and delta encoding (`tr_arce` delta over `tr`), ensuring downstream consumers receive deterministic inputs.
-6. **Data Lineage & Semantic Correctness**: Tracking data transformations end-to-end to detect and resolve subtle semantic data corruptions (such as container `INTV` condition vs. value confusion) that pass syntactic validation.
-7. **Multi-Agent Systems Leadership**: Functioning as the dedicated data producer in a multi-agent workflow, coordinating with downstream consumer agents through versioned, independently validated contracts.
+4. **Data Quality Checks**: Supplementing operational checklists with executable build guards—stale labels, unlisted plugins, stale engine dumps, or missing entity references immediately abort publication.
+5. **Versioned Data Contracts**: Packaging content-addressed application bundles with SHA-256 manifests, byte counts, and delta encoding (`tr_arce` delta over `tr`), ensuring downstream consumers receive deterministic inputs.
+6. **Data Lineage & Semantic Correctness**: Tracking data transformations end-to-end to detect and resolve subtle semantic data corruptions (such as applying a container reference's `INTV` to its contents' condition) that pass syntactic validation.
+7. **Workflow Coordination**: Documenting the producer–consumer boundary, expected catalog schemas, validation rules and handoff commands used by AI coding tools across both repositories.
 
 ---
 
@@ -76,7 +94,11 @@ The data pipeline and web application repositories communicate through exactly o
 ## Core Design Principles
 
 ### Preserve Provenance
-Derived data remains strictly traceable to its extraction snapshot, game-data profile, source plugin, policy version, and OpenMW engine runtime dump.
+The foundation preserves original record bytes, plugin hashes, source-plugin
+references and load-order precedence. Derived outputs carry an extraction
+`snapshotId` and profile; policy-based results and engine rules also record their
+policy or runtime-dump basis. These identifiers support tracing a result back to
+its inputs without confusing authored recommendations with extracted observations.
 
 ### Separate Evidence from Judgment
 Raw extracted observations and authored analytical policies live in separate layers:
@@ -96,7 +118,12 @@ Failure to find evidence is not converted into evidence of absence. Bounded or t
 Known failure conditions stop publication immediately rather than remaining warnings that developers must remember to check manually.
 
 ### Content-Addressed Releases
-Generated catalogs and application bundles are cryptographically tied to the extraction snapshot from which they were derived. Artifacts from different snapshots cannot silently mix.
+Catalogs and bundles carry their extraction snapshot and schema versions.
+Builders reject mismatched snapshots, while manifests record file hashes and
+sizes for downstream integrity checks. Extraction snapshots derive from plugin
+fingerprints, profile definitions and extraction settings. Rebuilding unchanged
+inputs reproduces the data, but timestamped outputs can have different file hashes;
+this is not a promise of byte-identical rebuilds.
 
 ---
 
@@ -129,10 +156,10 @@ The full rebuild workflow executes in dependency order across the following majo
 - **Documentation**: [ACQUISITION_INDEX.md](docs/stages/ACQUISITION_INDEX.md) · [ITEM_SOURCES.md](docs/stages/ITEM_SOURCES.md)
 - Builds bounded reverse-index query structures to determine how any item can be acquired (direct placement, inventory, leveled list, merchant barter, or quest script).
 
-### 6. Services, Merchants, Places, Factions, and Travel
-- **Scripts**: [`build_services_catalog.py`](build_services_catalog.py) · [`build_merchant_catalog.py`](build_merchant_catalog.py) · [`build_places_catalog.py`](build_places_catalog.py) · [`build_faction_catalog.py`](build_faction_catalog.py) · [`build_travel_catalog.py`](build_travel_catalog.py) · [`build_intervention_catalog.py`](build_intervention_catalog.py) · [`build_access_catalog.py`](build_access_catalog.py) · [`build_teleport_catalog.py`](build_teleport_catalog.py)
-- **Documentation**: [SERVICES_CATALOG.md](docs/stages/SERVICES_CATALOG.md) · [MERCHANTS.md](docs/stages/MERCHANTS.md) · [PLACES.md](docs/stages/PLACES.md) · [FACTIONS.md](docs/stages/FACTIONS.md) · [TRAVEL.md](docs/stages/TRAVEL.md)
-- Derives high-level domain datasets for service providers, merchant barter calculations, named geographic places, faction rank progressions, and transportation networks.
+### 6. Services, Merchants, Places, Factions, Travel, and Ingredient Sources
+- **Scripts**: [`build_services_catalog.py`](build_services_catalog.py) · [`build_merchant_catalog.py`](build_merchant_catalog.py) · [`build_places_catalog.py`](build_places_catalog.py) · [`build_faction_catalog.py`](build_faction_catalog.py) · [`build_travel_catalog.py`](build_travel_catalog.py) · [`build_intervention_catalog.py`](build_intervention_catalog.py) · [`build_access_catalog.py`](build_access_catalog.py) · [`build_teleport_catalog.py`](build_teleport_catalog.py) · [`build_ingredient_sources.py`](build_ingredient_sources.py)
+- **Documentation**: [SERVICES_CATALOG.md](docs/stages/SERVICES_CATALOG.md) · [MERCHANTS.md](docs/stages/MERCHANTS.md) · [PLACES.md](docs/stages/PLACES.md) · [FACTIONS.md](docs/stages/FACTIONS.md) · [TRAVEL.md](docs/stages/TRAVEL.md) · [INGREDIENT_SOURCES.md](docs/stages/INGREDIENT_SOURCES.md)
+- Derives domain datasets for service providers, merchant barter calculations, named geographic places, faction rank progressions, transportation networks, and ingredient buying and gathering locations.
 
 ### 7. Engine-Derived Rules
 - **Scripts**: [`dump_profiles.py`](dump_profiles.py) · [`build_rules_library.py`](build_rules_library.py)
@@ -150,7 +177,7 @@ The full rebuild workflow executes in dependency order across the following majo
 
 A central priority of the pipeline is migrating known operational failure modes from human documentation into executable release guards.
 
-The pipeline explicitly refuses to build or publish when it encounters:
+Checks across extraction, bundle generation and downstream staging reject:
 
 - **Stale version labels** or mismatched engine dumps
 - **Unlisted plugin files** present in approved directories
@@ -161,7 +188,9 @@ The pipeline explicitly refuses to build or publish when it encounters:
 - **Inconsistent profile coverage** across sibling datasets
 - **Mismatched SHA-256 hashes** or payload sizes during bundle staging
 
-This shifts operational safety from *"remember to check the checklist"* to *"the pipeline cannot publish unless all invariants pass"*. See [REBUILD.md](REBUILD.md) for details.
+These checks catch known failure modes before a release is staged; they do not
+replace review of data semantics or new failure cases. See [REBUILD.md](REBUILD.md)
+for the guards and recovery commands.
 
 ---
 
@@ -171,7 +200,8 @@ A concrete example of why end-to-end data lineage matters occurred with the `INT
 
 In TES3 binary records, placed references include an optional integer field (`INTV`):
 - For **loose equipment references**, `INTV` represents the item's current condition (durability).
-- For **container references**, `INTV` represents the container's lock level or value—**not** the condition of items inside it.
+- For **container references**, a value on the container reference does not describe
+  the condition of its contents. Lock levels are read separately from `FLTV`.
 
 Treating both cases identically caused a severe semantic defect:
 
@@ -191,7 +221,7 @@ Effective item value recalculated to 0 gold
 Flawed early-game recommendation (high-end gear recommended as free / cheap)
 ```
 
-The fix separated the reference interpretation schemas and added automated regression tests covering both loose-item and container references. This illustrates a recurring engineering lesson: **syntactically valid data can still produce corrupted downstream domain results without end-to-end invariant validation.**
+Policy evaluation now uses condition only from the item's own reference, with automated regression tests covering both loose-item and container references. This illustrates a recurring data-validation problem: **syntactically valid data can still produce corrupted downstream domain results without end-to-end invariant validation.**
 
 ---
 
@@ -202,11 +232,21 @@ The fix separated the reference interpretation schemas and added automated regre
 - **Optimized for Web Delivery**: Retains only application-relevant catalogs and strips bulk payloads (e.g. raw book text).
 - **Cryptographic Verification**: The manifest records exact byte counts and SHA-256 checksums for every catalog file.
 - **Profile Inheritance & Delta Encoding**: The `tr_arce` profile inherits base catalogs from `tr` and ships only record-level deltas, minimizing payload size.
-- **Content-Derived Identity**: The bundle identifier is computed directly from catalog contents.
+- **Release Identity**: The bundle identifier incorporates the extraction snapshot,
+  schema versions, selected profiles and derived-catalog source filenames. Per-file
+  SHA-256 hashes verify the packaged bytes independently.
 
 See [BUNDLE.md](docs/stages/BUNDLE.md) for the manifest schema.
 
 ---
+
+## Technologies
+
+The workflow uses Python, SQLite and JSON, with Python's standard-library binary
+parsing and hashing utilities. `jsonschema` validates item schemas; TypeScript
+interfaces in `contracts/` document catalog shapes. OpenMW and Lua provide runtime
+metadata that plugin records do not expose. Node.js and npm are needed for the
+site's bundle-staging and consumer-test steps in a full rebuild.
 
 ## Testing
 
@@ -253,7 +293,8 @@ The rebuild runner:
 3. Halts immediately if any stage fails or detects an invariant violation;
 4. Logs detailed stage telemetry;
 5. Packages and validates the versioned application bundle;
-6. Previews bundle staging for the application repository.
+6. Stages the validated bundle in the application repository, checks its published
+   best-in-slot data against the site's builds, and runs the site's tests.
 
 Inspect available stages:
 
@@ -267,20 +308,29 @@ Resume execution from a specific stage after addressing an issue:
 python rebuild.py --from rules
 ```
 
+Inspect [export_config.json](export_config.json) and
+[foundation_config.json](foundation_config.json) for local game, engine, cache and
+profile paths before running a rebuild on another machine. Full extraction requires
+separately installed game/mod files and OpenMW; synthetic tests do not.
 See [REBUILD.md](REBUILD.md) before executing a full rebuild against real game files.
 
 ---
 
-## Human-Directed, AI-Assisted Development
+## Development Approach
 
-This repository is developed in a multi-agent workflow:
+This is independent project work developed with AI assistance. I define the data
+workflow, expected outputs, analytical policies, provenance requirements,
+validation rules, test cases and acceptance criteria. My work includes reviewing
+generated implementations, debugging and refining transformations, validating
+outputs, and documenting behavior and release checks.
 
-- **Human Lead**: System architecture, analytical policies, game research, acceptance criteria, and release decisions.
-- **Claude (Data Agent)**: Extraction, SQLite modeling, transformation algorithms, and data contracts.
-- **Codex (Site Agent)**: Consuming web application at [`lowgraph/siltstrider.tools`](https://github.com/lowgraph/siltstrider.tools).
-- **Antigravity (UI Lead)**: UI/UX transformation architecture and CRPG authenticity.
-
-The agents operate within strict repository boundaries: the pipeline agent never writes frontend JSX or CSS, and the application agent never writes extraction scripts or queries raw SQLite databases. Their point of integration is the versioned application bundle contract.
+AI coding tools, including Claude, Codex and Antigravity, assist with implementation
+and iteration. Extraction and transformation belong in this repository; interfaces
+and application data consumption belong in
+[`lowgraph/siltstrider.tools`](https://github.com/lowgraph/siltstrider.tools).
+The versioned JSON bundle is their data interface. Agent specialties and handoffs
+are documented in the coordination files, rather than enforced as exclusive
+editing roles.
 
 See:
 - [COORDINATION.md](COORDINATION.md)
@@ -312,7 +362,7 @@ openmw-decompiler/
 ├── build_catalogs.py             # Typed catalog generator
 ├── build_world_catalog.py        # World and spatial relationship builder
 ├── build_acquisition_index.py    # Item acquisition index builder
-├── build_services_catalog.py     # Merchant, travel, and faction builder
+├── build_services_catalog.py     # Actor services and transport relationships
 ├── dump_profiles.py              # OpenMW Lua runtime effect dumper
 ├── build_rules_library.py        # Engine mechanics derivation library
 ├── build_gear_rows.py            # Analytical gear recommendation builder
