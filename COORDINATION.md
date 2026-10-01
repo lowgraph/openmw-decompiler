@@ -1,5 +1,18 @@
 # Coordination
 
+## Level Health preservation (QA-03/04) — 1 October
+
+Claimed 19:34 UTC on `launch/character-preservation`. OpenMW 0.51.0
+`NpcStats::levelUp` keeps fractional Endurance gains; `updateHealth` sets the
+creation base in `MechanicsManager::buildPlayer`, not on later level-ups.
+Keep existing Health and attributes when normalizing a sheet or normalized
+state with catalogs. Bitter Cup applies once and never recalculates creation
+Health; changed Endurance affects future gains. The chart uses that same state;
+Endurance 30 with +5 per level reaches 100 at level 15. Keep the marker label
+inside the phone chart. No dataset, extraction, migration or production change.
+First command: `npm test` in `A:/Claude/mt-calc-4-main-merge`, then Chrome
+`--suite qa --filter '/level-health/'` as in BROWSER_TESTS. Verification: §33.
+
 ## Enchanting running costs (QA-01/02) — 1 October
 
 Claimed 19:11 UTC on `launch/character-preservation`. Follow OpenMW 0.51.0
