@@ -1,6 +1,6 @@
 # Coordination
 
-## Character world preservation (QA-21/23) — 1 October
+## Character world preservation (QA-21/22/23) — 1 October
 
 `launch/character-preservation` was taken over at 18:14 UTC and includes main's
 QA-24 sign-out fix. Vault modal/workstation loads use `loadBuild`, await the
@@ -12,9 +12,16 @@ preference. Read version 1 as unchosen without writing it; preserve other settin
 Keep shared-link/current-edit priority, guest/account isolation and fixed first
 hydration render. Existing version 1 preferences need an explicit choice again;
 old code rejects version 2 documents, so account rollback needs a compatible reader.
+QA-22 sharing fetches the full stored save, resolves its own profile catalogs and
+refuses unresolved or invalid class choices; it never applies the save or borrows
+the active character. Build links carry creation choices, not saved progression.
+Challenge links use the run's profile (legacy seeds supply it); seedless links
+capture their opening world before cleaning the URL. Preserve run profile in
+storage and sanitizing. No header-world substitution when copying an existing run.
 No bundle, extraction, D1 migration or deployment. First command: `npm test` in
 `A:/Claude/mt-calc-4-main-merge`, then `--character-preservation` and
-`--signout-preservation` in `docs/BROWSER_TESTS.md`. Verification: §30.
+`--signout-preservation` in `docs/BROWSER_TESTS.md`, then QA-22's Vault and ordinary
+Chrome cases. Verification: LAUNCH_VERIFICATION §§30–31.
 
 ## Character through sign-out (QA-24) — 1 October
 
