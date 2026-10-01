@@ -1,5 +1,23 @@
 # Coordination
 
+## Ingredient sources (CALC-4 data) — 30 September
+
+New pipeline catalog `IngredientSources` (`build_ingredient_sources.py`; contract
+`contracts/ingredient-source-types.ts`; docs/stages/INGREDIENT_SOURCES.md). Per profile,
+one record per ingredient key: `shops` (merchant key and name, the cell where they trade,
+stock per visit, `restocks`, `near` starting town), `plants` (organic containers that grow
+back: chance per harvest for a level 1 character, quantity, counts by region, starting
+town and interior), `creatures` (chance per kill, placed and spawn points, where) and
+`finds` (loose, or deposits and crates, grouped by holder). Absent fields are left out; an
+ingredient with no source is `{key, name}`. Every cell named is a Places key, checked by
+the bundler. Theft, anything only an NPC carries, random loot and holding cells are never
+sources. Chances follow OpenMW 0.51.0's `getLevelledItem`, pinned like the barter formula.
+This fills CALC-4's "no ingredient stock" gap: list sources from it rather than inferring
+sellers from service flags. Not in the published bundle until the owner runs the build;
+the bundler includes it once all three profiles exist.
+First command: `python build_ingredient_sources.py; python build_app_bundle.py` in the
+pipeline repository, then stage the bundle (REBUILD.md, "Publish").
+
 ## Reverse alchemy (CALC-4) — 30 September
 
 `launch/calc-4-reverse-alchemy` starts from main `f5b1f56`. Choose up to four

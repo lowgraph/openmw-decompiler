@@ -10,7 +10,7 @@ Rebuild when one of these changes:
 |---|---|
 | The site's premade builds, `lib/premade-data.mjs` | Run [the check](#the-sites-builds); it says what |
 | `policy/late-game.json` | `build_best_in_slot_catalog.py`, then [publish](#publish) |
-| `policy/early-game.json` | `build_gear_rows.py` and `build_best_in_slot_catalog.py`, then publish |
+| `policy/early-game.json` | `build_gear_rows.py`, `build_best_in_slot_catalog.py` and `build_ingredient_sources.py`, then publish |
 | `policy/travel.json` | `build_travel_catalog.py`, then publish |
 | `policy/journal-titles.json` | `build_quest_catalog.py`, then publish |
 | `policy/teleports.json` | `build_teleport_catalog.py`, then publish |
@@ -106,6 +106,7 @@ python build_access_catalog.py
 python build_teleport_catalog.py
 python build_faction_catalog.py
 python build_best_in_slot_catalog.py
+python build_ingredient_sources.py
 python build_app_bundle.py
 node A:\Claude\morrowind-tools\scripts\stage-game-data.mjs
 ```
@@ -156,7 +157,7 @@ step or later ones, so the earlier output is still good.
 | `These plugins changed since the last extraction` | effect dump | The game would load other files than were extracted | Run `extract_foundation.py` first |
 | `OpenMW reports ..., but the extraction is labelled` | effect dump | OpenMW was updated after extracting | Update `versions.vanilla`, then extract again |
 | `effect dump was taken against` or `No effect dump for` | rules | The dump is stale or was skipped | Run `dump_profiles.py`, then the rules |
-| `transcribed from OpenMW` | merchants, travel, intervention | A new engine release | See [below](#after-an-openmw-update) |
+| `transcribed from OpenMW` | merchants, travel, intervention, ingredient sources | A new engine release | See [below](#after-an-openmw-update) |
 | `A partial run (--limit or --category)` | gear rows | A smoke run aimed at the real rows | Pass `--output` with a scratch folder |
 | `constant effect(s) appear on candidates but the late-game policy does not cover them` | best-in-slot | A new item carries an effect with no tier | Add it to `effects` or `drawbacks` in `policy/late-game.json` |
 | `effect(s) in policy/late-game.json appear on no candidate` | best-in-slot | The last item carrying it is gone | Remove it, or check its spelling |
@@ -174,11 +175,11 @@ step or later ones, so the earlier output is still good.
 Update `openmwExecutable` and `versions.vanilla` in `export_config.json` and do the
 full rebuild. Extraction checks the label against the new binary.
 
-Four pieces of the pipeline are transcribed from OpenMW's source rather than read from
+Five pieces of the pipeline are transcribed from OpenMW's source rather than read from
 data, and no rebuild can update them. They were checked line by line against tag
 `openmw-0.51.0` (commit `f4bec41444`), including `npc.cpp`'s own `round_ieee_754`,
 which rounds ties to even as Python does. `build_merchant_catalog.py`,
-`build_travel_catalog.py` and `build_intervention_catalog.py` stop while the extraction
+`build_travel_catalog.py`, `build_intervention_catalog.py` and `build_ingredient_sources.py` stop while the extraction
 names any other release, and say what to compare:
 
 | Transcribed in | From |
@@ -187,10 +188,11 @@ names any other release, and say what to compare:
 | `autocalc.py` | `autoCalculateAttributes` and `autoCalculateSkills`, `apps/openmw/mwclass/npc.cpp` |
 | `TRAVEL_FORMULA` in `build_travel_catalog.py` | `TravelWindow::addDestination` and `onTravelButtonClick`, `apps/openmw/mwgui/travelwindow.cpp` |
 | `RULE` in `build_intervention_catalog.py` | `World::getClosestMarker` and `getClosestMarkerFromExteriorPosition`, `apps/openmw/mwworld/worldimp.cpp` |
+| `draw_chance` and `ALL_LEVELS` in `build_ingredient_sources.py` | `getLevelledItem`, `apps/openmw/mwmechanics/levelledlist.cpp`; the list flags, `components/esm3/loadlevlist.hpp` |
 
 If the functions are unchanged in the new release, set `TRANSCRIBED_FROM` in
-`build_merchant_catalog.py`, `build_travel_catalog.py` and
-`build_intervention_catalog.py` to it; if not, transcribe
+`build_merchant_catalog.py`, `build_travel_catalog.py`,
+`build_intervention_catalog.py` and `build_ingredient_sources.py` to it; if not, transcribe
 them again. The travel build checks both pins, since it prices with the barter formula
 and autocalc too. `effect_names.py` is
 not on this list: it maps Morrowind's fixed effect-name settings, a property of the file

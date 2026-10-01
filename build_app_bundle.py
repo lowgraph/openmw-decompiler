@@ -52,7 +52,9 @@ EXTRA_CATALOGS = {
                  'carry': ('derivation', 'coverage')},
     'BestInSlot': {'directory': 'best-in-slot', 'array': 'records',
                    'carry': ('builds', 'toggles', 'model', 'items', 'derivation',
-                             'policyVersion', 'coverage')}}
+                             'policyVersion', 'coverage')},
+    'IngredientSources': {'directory': 'ingredient-sources', 'array': 'records',
+                          'carry': ('policyVersion', 'derivation', 'coverage')}}
 
 
 def identity(record):
@@ -102,6 +104,13 @@ CELL_REFERENCES = {
                                  for record in payload['rows']
                                  for side in ('primary', 'alternative', 'beastPrimary')
                                  if record.get(side) and record[side].get('cellKey')},
+    # A shop names where its merchant trades; plants, creatures and finds name the
+    # interiors holding most of them (exteriors are counted by region instead).
+    'IngredientSources': lambda payload: (
+        {shop['cellKey'] for record in payload['records'] for shop in record.get('shops') or ()}
+        | {cell for record in payload['records']
+           for kind in ('plants', 'creatures', 'finds') for source in record.get(kind) or ()
+           for cell, _ in source.get('cells') or ()}),
 }
 
 

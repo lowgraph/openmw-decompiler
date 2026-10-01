@@ -48,6 +48,7 @@ PIPELINE = [
     ('teleports', 'build_teleport_catalog.py'),
     ('factions', 'build_faction_catalog.py'),
     ('best-in-slot', 'build_best_in_slot_catalog.py'),
+    ('ingredient-sources', 'build_ingredient_sources.py'),
     ('bundle', 'build_app_bundle.py'),
 ]
 
