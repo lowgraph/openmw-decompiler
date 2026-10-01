@@ -16,11 +16,12 @@ and staged locally as bundle `a29adea046e6086c2c7ee654`. Only IngredientSources
 changed; the extraction snapshot and every other catalog are unchanged. Records
 cover 126 vanilla and 921 TR ingredients; TR + ARCE inherits TR. Test/holding
 cells and rare random creature loot are absent. The old immutable bundle remains.
-With owner approval on 1 October, `launch/calc-4-where-to-get` at `be29f68` joins
-Travel on its original parent, `launch/calc-4-reverse-alchemy` at `e0704b9`.
+With owner approval on 1 October, `launch/calc-4-reverse-alchemy` at `c2bf5d8`
+joins main `55fd07e`: the effect finder, ingredient sources and Travel city
+transfers/swimming fallback are together. Main's Cloud Vault fixes are retained.
 Each filled Alchemy slot has a "Where to get it" button, plus the pair shortcut.
-Load the `ingredientSources` feature
-only when opened: Places required, IngredientSources optional for older bundles.
+Load `ingredientSources` only when opened: Places required, IngredientSources
+optional for older bundles.
 Keep loading neutral, error Retry available, and unavailable/unknown sources
 explicit. Replacing/clearing ingredients and changing worlds discard old panels.
 Keep stock/restocking, locations, locked finds and level qualifiers; never combine
@@ -28,11 +29,12 @@ variants with different chances, quantities or levels. Catalog data stays frozen
 `components/calculators/alchemy/ingredient-sources.jsx` shares source content with
 the finder; synthetic tests cover lazy loading, provenance/inheritance, malformed
 records, draw distinctions, old bundles, retry and selected-ingredient lifecycle.
-First command: `npm test` in `A:/Claude/mt-account-main-merge`, then the Travel
-and Alchemy Chrome cases in `docs/BROWSER_TESTS.md`. The combined preview is on
-127.0.0.1:8792 with corrected bundle `a29adea046e6086c2c7ee654`;
+First command: `npm test` in `A:/Claude/mt-calc-4-main-merge`, then the full Chrome
+and local Vault suites in `docs/BROWSER_TESTS.md`. Main's preview is on
+127.0.0.1:8794 with corrected local bundle `a29adea046e6086c2c7ee654`;
 reload existing tabs because the loader pins a release for each page lifetime.
-No main merge, push, deployment, migration or new extraction ran in this work.
+CALC-4 is complete on main. Deployment remains a separate owner request;
+production still serves `216cd90` / `d523b9ba`. No migration or new extraction.
 
 ## Travel city transfers — 30 September
 
@@ -64,8 +66,9 @@ and ingredient-source lookup are both included; preserve their lazy loading.
 The owner retired the two-failure/boost rule in both AGENTS.md files.
 First command: `npm test` in `A:/Claude/mt-account-main-merge`, then the Travel
 Chrome cases in `docs/BROWSER_TESTS.md`. Keep the dev server on 127.0.0.1:8792
-running for the owner on the parent branch. No main merge, push, deployment or
-data rebuild is authorized by this integration.
+running for the owner on the parent branch. The owner also authorized merging
+the combined branch to main and pushing it. Deployment and data rebuild remain
+separate requests.
 
 ## Reverse alchemy (CALC-4) — 30 September
 
@@ -78,8 +81,8 @@ Keep the existing calculator, obtainable apparatus, typed stats and world-reset
 behavior. No exported schema/bundle, extraction, API or migration changes.
 Published Merchants has no ingredient stock; the integrated source lookup
 consumes IngredientSources, as described above. Do not infer sellers from service
-flags or rebuild real data. The branch is separate from main and the live release.
-First command: `npm test` on this branch in `A:/Claude/mt-account-main-merge`;
+flags or rebuild real data. This implementation is on main and awaits deployment.
+First command: `npm test` in `A:/Claude/mt-calc-4-main-merge`;
 then the `Alchemy effect finder` cases in `docs/BROWSER_TESTS.md`.
 
 ## Account settings and tool polish live — 30 September
