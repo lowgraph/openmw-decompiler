@@ -126,12 +126,17 @@ First verification command: `npm test` in the site repository.
 TRV-2, TRV-4/5, TRV-6, TRV-7 and TRV-8 are merged to main (`e3ab542`).
 Main `2c113b8` was deployed at 20:32 UTC, rolled back at 20:47 after two mobile
 saved-choice failures, then restored unchanged at 21:30 with the owner's explicit
-authorization to reproduce on live. Worker `3ef09493-cb5a-42e2-96fd-ca54c168d3e2`
-is at 100%; rollback `24bd4ac1-e287-4c14-88d8-80bee20b42f9` remains available.
-The live rerun passed, but the root cause is unconfirmed. Diagnostic branch
-`launch/trv-mobile-verification` checks edits and storage before navigation;
-application persistence is unchanged. Evidence: `docs/LAUNCH_VERIFICATION.md`
-§§9–10. Bundle `3da03202` and D1 are unchanged.
+authorization to reproduce on live. Those releases are history: current main
+`216cd90` is live as `d523b9ba` (§16). The failed 375 px version `3ef09493` and
+last fully accepted pre-Travel version `24bd4ac1` both support additive migration
+0007; leave the rollback choice for the freeze. The live rerun passed, but the
+root cause is unconfirmed. Diagnostics from `19bdd92` are merged to main: check
+each edited control and all four stored choices before navigating, then check
+restoration and profile isolation. Application persistence is unchanged.
+Evidence: `docs/LAUNCH_VERIFICATION.md` §§9–10. Bundle `3da03202` is unchanged.
+This documentation/test-runner merge passed 887 site tests and the saved-Travel
+case twice each at 1366/375 px on the dev server; current evidence is in §17.
+No application code or deployment is part of the housekeeping merge.
 No bundle schema,
 loader, extraction or save-format changes. Invariants other agents must keep:
 
