@@ -35,7 +35,7 @@ lists, becomes at most one kind of source:
 |---|---|
 | shops | A merchant whose services include Ingredients (`sells()`, as gear uses), with it in their own inventory, or in a container they own where they trade (`trade_spot`). Levelled shop stock counts only if it restocks, as for gear. |
 | plants | An **organic container that grows back**. Ore deposits and food barrels are organic too and never refill, so they are not plants. |
-| creatures | A creature carrying it, placed directly or as a levelled spawn point. |
+| creatures | A creature carrying it directly, or by a list that gives nothing else or gives it at least 1 kill in 5, placed directly or as a levelled spawn point. Below that it is random loot: real drops run 23 to 60% (Spriggans' Heartwood 48%), random loot 1 to 6%. |
 | finds | Lying loose, or in an unowned container that is not a plant, put there directly or by a list that can give nothing else (a deposit, a kwama egg sack). Grouped by what holds it. |
 
 Left out, and counted in `derivation.leftOut`: anything owned by someone else (theft,

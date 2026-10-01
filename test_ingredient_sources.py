@@ -141,11 +141,25 @@ class EndToEndTests(unittest.TestCase):
                                       ('NPDT', struct.pack('<24i', 0, 2, *range(22))),
                                       ('NPCO', struct.pack('<i', 1) + b'ingred_test'.ljust(32, b'\0'))])
         extra += leveled('LEVC', 'test spawn', 'test crab', level=1, none=0)
+        # Creature loot: a long list gives the root 1 kill in 6, random loot; a short one gives
+        # it 1 in 2, a drop to count on (CREATURE_MIN_CHANCE is 1 in 5).
+        def loot(ident, entries):
+            fields = [('NAME', ident.encode()), ('DATA', struct.pack('<I', 0)), ('NNAM', bytes([0])),
+                      ('INDX', struct.pack('<I', len(entries)))]
+            for entry in entries:
+                fields += [('INAM', entry.encode()), ('INTV', struct.pack('<h', 1))]
+            return pack_record('LEVI', fields)
+        extra += loot('random_many', ['ingred_test'] + ['gem'] * 5) + loot('random_pair', ['ingred_test', 'gem'])
+        for ident, name, held in (('test ghoul', 'Test Ghoul', 'random_many'), ('test spriggan', 'Test Spriggan', 'random_pair')):
+            extra += pack_record('CREA', [('NAME', ident.encode()), ('FNAM', name.encode()),
+                                          ('NPDT', struct.pack('<24i', 0, 3, *range(22))),
+                                          ('NPCO', struct.pack('<i', 1) + held.encode().ljust(32, b'\0'))])
         town = [('RGNN', b'test region')]
         extra += cell('Testtown', town + reference(10, 'flora_test') + reference(11, 'flora_test'), exterior=(10, 10))
         extra += cell('', town + reference(12, 'flora_test'), exterior=(11, 10))
         extra += cell('', [('RGNN', b'far region')] + reference(13, 'flora_test') + reference(14, 'test spawn')
-                      + reference(15, 'rock_test') + reference(16, 'barrel_test'), exterior=(30, 30))
+                      + reference(15, 'rock_test') + reference(16, 'barrel_test')
+                      + reference(17, 'test ghoul') + reference(18, 'test spriggan'), exterior=(30, 30))
         extra += cell('Testtown, Shop', reference(20, 'test merchant')
                       + reference(21, 'crate_test', ('ANAM', b'test merchant')))
         extra += cell('Testtown, House', reference(22, 'test farmer') + reference(23, 'ingred_test', ('ANAM', b'test farmer')))
@@ -196,9 +210,11 @@ class EndToEndTests(unittest.TestCase):
                          ('Test Plant', 0.8, 1, True, 4))
         self.assertEqual(plant['near'], [['Testtown', 3]], 'two in town and one next to it')
         self.assertEqual(dict(map(tuple, plant['regions'])), {'test region': 3, 'far region': 1})
-        [crab] = root['creatures']
-        self.assertEqual((crab['creature'], crab['level'], crab['chance'], crab['placed'], crab['spawnPoints']),
-                         ('test crab', 2, 1.0, 0, 1))
+        creatures = {c['creature']: c for c in root['creatures']}
+        self.assertEqual(set(creatures), {'test crab', 'test spriggan'}, 'not the ghoul and its random loot')
+        crab = creatures['test crab']
+        self.assertEqual((crab['level'], crab['chance'], crab['placed'], crab['spawnPoints']), (2, 1.0, 0, 1))
+        self.assertEqual((creatures['test spriggan']['chance'], creatures['test spriggan']['placed']), (0.5, 1))
         finds = {f.get('name', 'loose'): f for f in root['finds']}
         self.assertEqual(set(finds), {'Test Deposit', 'loose', 'Crate'})
         self.assertEqual((finds['Test Deposit']['chance'], finds['Test Deposit']['quantity']), (0.8, 4))
@@ -209,7 +225,7 @@ class EndToEndTests(unittest.TestCase):
         records, skipped = self.run_build()
         self.assertEqual(skipped['theft'], 1, "the farmer's own root on his table")
         self.assertEqual(skipped['carried'], 1, 'the farmer carries one')
-        self.assertEqual(skipped['random'], 2, 'the mixed barrel, once for each ingredient it holds')
+        self.assertEqual(skipped['random'], 3, 'the mixed barrel for each root, and the ghoul')
         self.assertEqual(skipped['unreachableCell'], 1, 'the merchant kept in a holding cell')
         other = records['ingred_other']
         self.assertEqual(other, {'key': 'ingred_other', 'name': 'Other Root'}, 'only random loot: no source at all')
@@ -220,7 +236,7 @@ class EndToEndTests(unittest.TestCase):
         d = payload['derivation']
         self.assertEqual((d['ingredients'], d['withShop'], d['withPlant'], d['withCreature'],
                           d['withFind'], d['withoutSource']), (2, 1, 1, 1, 1, 1))
-        self.assertEqual(d['leftOut'], {'carried': 1, 'random': 2, 'theft': 1, 'unreachableCell': 1})
+        self.assertEqual(d['leftOut'], {'carried': 1, 'random': 3, 'theft': 1, 'unreachableCell': 1})
         self.assertEqual(payload['snapshotId'], 'snap')
         self.assertTrue(all(isinstance(r['key'], str) and r['key'] for r in payload['records']), 'the bundle joins on key')
 

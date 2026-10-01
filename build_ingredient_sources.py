@@ -12,8 +12,8 @@ at most one kind of source:
   chance per harvest from their levelled list; counted by region, around the starting
   towns, and in the interiors that hold most (cave mushrooms). Ore deposits and food
   barrels are organic too, but never refill.
-- **creatures**: creatures that carry it, with the chance per kill, placed directly or as
-  a levelled spawn point, and where.
+- **creatures**: creatures that carry it, directly or by a list that gives nothing else or
+  gives it at least 1 kill in 5 (CREATURE_MIN_CHANCE), with the chance per kill, placed directly or as a levelled spawn point, and where.
 - **finds**: the ingredient lying loose, or in an unowned container that is not a plant,
   put there directly or by a list that can give nothing else (an ore deposit, a kwama egg
   sack); grouped by what holds it, one-offs unless the container refills.
@@ -58,6 +58,10 @@ ALL_LEVELS = {'LEVI': 0x02, 'LEVC': 0x01}
 REFERENCE_LEVEL = 1
 # How many of each a record keeps, nearest first; counts always cover all of them.
 TOP = {'shops': 16, 'creatures': 12, 'regions': 8, 'cells': 6}
+# A creature's loot list counts when it gives nothing else, or this at least 1 kill in 5.
+# The real lists split cleanly: drops at 23 to 60% (Spriggans' Heartwood 48%, Kwama eggs 23
+# and 47%) against random loot at 1 to 6% (bandits' 370-item list, Cyrodiil's 92).
+CREATURE_MIN_CHANCE = 0.2
 # Membership steps walked up from an ingredient; deeper graphs are reported as truncated.
 MAX_DEPTH = 24
 # The record types whose definitions and placements this reads (fingerprint).
@@ -297,8 +301,10 @@ def classify(static, world, services, profile, policy, places, draws, actors, ca
 
     def add_creature(node, cell_key, spawn):
         direct, _, listed = yield_of(node)
-        draw = best_draw(direct, listed)
+        # A long list of many things is random loot, not a drop to count on.
+        draw = best_draw(direct, [d for d in listed if d.only or d.chance >= CREATURE_MIN_CHANCE])
         if draw is None:
+            skipped['random'] += 1
             return
         actor = actors(node['key'])
         entry = creatures.get(node['key'])
@@ -579,10 +585,12 @@ def build(world, acquisition, services, profile, policy, limit=None, only=None):
 
 
 def fingerprint(world, acquisition, services, profile, policy):
-    """Everything this builder reads about one profile, hashed with its version and the
+    """Everything this builder reads about one profile, hashed with its code and the
     policy. Profiles with one fingerprint get the same records, so they are built once:
     TR + ARCE differs from TR only in body parts, which nothing here reads."""
     digest = hashlib.sha256(json.dumps([VERSION, TRANSCRIBED_FROM, policy], sort_keys=True).encode())
+    # This file too: changed code never reuses what older code built.
+    digest.update(Path(__file__).read_bytes())
     types = ', '.join(f"'{kind}'" for kind in READ_TYPES)
     for db, sql in (
             (world, 'SELECT record_type, object_key, version_id FROM profile_objects WHERE profile_id=? '
@@ -635,8 +643,8 @@ def assemble(records, skipped, profile, snapshot, policy, inputs=None, reused_fr
                     'they own where they trade; levelled shop stock counts only if it restocks. '
                     'Plants are organic containers that grow back, with the chance per harvest for '
                     'a level 1 character (fromLevel when a list starts later). Creatures carry it, '
-                    'placed or as levelled spawn points, whose own draw depends on level and is not '
-                    'computed. Finds are loose, or in an unowned container that is not a plant, put '
+                    'directly or by a list that gives nothing else or gives it at least 1 kill in 5, '
+                    'placed or as levelled spawn points, whose own draw depends on level and is not computed. Finds are loose, or in an unowned container that is not a plant, put '
                     'there directly or by a list that gives nothing else (deposits). Left out: '
                     'anything owned by someone else (theft), anything only an '
                     'NPC carries, random loot, holding and test cells, scripts and quest rewards. '

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "policyVersion": "2026.09.27.2",
+  "policyVersion": "2026.10.01.1",
   "name": "Silt Strider default acquisition policy",
   "notes": [
     "Authored rules, versioned independently of any extraction snapshot.",
@@ -252,7 +252,13 @@
       "interior:t_test_hf",
       "interior:t_test_hr",
       "interior:t_test_pc",
-      "interior:t_test_pi"
+      "interior:t_test_pi",
+      "interior:t_test_shotn",
+      "interior:t_test_skyskiff",
+      "interior:t_test_tr",
+      "interior:t_test_tr_indoril",
+      "interior:t_test_tr_indoril_chapel",
+      "interior:t_test_wolli"
     ]
   }
 }
