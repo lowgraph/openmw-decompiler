@@ -1,5 +1,21 @@
 # Coordination
 
+## Enchanting running costs (QA-01/02) — 1 October
+
+Claimed 19:11 UTC on `launch/character-preservation`. Follow OpenMW 0.51.0
+`Enchanting::getEffectCosts/getEnchantPoints/getEnchantChance/getEnchantPrice`.
+Retain each cumulative float cost: clamp to 1 before Target ×1.5; Constant uses
+the profile's duration multiplier. Capacity adds each cost's floor, chance adds
+the precise costs, and base price truncates only the final cost × value multiplier.
+Chance uses Enchant + 0.2 Intelligence + 0.1 Luck, the profile's chance penalty,
+full fatigue for this UI and the Constant chance multiplier; truncate, then clamp
+to 0–100. Never feed capacity points into chance or price. Consume the staged
+GameSettings; no bundle, extraction, migration or production change. Two 5/5
+Constant effects need 75 capacity points and 50,050 base gold; the 5/5, 5-second
+Target example needs 1 capacity point and 1,912 base gold (70% at 50/40/40 stats).
+First command: `npm test` in `A:/Claude/mt-calc-4-main-merge`, then Chrome
+`--suite qa --filter '/enchanting/'` as in BROWSER_TESTS. Verification: §32.
+
 ## Character world preservation (QA-21/22/23) — 1 October
 
 `launch/character-preservation` was taken over at 18:14 UTC and includes main's
