@@ -13,7 +13,8 @@ and `build_app_bundle.py` publishes it as the `IngredientSources` catalog once a
 profiles exist. See `ingredient-source-types.ts` for the app contract.
 
 ```
-vanilla    126 ingredients   shop 75   plant 44   creature 41   find 95   none 9   31 KB gzipped, 21 s
+vanilla    126 ingredients   shop 75   plant 44   creature 41   find 95   none 9   31 KB gzipped, 2 s
+tr         first 100 of 921 in 8 s; tr_arce reuses tr (see below)
 ```
 
 The nine without a source are quest and unique items, such as the Innocent Heart, the
@@ -42,6 +43,24 @@ owner's decision of 30 September), anything only an NPC carries (pickpocket or k
 random loot (a container's list of several things), and holding and test cells from
 `policy/early-game.json`. Scripts and quest rewards are not sources; nothing judges
 danger or price.
+
+## Read once, built once
+
+The gear rows ask the acquisition index about one item at a time (`query_item`), which
+is right for a few hundred pieces of gear and slow for a thousand ingredients that share
+the same barrels and NPCs: Bread alone made 8,400 queries and took 22 s in TR. `Evidence`
+reads a profile's memberships once (TR: 164,000) and its placements in one pass (TR: 2.2
+million), walks each ingredient's graph in memory the way `query_item` does, and hands
+`classify` the same shape; a test checks the two agree on a synthetic world. Rankings
+break ties by key, so the output does not depend on the order rows arrive in.
+
+Each profile's inputs -- the definitions and placements it reads, its cells, its
+acquisition edges, its merchants, the policy and this builder's version -- are hashed into
+`derivation.inputsFingerprint`. A profile with the same fingerprint as one built in the
+same run, or as another profile's newest published file, reuses its records and says
+`reusedFrom`. TR + ARCE differs from TR only in 17 body parts, which nothing here reads,
+so a full run builds TR once. A partial run (`--limit`) gets no fingerprint and must go
+to a scratch `--output`: the bundler takes the newest file.
 
 ## Chances are the engine's
 

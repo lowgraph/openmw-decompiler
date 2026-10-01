@@ -107,6 +107,11 @@ export type IngredientSourceCatalog = {
     truncated: number;
     referenceLevel: number;
     transcribedFrom: string;
+    /** Hash of everything this profile's build read; equal hashes, equal records. Absent
+     *  on a partial run. */
+    inputsFingerprint?: string;
+    /** The profile whose records were reused because the fingerprints matched. */
+    reusedFrom?: Profile["id"];
     /** Placements not counted, by reason: theft, carried, random, unreachableCell. */
     leftOut: Record<string, number>;
   };

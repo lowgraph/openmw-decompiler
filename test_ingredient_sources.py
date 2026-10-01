@@ -1,15 +1,17 @@
 import contextlib
 import copy
 import io
+import json
 from pathlib import Path
 import sqlite3
 import struct
 import tempfile
 import unittest
 
-from build_acquisition_index import build as index_build
-from build_ingredient_sources import (ALL_LEVELS, Places, assemble, build, check_transcription,
-                                      draw_chance, first_chance, outcomes)
+from build_acquisition_index import build as index_build, metadata
+from build_ingredient_sources import (ALL_LEVELS, Evidence, Places, Spread, assemble, build, check_transcription,
+                                      draw_chance, first_chance, fingerprint, main, outcomes)
+from inspect_acquisition_index import query_item
 from export_items import ExportError
 from build_world_catalog import build as world_build
 from evaluate_policy import load_policy
@@ -87,6 +89,17 @@ class PlacesTests(unittest.TestCase):
         self.assertIsNone(p.region('interior:balmora, guild of mages'))
         self.assertIsNone(p.near('interior:not a cell we know'))
 
+    def test_ties_are_broken_by_key_whatever_the_order_placements_arrive_in(self):
+        from collections import Counter
+        spreads = []
+        for order in (['b', 'a', 'c', 'd'], ['d', 'c', 'a', 'b']):
+            spread = Spread()
+            spread.regions = Counter({key: 1 for key in order})
+            spread.cells = Counter({f'interior:{key}': 2 for key in order})
+            spread.count = 8
+            spreads.append(spread.publish())
+        self.assertEqual(spreads[0], spreads[1])
+        self.assertEqual(spreads[0]['regions'][:2], [['a', 1], ['b', 1]])
 
 AIDT_INGREDIENTS = struct.pack('<Bx3B3xI', 30, 0, 20, 0, 0x10)
 
@@ -148,6 +161,8 @@ class EndToEndTests(unittest.TestCase):
             db.execute("INSERT INTO providers VALUES (2,'test farmer','NPC_','Test Farmer','mod.esp',NULL,0,0,'{}')")
             db.execute("INSERT INTO profiles VALUES ('tr','tamriel_rebuilt','test',0)")
             db.executemany("INSERT INTO profile_providers VALUES ('tr',?,?,'mod.esp')", [('test merchant', 1), ('test farmer', 2)])
+            with contextlib.closing(sqlite3.connect(index)) as a:
+                db.execute('INSERT INTO metadata VALUES (?,?)', ('snapshotId', json.dumps(metadata(a)['snapshotId'])))
             db.commit()
         return world, index, services
 
@@ -162,7 +177,7 @@ class EndToEndTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             world, index, services = self.fixture(Path(directory.name))
         with contextlib.closing(sqlite3.connect(world)) as w, contextlib.closing(sqlite3.connect(index)) as a, \
-                contextlib.closing(sqlite3.connect(services)) as s:
+                contextlib.closing(sqlite3.connect(services)) as s, contextlib.redirect_stdout(io.StringIO()):
             records, skipped = build(w, a, s, 'tr', self.policy())
         return {r['key']: r for r in records}, skipped
 
@@ -208,6 +223,104 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(d['leftOut'], {'carried': 1, 'random': 2, 'theft': 1, 'unreachableCell': 1})
         self.assertEqual(payload['snapshotId'], 'snap')
         self.assertTrue(all(isinstance(r['key'], str) and r['key'] for r in payload['records']), 'the bundle joins on key')
+
+def copy_profile(paths, source, target):
+    """Give `target` exactly `source`'s rows in every database: TR + ARCE as the extraction sees it."""
+    for path in paths:
+        with contextlib.closing(sqlite3.connect(path)) as db:
+            for (table,) in db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall():
+                columns = [c[1] for c in db.execute(f'PRAGMA table_info({table})')]
+                key = 'profile_id' if 'profile_id' in columns else 'id' if table == 'profiles' else None
+                if key is None:
+                    continue
+                chosen = ', '.join('?' if c == key else c for c in columns)
+                db.execute(f'INSERT INTO {table} SELECT {chosen} FROM {table} WHERE {key}=?', (target, source))
+            db.commit()
+
+
+class FastPathTests(unittest.TestCase):
+    """The one-pass reading and the reuse of identical profiles, on the same small world."""
+    fixture = EndToEndTests.fixture
+    policy = EndToEndTests.policy
+
+    def databases(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        with contextlib.redirect_stdout(io.StringIO()):
+            world, index, services = self.fixture(root)
+        policy = root/'policy.json'
+        policy.write_text(json.dumps(self.policy()), encoding='utf-8')
+        return root, world, index, services, policy
+
+    def test_the_in_memory_walk_agrees_with_query_item(self):
+        _, world, index, _, _ = self.databases()
+        with contextlib.closing(sqlite3.connect(world)) as w, contextlib.closing(sqlite3.connect(index)) as a:
+            evidence = Evidence(w, a, 'tr', ['ingred_test', 'ingred_other'])
+            edge = lambda e: (e['parentVersionId'], e['targetVersionId'], e['kind'], e['entryIndex'], repr(e['details']))
+            place = lambda p: repr((p['nodeVersionId'], p['cellKey'], p['ownerKey'], p['factionKey'],
+                                    p['countRaw'], p['directItemPlacement']))
+            for key in ('ingred_test', 'ingred_other'):
+                mine, theirs = evidence.static(key), query_item(a, w, 'tr', key, 'INGR', max_placements=10000)
+                self.assertEqual(mine['rootVersionId'], theirs['rootVersionId'])
+                self.assertEqual({n['versionId'] for n in mine['nodes']}, {n['versionId'] for n in theirs['nodes']}, key)
+                self.assertEqual(sorted(map(edge, mine['edges'])), sorted(map(edge, theirs['edges'])), key)
+                self.assertEqual(sorted(map(place, mine['placements'])), sorted(map(place, theirs['placements'])), key)
+                self.assertFalse(mine['truncated'])
+            shallow = Evidence(w, a, 'tr', ['ingred_test'], max_depth=1).static('ingred_test')
+            self.assertEqual((shallow['truncated'], shallow['limitReasons']), (True, ['max_depth']), 'a cut is reported')
+
+    def run_main(self, root, world, index, services, policy, *profiles):
+        argv = ['--world-database', str(world), '--acquisition-database', str(index), '--services-database',
+                str(services), '--policy', str(policy), '--output', str(root/'out')]
+        for profile in profiles:
+            argv += ['--profile', profile]
+        log = io.StringIO()
+        with contextlib.redirect_stdout(log):
+            self.assertEqual(main(argv), 0, log.getvalue())
+        return log.getvalue(), {path.name.split('-')[0]: json.loads(path.read_text(encoding='utf-8'))
+                                for path in sorted((root/'out').glob('*.json'), key=lambda p: p.stat().st_mtime)}
+
+    def test_an_identical_profile_is_built_once_and_reused_across_runs(self):
+        root, world, index, services, policy = self.databases()
+        copy_profile((world, index, services), 'tr', 'tr_arce')
+        log, files = self.run_main(root, world, index, services, policy, 'tr', 'tr_arce')
+        self.assertIn('tr_arce: the same inputs as tr; its records reused', log)
+        self.assertEqual(log.count('reading its graph'), 1, 'one build for the two')
+        tr, arce = files['tr'], files['tr_arce']
+        self.assertEqual(arce['records'], tr['records'])
+        self.assertEqual(arce['derivation']['reusedFrom'], 'tr')
+        self.assertEqual(arce['derivation']['leftOut'], tr['derivation']['leftOut'])
+        self.assertEqual(arce['derivation']['inputsFingerprint'], tr['derivation']['inputsFingerprint'])
+        # A later run of TR + ARCE alone takes TR's published file.
+        log, files = self.run_main(root, world, index, services, policy, 'tr_arce')
+        self.assertIn('the same inputs as tr', log)
+        self.assertNotIn('reading its graph', log)
+
+    def test_any_difference_in_what_is_read_means_a_build(self):
+        root, world, index, services, policy = self.databases()
+        copy_profile((world, index, services), 'tr', 'tr_arce')
+        with contextlib.closing(sqlite3.connect(world)) as w, contextlib.closing(sqlite3.connect(index)) as a, \
+                contextlib.closing(sqlite3.connect(services)) as s:
+            same = fingerprint(w, a, s, 'tr', self.policy()), fingerprint(w, a, s, 'tr_arce', self.policy())
+            self.assertEqual(same[0], same[1])
+            other_policy = self.policy()
+            other_policy['earlyGame']['nearStart']['places'] = ['elsewhere']
+            self.assertNotEqual(fingerprint(w, a, s, 'tr', other_policy), same[0], 'the policy counts')
+            # One loose root fewer in TR + ARCE: no longer the same world.
+            w.execute("""DELETE FROM profile_placements WHERE profile_id='tr_arce' AND version_id IN (
+                SELECT version_id FROM placements WHERE object_key='ingred_test' AND cell_key='interior:test cave')""")
+            w.commit()
+            self.assertNotEqual(fingerprint(w, a, s, 'tr_arce', self.policy()), same[0])
+        log, files = self.run_main(root, world, index, services, policy, 'tr', 'tr_arce')
+        self.assertNotIn('reused', log)
+        self.assertEqual(log.count('reading its graph'), 2)
+        self.assertNotIn('reusedFrom', files['tr_arce']['derivation'])
+
+    def test_a_partial_run_never_lands_where_the_bundler_looks(self):
+        with contextlib.redirect_stderr(io.StringIO()) as err, self.assertRaises(SystemExit):
+            main(['--limit', '1'])
+        self.assertIn('--output', err.getvalue())
 
 
 class TranscriptionTests(unittest.TestCase):

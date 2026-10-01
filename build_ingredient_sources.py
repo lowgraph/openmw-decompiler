@@ -30,7 +30,7 @@ sources. Run after the acquisition index, the services catalog and the places ca
 from __future__ import annotations
 
 import argparse
-from collections import Counter, namedtuple
+from collections import Counter, deque, namedtuple
 from contextlib import ExitStack, closing
 import hashlib
 import json
@@ -41,10 +41,10 @@ import tempfile
 import time
 
 from build_acquisition_index import metadata
-from evaluate_policy import cell_label, load_policy, sells, trade_spot
+from build_app_bundle import newest
+from evaluate_policy import cell_label, details, load_policy, sells, trade_spot
 from export_items import ExportError
 from extract_foundation import ROOT, label_carries, load_config
-from inspect_acquisition_index import query_item
 
 VERSION = '1.0.0'
 # draw_chance is transcribed from getLevelledItem (apps/openmw/mwmechanics/levelledlist.cpp)
@@ -58,13 +58,15 @@ ALL_LEVELS = {'LEVI': 0x02, 'LEVC': 0x01}
 REFERENCE_LEVEL = 1
 # How many of each a record keeps, nearest first; counts always cover all of them.
 TOP = {'shops': 16, 'creatures': 12, 'regions': 8, 'cells': 6}
-# One ingredient's whole graph, plants and all: generous, and any cut is reported.
-QUERY_LIMITS = {'max_nodes': 20000, 'max_edges': 100000, 'max_depth': 24, 'max_placements': 500000}
+# Membership steps walked up from an ingredient; deeper graphs are reported as truncated.
+MAX_DEPTH = 24
+# The record types whose definitions and placements this reads (fingerprint).
+READ_TYPES = ('INGR', 'CONT', 'NPC_', 'CREA', 'LEVI', 'LEVC')
 
 
 def draw_chance(lists, list_key, item_key, level, seen=frozenset()):
     """The chance one draw from a levelled list gives item_key, as OpenMW draws it
-    (apps/openmw/mwmechanics/levelledlist.hpp): chance-none first, then one entry
+    (apps/openmw/mwmechanics/levelledlist.cpp): chance-none first, then one entry
     uniformly from those at or below the level -- all of them with the all-levels flag,
     otherwise only those at the highest such level. A nested list draws again."""
     row = lists(list_key)
@@ -162,13 +164,15 @@ class Spread:
             self.regions[places.region(cell_key)] += count
 
     def publish(self):
+        # Most first, then by key: the same output whatever order the placements came in.
+        top = lambda tally, limit=None: [[k, n] for k, n in sorted(tally.items(), key=lambda kv: (-kv[1], kv[0]))[:limit]]
         out = {'count': self.count}
         if self.regions:
-            out['regions'] = [[k, n] for k, n in self.regions.most_common(TOP['regions'])]
+            out['regions'] = top(self.regions, TOP['regions'])
         if self.near:
-            out['near'] = [[k, n] for k, n in self.near.most_common()]
+            out['near'] = top(self.near)
         if self.cells:
-            out['cells'] = [[k, n] for k, n in self.cells.most_common(TOP['cells'])]
+            out['cells'] = top(self.cells, TOP['cells'])
         return out
 
 
@@ -186,7 +190,20 @@ def outcomes(lists, list_key, seen=frozenset()):
 Draw = namedtuple('Draw', 'chance level quantity restocks only')
 
 
-def holder_yield(graph, lists, holder, root):
+def draw_reader(lists):
+    """(chance, level, only) for one list and item, cached: the same barrel lists come up
+    for every ingredient in them. `only` marks a list that can give nothing but this item."""
+    cache = {}
+
+    def draws(list_key, item_key):
+        if (list_key, item_key) not in cache:
+            chance, level = first_chance(lists, list_key, item_key)
+            cache[list_key, item_key] = (chance, level, chance > 0 and outcomes(lists, list_key) == {item_key})
+        return cache[list_key, item_key]
+    return draws
+
+
+def holder_yield(graph, draws, holder, root):
     """What one holder gives: the quantity it keeps directly, whether that restocks, and
     one Draw per levelled entry, best first. `only` marks a list that can give nothing but
     this ingredient (a deposit, a plant), as opposed to random loot."""
@@ -201,10 +218,9 @@ def holder_yield(graph, lists, holder, root):
             direct += quantity
             restocks = restocks or bool(extra.get('restocking'))
         elif target['recordType'] in ALL_LEVELS:
-            chance, level = first_chance(lists, target['key'], root['key'])
+            chance, level, only = draws(target['key'], root['key'])
             if chance > 0:
-                listed.append(Draw(chance, level, quantity, bool(extra.get('restocking')),
-                                   outcomes(lists, target['key']) == {root['key']}))
+                listed.append(Draw(chance, level, quantity, bool(extra.get('restocking')), only))
     return direct, restocks, sorted(listed, reverse=True)
 
 
@@ -243,7 +259,7 @@ def drawn(entry, draw):
     return entry
 
 
-def classify(static, world, services, profile, policy, places, lists, actors, cache):
+def classify(static, world, services, profile, policy, places, draws, actors, cache):
     """One ingredient's record from its evidence graph, and what was left out."""
     early = policy['earlyGame']
     excluded_cells = {key.casefold() for key in early['excludedCells']}
@@ -258,7 +274,7 @@ def classify(static, world, services, profile, policy, places, lists, actors, ca
 
     def yield_of(node):
         if node['versionId'] not in yields:
-            yields[node['versionId']] = holder_yield(graph, lists, node, root)
+            yields[node['versionId']] = holder_yield(graph, draws, node, root)
         return yields[node['versionId']]
 
     def trades(actor_key):
@@ -379,7 +395,8 @@ def classify(static, world, services, profile, policy, places, lists, actors, ca
         out = [drawn({'name': name, 'containers': sorted(entry['containers'])}, entry['draw'])
                | {'regrows': True} | entry['spread'].publish()
                for (name, *_), entry in plants.items()]
-        record['plants'] = sorted(out, key=lambda p: (-sum(n for _, n in p.get('near', [])), -p['count'], p['name']))
+        record['plants'] = sorted(out, key=lambda p: (-sum(n for _, n in p.get('near', [])), -p['count'], p['name'],
+                                                      -p['chance'], p['containers']))
     if creatures:
         out = []
         for entry in creatures.values():
@@ -387,7 +404,7 @@ def classify(static, world, services, profile, policy, places, lists, actors, ca
             spread.pop('count')
             out.append(entry | spread)
         ranked = sorted(out, key=lambda c: (-sum(n for _, n in c.get('near', [])),
-                                            -(c['placed'] + c['spawnPoints']), c['name']))
+                                            -(c['placed'] + c['spawnPoints']), c['name'], c['creature']))
         record['creatures'] = ranked[:TOP['creatures']]
         if len(ranked) > TOP['creatures']:
             record['creatureCount'] = len(ranked)
@@ -400,7 +417,9 @@ def classify(static, world, services, profile, policy, places, lists, actors, ca
             if entry['locked']:
                 find['locked'] = entry['locked']
             out.append(find | entry['spread'].publish())
-        record['finds'] = sorted(out, key=lambda f: (-sum(n for _, n in f.get('near', [])), -f['count']))
+        record['finds'] = sorted(out, key=lambda f: (-sum(n for _, n in f.get('near', [])), -f['count'],
+                                                     f.get('name') or '', -f['chance'], -f['quantity'],
+                                                     bool(f.get('refills'))))
     if static['truncated']:
         record['truncated'] = static['limitReasons']
     return record, skipped
@@ -455,18 +474,103 @@ def ingredients(acquisition, profile):
         WHERE p.profile_id=? AND p.record_type='INGR' ORDER BY n.object_key''', (profile,)).fetchall()
 
 
+def check_index(acquisition, world):
+    """The acquisition index must come from this world build, as query_item requires."""
+    meta, built = metadata(acquisition), metadata(world)
+    if meta.get('schemaVersion') != '1.0.0':
+        raise ExportError('Unsupported acquisition schema')
+    if (meta['snapshotId'], meta['worldSchemaVersion'], meta['worldBuiltAtUnix']) != (
+            built.get('snapshotId'), built.get('schemaVersion'), built.get('builtAtUnix')):
+        raise ExportError('World/index mismatch; rebuild acquisition index after rebuilding world')
+
+
+class Evidence:
+    """One profile's acquisition graph, and where everything in it is placed, read once.
+
+    inspect_acquisition_index.query_item answers for one item with a query per graph step
+    and per holder: right for one item, slow for a thousand that share the same barrels
+    and NPCs (Bread in TR: 8,400 queries, 22 s). This reads the profile's memberships once
+    (TR: 164,000, about a second), walks each ingredient's graph in memory as query_item
+    does -- reverse membership, breadth first, each definition once, every edge kept --
+    and takes the placements of every holder from one pass over the profile's placements
+    (TR: 2.2 million, about 16 s). static() returns query_item's shape, so classify reads
+    either; a test checks the two agree."""
+
+    def __init__(self, world, acquisition, profile, roots, max_depth=MAX_DEPTH):
+        check_index(acquisition, world)
+        self.max_depth = max_depth
+        self.nodes = {version: {'versionId': version, 'recordType': kind, 'key': key, 'name': name,
+                                'details': json.loads(extra or '{}')}
+                      for version, kind, key, name, extra in acquisition.execute(
+                          '''SELECT n.version_id, n.record_type, n.object_key, n.name, n.details_json
+                             FROM profile_nodes p JOIN nodes n ON n.version_id=p.version_id
+                             WHERE p.profile_id=?''', (profile,))}
+        self.up = {}
+        for target, parent, kind, index, extra in acquisition.execute(
+                '''SELECT p.target_version_id, p.parent_version_id, p.kind, p.entry_index, e.details_json
+                   FROM profile_edges p JOIN edges e USING(parent_version_id, kind, entry_index)
+                   WHERE p.profile_id=? AND p.target_version_id IS NOT NULL
+                   ORDER BY p.target_version_id, p.parent_version_id, p.kind, p.entry_index''', (profile,)):
+            self.up.setdefault(target, []).append((parent, kind, index, json.loads(extra or '{}')))
+        self.roots = {node['key']: version for version, node in self.nodes.items() if node['recordType'] == 'INGR'}
+        wanted = set()
+        for key in roots:
+            wanted.update(self.walk(self.roots[key])[0])
+        kinds = {self.nodes[v]['key']: self.nodes[v]['recordType'] for v in wanted if v in self.nodes}
+        self.placed = {}
+        for key, cell, count, owner, faction, extra in world.execute(
+                '''SELECT v.object_key, v.cell_key, v.count_raw, v.owner_key, v.faction_key, v.details
+                   FROM profile_placements p CROSS JOIN placements v ON v.version_id=p.version_id
+                   WHERE p.profile_id=?''', (profile,)):
+            if key in kinds:
+                # Only a container's lock is read (finds count their locked places).
+                lock = (details(extra).get('lockLevelRaw') or 0) if kinds[key] == 'CONT' else 0
+                self.placed.setdefault(key, []).append((cell, count, owner, faction, lock))
+
+    def walk(self, root):
+        depths, queue, edges, truncated = {root: 0}, deque([root]), [], False
+        while queue:
+            target = queue.popleft()
+            depth = depths[target]
+            if depth >= self.max_depth:
+                truncated = truncated or bool(self.up.get(target))
+                continue
+            for parent, kind, index, extra in self.up.get(target, ()):
+                if parent not in depths:
+                    depths[parent] = depth + 1
+                    queue.append(parent)
+                edges.append({'parentVersionId': parent, 'targetVersionId': target, 'kind': kind,
+                              'entryIndex': index, 'details': extra})
+        return depths, edges, truncated
+
+    def static(self, key):
+        """One ingredient's graph and the placements of its holders, in query_item's shape."""
+        root = self.roots[key]
+        depths, edges, truncated = self.walk(root)
+        nodes = [self.nodes[v] for v in depths if v in self.nodes]
+        placements = [{'nodeVersionId': node['versionId'], 'cellKey': cell, 'countRaw': count,
+                       'ownerKey': owner, 'factionKey': faction, 'details': {'lockLevelRaw': lock},
+                       'directItemPlacement': node['versionId'] == root}
+                      for node in nodes for cell, count, owner, faction, lock in self.placed.get(node['key'], ())]
+        return {'rootVersionId': root, 'truncated': truncated, 'limitReasons': ['max_depth'] if truncated else [],
+                'nodes': nodes, 'edges': edges, 'placements': placements}
+
+
 def build(world, acquisition, services, profile, policy, limit=None, only=None):
-    places = Places(world, profile, policy['earlyGame']['nearStart']['places'])
-    lists, actors = readers(world, profile)
-    cache, records, skipped = {}, [], Counter()
     wanted = ingredients(acquisition, profile)
     if only:
         wanted = [row for row in wanted if row[0] in only]
     if limit:
         wanted = wanted[:limit]
+    print(f'  {profile}: reading its graph and placements', flush=True)
+    evidence = Evidence(world, acquisition, profile, [key for key, _ in wanted])
+    places = Places(world, profile, policy['earlyGame']['nearStart']['places'])
+    lists, actors = readers(world, profile)
+    draws = draw_reader(lists)
+    cache, records, skipped = {}, [], Counter()
     for index, (key, _) in enumerate(wanted, 1):
-        static = query_item(acquisition, world, profile, key, 'INGR', **QUERY_LIMITS)
-        record, left_out = classify(static, world, services, profile, policy, places, lists, actors, cache)
+        record, left_out = classify(evidence.static(key), world, services, profile, policy,
+                                    places, draws, actors, cache)
         records.append(record)
         skipped.update(left_out)
         if index % 100 == 0:
@@ -474,18 +578,58 @@ def build(world, acquisition, services, profile, policy, limit=None, only=None):
     return records, skipped
 
 
-def assemble(records, skipped, profile, snapshot, policy):
+def fingerprint(world, acquisition, services, profile, policy):
+    """Everything this builder reads about one profile, hashed with its version and the
+    policy. Profiles with one fingerprint get the same records, so they are built once:
+    TR + ARCE differs from TR only in body parts, which nothing here reads."""
+    digest = hashlib.sha256(json.dumps([VERSION, TRANSCRIBED_FROM, policy], sort_keys=True).encode())
+    types = ', '.join(f"'{kind}'" for kind in READ_TYPES)
+    for db, sql in (
+            (world, 'SELECT record_type, object_key, version_id FROM profile_objects WHERE profile_id=? '
+                    f'AND record_type IN ({types}) ORDER BY record_type, object_key'),
+            (world, 'SELECT reference_key, version_id FROM profile_placements WHERE profile_id=? '
+                    'ORDER BY reference_key'),
+            (world, 'SELECT cell_key, name, interior, grid_x, grid_y, region_key, deleted FROM cells '
+                    'WHERE profile_id=? ORDER BY cell_key'),
+            (acquisition, 'SELECT parent_version_id, kind, entry_index, target_version_id, status '
+                          'FROM profile_edges WHERE profile_id=? ORDER BY parent_version_id, kind, entry_index'),
+            (services, 'SELECT actor_key, version_id FROM profile_providers WHERE profile_id=? ORDER BY actor_key')):
+        for row in db.execute(sql, (profile,)):
+            digest.update(repr(row).encode())
+        digest.update(b'\0')
+    return digest.hexdigest()[:32]
+
+
+def published_match(directory, profile, inputs, snapshot):
+    """(profile, records, left out) that another profile published from the same inputs, or None."""
+    for other in ('vanilla', 'tr', 'tr_arce'):
+        path = None if other == profile else newest(directory, other)
+        if path is None:
+            continue
+        payload = json.loads(path.read_text(encoding='utf-8'))
+        derivation = payload.get('derivation') or {}
+        if (payload.get('schemaVersion'), payload.get('snapshotId'), derivation.get('inputsFingerprint')) == (
+                VERSION, snapshot, inputs):
+            return other, payload['records'], Counter(derivation.get('leftOut') or {})
+    return None
+
+
+def assemble(records, skipped, profile, snapshot, policy, inputs=None, reused_from=None):
     has = lambda kind: sum(1 for r in records if r.get(kind))
+    derivation = {
+        'ingredients': len(records), 'withShop': has('shops'), 'withPlant': has('plants'),
+        'withCreature': has('creatures'), 'withFind': has('finds'),
+        'withoutSource': sum(1 for r in records if not any(r.get(k) for k in ('shops', 'plants', 'creatures', 'finds'))),
+        'truncated': has('truncated'), 'referenceLevel': REFERENCE_LEVEL,
+        'transcribedFrom': f'OpenMW {TRANSCRIBED_FROM}',
+        'leftOut': dict(sorted(skipped.items()))}
+    if inputs:
+        derivation['inputsFingerprint'] = inputs
+    if reused_from:
+        derivation['reusedFrom'] = reused_from
     return {
         'schemaVersion': VERSION, 'profile': profile, 'snapshotId': snapshot,
-        'policyVersion': policy['policyVersion'],
-        'derivation': {
-            'ingredients': len(records), 'withShop': has('shops'), 'withPlant': has('plants'),
-            'withCreature': has('creatures'), 'withFind': has('finds'),
-            'withoutSource': sum(1 for r in records if not any(r.get(k) for k in ('shops', 'plants', 'creatures', 'finds'))),
-            'truncated': has('truncated'), 'referenceLevel': REFERENCE_LEVEL,
-            'transcribedFrom': f'OpenMW {TRANSCRIBED_FROM}',
-            'leftOut': dict(sorted(skipped.items()))},
+        'policyVersion': policy['policyVersion'], 'derivation': derivation,
         'coverage': 'Static evidence: what holds each ingredient and where the holders are placed. '
                     'Shops trade ingredients and keep it in their own inventory or a container '
                     'they own where they trade; levelled shop stock counts only if it restocks. '
@@ -520,17 +664,21 @@ def main(argv=None):
     parser.add_argument('--acquisition-database', type=Path)
     parser.add_argument('--services-database', type=Path)
     parser.add_argument('--policy', type=Path, default=ROOT/'policy'/'early-game.json')
-    parser.add_argument('--limit', type=int, help='Only the first N ingredients, for a quick look')
+    parser.add_argument('--limit', type=int, help='Only the first N ingredients; needs --output')
     parser.add_argument('--item', action='append', help='Print one ingredient\'s record and publish nothing')
     args = parser.parse_args(argv)
+    # The bundler takes the newest file; a partial one must not land where it looks.
+    if args.limit and not args.output and not args.item:
+        parser.error('A partial run (--limit) publishes incomplete records; pass --output with a scratch folder')
     try:
         root = load_config(ROOT/'foundation_config.json')[2]
         profiles = args.profile or ['vanilla', 'tr', 'tr_arce']
         policy = load_policy(args.policy)
+        output = args.output or root/'ingredient-sources'
         paths = (args.world_database or root/'world/world.sqlite',
                  args.acquisition_database or root/'acquisition/acquisition.sqlite',
                  args.services_database or root/'services/services.sqlite')
-        written = []
+        written, done = [], {}
         with ExitStack() as stack:
             world, acquisition, services = [stack.enter_context(closing(
                 sqlite3.connect(path.resolve().as_uri()+'?mode=ro', uri=True))) for path in paths]
@@ -540,13 +688,24 @@ def main(argv=None):
                 raise ExportError('The services catalog and the acquisition index come from different '
                                   'extractions; rebuild the older one first')
             for profile in profiles:
-                records, skipped = build(world, acquisition, services, profile, policy, args.limit,
-                                         {i.casefold() for i in args.item} if args.item else None)
                 if args.item:
+                    records, _ = build(world, acquisition, services, profile, policy,
+                                       only={i.casefold() for i in args.item})
                     print(json.dumps(records, ensure_ascii=False, indent=2))
                     continue
-                payload = assemble(records, skipped, profile, snapshot, policy)
-                destination, size = publish(payload, args.output or root/'ingredient-sources', profile)
+                # A partial run gets no fingerprint, so nothing ever reuses it.
+                inputs = None if args.limit else fingerprint(world, acquisition, services, profile, policy)
+                match = (done.get(inputs) or published_match(output, profile, inputs, snapshot)) if inputs else None
+                if match:
+                    source, records, skipped = match
+                    print(f'{profile}: the same inputs as {source}; its records reused', flush=True)
+                else:
+                    source = None
+                    records, skipped = build(world, acquisition, services, profile, policy, args.limit)
+                if inputs:
+                    done[inputs] = (profile, records, skipped)
+                payload = assemble(records, skipped, profile, snapshot, policy, inputs, source)
+                destination, size = publish(payload, output, profile)
                 d = payload['derivation']
                 print(f'{profile}: {d["ingredients"]} ingredients; shop {d["withShop"]}, plant {d["withPlant"]}, '
                       f'creature {d["withCreature"]}, find {d["withFind"]}, none {d["withoutSource"]}; '
@@ -556,7 +715,7 @@ def main(argv=None):
             print('Ingredient sources complete:\n  ' + '\n  '.join(str(p) for p in written))
         return 0
     except KeyboardInterrupt:
-        print('\nCancelled; nothing was published.')
+        print('\nCancelled. Worlds already finished stay published; the one in progress was not.')
         return 130
     except (ValueError, KeyError, OSError, sqlite3.Error) as exc:
         print(f'Ingredient sources build failed: {exc}')

@@ -159,6 +159,7 @@ step or later ones, so the earlier output is still good.
 | `effect dump was taken against` or `No effect dump for` | rules | The dump is stale or was skipped | Run `dump_profiles.py`, then the rules |
 | `transcribed from OpenMW` | merchants, travel, intervention, ingredient sources | A new engine release | See [below](#after-an-openmw-update) |
 | `A partial run (--limit or --category)` | gear rows | A smoke run aimed at the real rows | Pass `--output` with a scratch folder |
+| `A partial run (--limit) publishes incomplete records` | ingredient sources | A smoke run aimed at the real output | Pass `--output` with a scratch folder |
 | `constant effect(s) appear on candidates but the late-game policy does not cover them` | best-in-slot | A new item carries an effect with no tier | Add it to `effects` or `drawbacks` in `policy/late-game.json` |
 | `effect(s) in policy/late-game.json appear on no candidate` | best-in-slot | The last item carrying it is gone | Remove it, or check its spelling |
 | `Conjurer edge(s) in policy/travel.json match nothing` | travel | A city was renamed, or its guide changed | `conjurerRank.cities` in `policy/travel.json` |
