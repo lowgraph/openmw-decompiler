@@ -1,5 +1,7 @@
 # UI Transformation Blueprint: Silt Strider
 
+Production migration 0007 applied with owner authorization on 30 September (LAUNCH_VERIFICATION §15); existing records preserved. Settings/site deployment has not run.
+
 Account settings and tool polish merged to main in `b45f686` (ACC-1/ACC-2; owner, 30 September). Production migration and deployment remain separate; see LAUNCH_VERIFICATION §14.
 
 Account settings: [ACCOUNT_SETTINGS.md](docs/ACCOUNT_SETTINGS.md) covers migration 0007 (ACC-1), the API and account controls (ACC-2), and future datasets.

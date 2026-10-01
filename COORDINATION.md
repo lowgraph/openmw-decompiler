@@ -1,5 +1,18 @@
 # Coordination
 
+## Production account settings migration — 30 September
+
+The owner authorized remote 0007, applied at 23:56 UTC from main `254c76f`.
+Production now has migrations 0001–0007 and none pending. The empty settings
+table was added; all historical schema objects, counts and actual records match
+the verified private backup. Recovery bookmark and evidence: the site's
+`docs/LAUNCH_VERIFICATION.md` §15. Keep private SQL exports/restored files out of
+Git and public assets. The older pending-migration notes below are history.
+No Worker deployment or bundle/extraction change. Existing Workers ignore the
+new table; code rollback does not undo it. Settings deployment is a separate ask.
+First command: `npm test` in `A:/Claude/mt-account-main-merge`, before any commit;
+for a future release, follow `docs/DEPLOYMENT.md` and refresh recovery metadata.
+
 ## Account settings and tool polish on main — 30 September
 
 The owner authorized PR #1: `feature/account-settings-preparation` at `6dc207e`
