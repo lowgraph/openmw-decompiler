@@ -1,5 +1,20 @@
 # Coordination
 
+## Reverse alchemy (CALC-4) — 30 September
+
+`launch/calc-4-reverse-alchemy` starts from main `f5b1f56`. Choose up to four
+effects to find pairs in the current profile; each distinct ingredient must
+carry every target, including its attribute/skill identity. Show additional
+shared effects, then rank by fewer extras and ingredient base value, never a
+merchant quote. Using a pair replaces all four slots and focuses potion output.
+Keep the existing calculator, obtainable apparatus, typed stats and world-reset
+behavior. No exported schema/bundle, extraction, API or migration changes.
+Published Merchants has services/locations but no ingredient stock: shop
+availability stays unlisted. Do not infer sellers from service flags or rebuild
+real data. The branch is separate from main and the live release.
+First command: `npm test` on this branch in `A:/Claude/mt-account-main-merge`;
+then the `Alchemy effect finder` cases in `docs/BROWSER_TESTS.md`.
+
 ## Account settings and tool polish live — 30 September
 
 Owner-authorized main `216cd90` is live as Worker `d523b9ba` at 100% (1 October

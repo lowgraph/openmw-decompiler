@@ -1,5 +1,7 @@
 # UI Transformation Blueprint: Silt Strider
 
+CALC-4 is implemented on `launch/calc-4-reverse-alchemy`: an effect search finds ingredient pairs in the selected world and loads a pair into Alchemy, with additional effects shown. Published merchant data has no ingredient stock, so buying locations remain unavailable. No bundle/schema change; this branch is not merged or deployed.
+
 Account settings and tool polish are live with owner authorization: main `216cd90`, Worker `d523b9ba`, 1 October 00:11 UTC (30 September locally). Migration 0007 and existing records remain intact; LAUNCH_VERIFICATION §16 supersedes the pending-deployment notes below.
 
 Production migration 0007 applied with owner authorization on 30 September (LAUNCH_VERIFICATION §15); existing records preserved. Settings/site deployment has not run.
