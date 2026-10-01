@@ -1,5 +1,18 @@
 # Coordination
 
+## Beast equipment eligibility (QA-10) — 1 October
+
+Claimed 20:28 UTC on `launch/character-preservation`. BestInSlot filters every
+final primary/runner-up after named, dynamic, fallback and weapon-preference
+paths. Beast picks need explicit `beastWearable: true`; exclude footwear and
+closed-head Armor body parts. Preserve open helmets and catalog order, without
+mutating bundle records. Races' boolean `beast` overrides name inference (ARCE
+Suthay is not a beast). Carry it through recommendations, equip validation,
+inspector and item picker; callers without it retain legacy inference.
+No exported schema, dataset, migration or production change. First command:
+`npm test`, then Chrome `--suite qa --filter 'QA-10/'` in BROWSER_TESTS.
+Verification: LAUNCH_VERIFICATION §36. Next target: QA-16, after owner go-ahead.
+
 ## Test portability — 1 October
 
 QA catalog tests use `staged()` in `test/helpers/qa-staged-data.cjs`: skip only
