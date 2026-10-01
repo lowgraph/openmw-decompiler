@@ -1,43 +1,71 @@
 # Coordination
 
-## Ingredient sources (CALC-4 data) — 30 September
+## Ingredient sources (CALC-4) — 30 September; updated 1 October
 
-New pipeline catalog `IngredientSources` (`build_ingredient_sources.py`; contract
-`contracts/ingredient-source-types.ts`; docs/stages/INGREDIENT_SOURCES.md). Per profile,
-one record per ingredient key: `shops` (merchant key and name, the cell where they trade,
-stock per visit, `restocks`, `near` starting town), `plants` (organic containers that grow
-back: chance per harvest for a level 1 character, quantity, counts by region, starting
-town and interior), `creatures` (chance per kill, placed and spawn points, where) and
-`finds` (loose, or deposits and crates, grouped by holder). Absent fields are left out; an
-ingredient with no source is `{key, name}`. Every cell named is a Places key, checked by
-the bundler. Theft, anything only an NPC carries, random loot and holding cells are never
-sources. Chances follow OpenMW 0.51.0's `getLevelledItem`, pinned like the barter formula.
-This fills CALC-4's "no ingredient stock" gap: list sources from it rather than inferring
-sellers from service flags. Not in the published bundle until the owner runs the build;
-the bundler includes it once all three profiles exist.
-First command: `python build_ingredient_sources.py; python build_app_bundle.py` in the
-pipeline repository, then stage the bundle (REBUILD.md, "Publish").
+Pipeline catalog `IngredientSources` (`build_ingredient_sources.py`; contract
+`contracts/ingredient-source-types.ts`; docs/stages/INGREDIENT_SOURCES.md) has
+one record per ingredient and profile: shops with cell, stock and restocking;
+regrowing plants with harvest chance, quantity and spread; creature drops with
+level, chance and placement/spawn spread; loose/container finds with locations.
+Every cell is a Places key. No source is `{key, name}`. Theft, NPC inventories,
+random loot, scripts, quest rewards and holding/test cells are excluded by the
+builder. Chances follow OpenMW 0.51.0's pinned `getLevelledItem` at player level 1,
+or the explicit `fromLevel`. Never infer ingredient stock from merchant services.
+With owner authorization on 1 October, pipeline correction `41da92c` was rebuilt
+and staged locally as bundle `a29adea046e6086c2c7ee654`. Only IngredientSources
+changed; the extraction snapshot and every other catalog are unchanged. Records
+cover 126 vanilla and 921 TR ingredients; TR + ARCE inherits TR. Test/holding
+cells and rare random creature loot are absent. The old immutable bundle remains.
+With owner approval on 1 October, `launch/calc-4-where-to-get` at `be29f68` joins
+Travel on its original parent, `launch/calc-4-reverse-alchemy` at `e0704b9`.
+Each filled Alchemy slot has a "Where to get it" button, plus the pair shortcut.
+Load the `ingredientSources` feature
+only when opened: Places required, IngredientSources optional for older bundles.
+Keep loading neutral, error Retry available, and unavailable/unknown sources
+explicit. Replacing/clearing ingredients and changing worlds discard old panels.
+Keep stock/restocking, locations, locked finds and level qualifiers; never combine
+variants with different chances, quantities or levels. Catalog data stays frozen.
+`components/calculators/alchemy/ingredient-sources.jsx` shares source content with
+the finder; synthetic tests cover lazy loading, provenance/inheritance, malformed
+records, draw distinctions, old bundles, retry and selected-ingredient lifecycle.
+First command: `npm test` in `A:/Claude/mt-account-main-merge`, then the Travel
+and Alchemy Chrome cases in `docs/BROWSER_TESTS.md`. The combined preview is on
+127.0.0.1:8792 with corrected bundle `a29adea046e6086c2c7ee654`;
+reload existing tabs because the loader pins a release for each page lifetime.
+No main merge, push, deployment, migration or new extraction ran in this work.
 
-## Separate Travel city stops — 30 September
+## Travel city transfers — 30 September
 
-`launch/travel-city-stop-walks` is a sub-branch of CALC-4 `f3461cd`.
-Travel routes between individual platforms/arrival points and guild halls, with
-outdoor transfer walks and a real movement estimate on every walk. City searches
-retain every named exterior cell. The published Travel database/bundle already
-retains cell keys, provider/landing positions, Access exits and teleport positions;
-no extraction, exported schema, immutable bundle or D1 migration change is needed.
-Keep `town` as a label/old-link lookup, never a free connection between platforms.
-Outdoor IDs use cell plus rounded published position; indoor IDs use the cell and
-published exterior exits. Local indoor coordinates are never world coordinates.
-Interventions/scripted teleports land at their specific published points; preserve
-membership, quest, inventory and Magicka/scroll constraints. Missing positions or
-exits never imply a free transfer. Indoor movement remains uncounted and terrain
-still cannot see buildings. Old town links choose one explicit platform; new links
-keep the exact stop. Picker drafts survive identical location lists recreated by
-late character/movement data; changing worlds or endpoints cancels the draft.
-CALC-4 buying locations remain open on the parent branch.
-First command: `npm test` in `A:/Claude/mt-account-main-merge`; then the `Travel
-city transfer` Chrome cases in `docs/BROWSER_TESTS.md`. No push, merge or deploy.
+`launch/travel-city-stop-walks` at `f07425c` is integrated into its original
+CALC-4 parent, `launch/calc-4-reverse-alchemy`, on 1 October with owner approval.
+Cities stay merged in search, links and unspecified journey endpoints. Specific
+hall, district, service or provider queries reveal precise locations. The router
+chooses city boundary platforms without phantom legs; cities must never become
+free intermediate connections. Journeys through cities show arrival/departure
+stops and timed outdoor transfer walks, including the doors into guild halls.
+Published Travel cells/positions, Access exits and teleport/Intervention markers
+already retain these distinctions; no extraction, bundle/schema or D1 change.
+Outdoor stop IDs use cell plus rounded positions; indoor IDs use cell plus Access
+exits, never local indoor coordinates as world positions. Missing positions or
+exits cannot imply a free transfer. Preserve terrain, membership, quest, inventory,
+Magicka and scroll limits. Indoor time and mesh obstacles remain uncounted.
+Old town links stay town choices; exact-stop links retain their selection.
+Picker drafts survive equivalent option lists recreated by late character data;
+changing worlds or endpoints cancels the draft. The effect finder stays intact.
+1 October: optimize the restricted walking network first. Only a failed route
+retries with long endpoint/place walks and open-water swimming, using the same
+objective, character, membership, quest, inventory and spell/scroll budgets.
+Valid normal journeys must not gain a one-leg walk for Fewest legs or Cheapest.
+There is no new toggle, warning or stored preference. Walking off still forbids
+both phases. Mixed legs time land at run speed and water at swim speed (run speed
+with Water Walking). Keep terrain barriers, sparse local transfers and bounded
+search work; missing exits cannot imply connections. The parent's Alchemy finder
+and ingredient-source lookup are both included; preserve their lazy loading.
+The owner retired the two-failure/boost rule in both AGENTS.md files.
+First command: `npm test` in `A:/Claude/mt-account-main-merge`, then the Travel
+Chrome cases in `docs/BROWSER_TESTS.md`. Keep the dev server on 127.0.0.1:8792
+running for the owner on the parent branch. No main merge, push, deployment or
+data rebuild is authorized by this integration.
 
 ## Reverse alchemy (CALC-4) — 30 September
 
@@ -48,9 +76,9 @@ shared effects, then rank by fewer extras and ingredient base value, never a
 merchant quote. Using a pair replaces all four slots and focuses potion output.
 Keep the existing calculator, obtainable apparatus, typed stats and world-reset
 behavior. No exported schema/bundle, extraction, API or migration changes.
-Published Merchants has services/locations but no ingredient stock: shop
-availability stays unlisted. Do not infer sellers from service flags or rebuild
-real data. The branch is separate from main and the live release.
+Published Merchants has no ingredient stock; the integrated source lookup
+consumes IngredientSources, as described above. Do not infer sellers from service
+flags or rebuild real data. The branch is separate from main and the live release.
 First command: `npm test` on this branch in `A:/Claude/mt-account-main-merge`;
 then the `Alchemy effect finder` cases in `docs/BROWSER_TESTS.md`.
 

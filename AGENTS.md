@@ -45,14 +45,7 @@ push/deploy authorization still apply.
 - **Site Tests & CDP Screenshots:** Run `npm test` in the site repository. For UI modifications, execute headless visual capture via Chrome CDP on port 8765 (`node <scratchDir>/capture-*.js`) to confirm layout integrity before ticket completion.
 - **Adversarial Edge Cases:** Do not approve schema/logic changes on baseline tests alone. Before marking a logic task complete, write at least 3 automated tests targeting edge conditions (malformed record tags, missing SQLite indices, null/undefined properties, or boundary values).
 
-### 4. Two-Failure Revert & Escalation Policy
-- If an automated test fails twice consecutively during a fix attempt:
-  1. Immediately abort code edits.
-  2. Revert only the task's own specific changes (e.g. via targeted patch/hunk reversal or `git checkout -p`). Whole-file restore (`git restore <file>` / `git checkout -- <file>`) is permitted ONLY when that file contains no other concurrent modifications from other agents or tasks. Never perform blanket rollbacks (`git restore .` / `git checkout .`).
-  3. Emit a concise root-cause analysis showing the failing stack trace and the exact breaking invariant.
-  4. Stop and request a `/boost` escalation run. Do not accumulate speculative patches.
-
-### 5. Handoff & Synchronization
+### 4. Handoff & Synchronization
 - Keep `COORDINATION.md` and `UI_TRANSFORMATION.md` identical across both repositories.
 - When completing a batch or milestone, update `COORDINATION.md` with:
   - Exported dataset schema changes.
