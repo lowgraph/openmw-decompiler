@@ -1,5 +1,17 @@
 # Coordination
 
+## Configure help placement (QA-09) — 1 October
+
+All five Configurator InfoTips use a body portal with fixed coordinates measured
+after opening. Clamp to visualViewport and visible header/tab-bar bounds; flip
+above when below is too short, and scroll long text inside the available space.
+Reposition on resize, page scroll and font load; keep internal scrolling intact.
+Retain stable hydration IDs, trigger/control linkage, tap-toggle, outside/focus
+dismissal and Escape focus restoration. No exported schema or data change.
+First command: `npm test`, then BROWSER_TESTS' QA-09 Chrome and `--touch` runs
+and enforced report wrapper. Verification: LAUNCH_VERIFICATION §38.
+Next authorized work: QA-16, QA-07/25, QA-06, then recheck the completed QA-05.
+
 ## Phone gear tables (QA-08) — 1 October
 
 Claimed 20:51 UTC on `launch/character-preservation`, after QA-10 was pushed.
