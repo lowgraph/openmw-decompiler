@@ -93,6 +93,13 @@ Verification: LAUNCH_VERIFICATION §35. Next target: QA-10, after owner go-ahead
 
 ## Character identity labels (QA-05) — 1 October
 
+Rechecked after QA-16/07/25/06: all three views retain edited identity in three
+worlds, both themes and phone/desktop. Chrome must use native randomness; a
+global constant Math.random override interferes with React event handling.
+Exclude only Next dev's toolbar (nextjs-portal) when testing the phone Home tab;
+production has no toolbar. Deterministic hydrateRoot tests remain. Verification:
+§42; first command remains `npm test`, then the QA-05 browser filter.
+
 Claimed 19:50 UTC on `launch/character-preservation`. Computed sheets retain
 raceName/signName, gender, class and class choices for normalization; catalog
 race/sign objects are facts, not the selected display labels (ARCE especially).
