@@ -1,5 +1,26 @@
 # Coordination
 
+## Morrowind Game Theme (DESIGN) — 1 October
+
+The Morrowind UI now closely resembles The Elder Scrolls III: Morrowind game menus:
+- Black windows (`#000000`), off-black page ground (`#0e0d0b`), and game font colors (`#caa560` normal, `#dfc99f` header/hover, `#f3eddd` pressed, `#b3a887` secondary).
+- Procedural noise frames in `public/textures/`: `mw-window.svg` (window border), `mw-button-grain.svg` (button/input bevel), and `mw-panel-grain.svg` (engraved groove line).
+- Title bars (`.mw-caption`) on character cards and tool workstations with authentic groove lines.
+- Game stats window layout for the character card on Home (full attribute names, level/race/class/sign grid, centered bar values) with dual-mode DOM switching that preserves Modern UI (Ashfall) identically.
+- Buttons meet 44px min-height in Morrowind UI.
+- All Morrowind UI override rules strictly isolated in `app/theme-morrowind.css` under `:root[data-theme="morrowind"]` and `:root:not([data-theme="morrowind"])`. Modern UI (`data-theme="ashfall"`) is pixel-identical outside the theme toggle preview.
+- All 1007 tests pass (`npm test`). Leftover-brown audit across all 15 routes shows 0 violations.
+- First command: `npm test` in `A:/Claude/mt-game-theme`.
+
+## Obtainable apparatus (QA-06) — 1 October
+
+Alchemy excludes apparatus_sm_ keys at the start or after a mod prefix, and
+Secretmaster/Secret Master names (straight/curly apostrophes). Keep ordinary
+Master/Grandmaster tools, effectiveness ordering, and immutable catalog/source
+records. This is site filtering only: no exported data/schema change or rebuild.
+First command: `npm test`, then Chrome QA-06 in BROWSER_TESTS. Verification: §41.
+Next authorized work: regression-check the completed QA-05.
+
 ## Travel search and link origin (QA-07/25) — 1 October
 
 Normalize apostrophes/dashes only for search comparisons, never route IDs or
