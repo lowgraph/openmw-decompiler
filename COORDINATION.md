@@ -1,5 +1,17 @@
 # Coordination
 
+## Account settings and tool polish live — 30 September
+
+Owner-authorized main `216cd90` is live as Worker `d523b9ba` at 100% (1 October
+00:11 UTC, 30 September locally). Recovery target: `3ef09493`; rollback leaves
+additive migration 0007 intact. Bundle and historical records are unchanged.
+Keep identity/revision guards, explicit guest adoption, shared-link/current-edit
+priority, save-derived Travel precedence and resource budgets. Loading is neutral;
+Secretmaster stays hidden only in the adapter; Constant Effect requires soul 400.
+Compact navigation includes all three calculators. Earlier pending-release notes
+below are history. Verification and recovery record: LAUNCH_VERIFICATION §16.
+First command: `npm test` in `A:/Claude/mt-account-main-merge` before any commit.
+
 ## Production account settings migration — 30 September
 
 The owner authorized remote 0007, applied at 23:56 UTC from main `254c76f`.

@@ -1,5 +1,7 @@
 # UI Transformation Blueprint: Silt Strider
 
+Account settings and tool polish are live with owner authorization: main `216cd90`, Worker `d523b9ba`, 1 October 00:11 UTC (30 September locally). Migration 0007 and existing records remain intact; LAUNCH_VERIFICATION §16 supersedes the pending-deployment notes below.
+
 Production migration 0007 applied with owner authorization on 30 September (LAUNCH_VERIFICATION §15); existing records preserved. Settings/site deployment has not run.
 
 Account settings and tool polish merged to main in `b45f686` (ACC-1/ACC-2; owner, 30 September). Production migration and deployment remain separate; see LAUNCH_VERIFICATION §14.
