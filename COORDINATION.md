@@ -1,5 +1,19 @@
 # Coordination
 
+## Character through sign-out (QA-24) — 1 October
+
+QA-24 (`aebd6c0`, branch tip `bce1401`) is integrated into main from `0c55696`
+with owner authorization on 1 October; QA-21/23 remain in the other session's
+`launch/character-preservation`. Before Clerk
+sign-out, dispatch `SIGN_OUT_EVENT`. Keep an unsaved build in the separate
+`silt-sign-out-character` tab marker; restore its character and world only on a
+signed-out return within 15 minutes, then remove it. Shared build links win;
+loaded saves use their existing persistence. Failed sign-out removes the marker.
+Keep the fixed server/first-client render; random starts happen only in effects.
+No dataset, settings-document, migration or production change. First command:
+`npm test` in `A:/Claude/mt-signout-main-merge`, then the local Vault runner's
+`--signout-preservation` cases in `docs/BROWSER_TESTS.md`.
+
 ## Ingredient sources (CALC-4) — 30 September; updated 1 October
 
 Pipeline catalog `IngredientSources` (`build_ingredient_sources.py`; contract
