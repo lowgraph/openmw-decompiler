@@ -1,5 +1,7 @@
 # UI Transformation Blueprint: Silt Strider
 
+Travel city stops are separated on the CALC-4 sub-branch `launch/travel-city-stop-walks`: individual platforms, arrivals, guild halls and city cells retain their identities. Outdoor transfers now contribute timed walk legs. Equivalent list recalculations preserve the typed location query; world changes still reset it. Existing published cell keys, positions and Access exits suffice; no database/bundle rebuild or schema change. Indoor movement remains uncounted. Parent CALC-4 ingredient buying locations are still open. Neither branch is merged or deployed.
+
 CALC-4 is implemented on `launch/calc-4-reverse-alchemy`: an effect search finds ingredient pairs in the selected world and loads a pair into Alchemy, with additional effects shown. Published merchant data has no ingredient stock, so buying locations remain unavailable. No bundle/schema change; this branch is not merged or deployed.
 
 Account settings and tool polish are live with owner authorization: main `216cd90`, Worker `d523b9ba`, 1 October 00:11 UTC (30 September locally). Migration 0007 and existing records remain intact; LAUNCH_VERIFICATION §16 supersedes the pending-deployment notes below.

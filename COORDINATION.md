@@ -18,6 +18,27 @@ the bundler includes it once all three profiles exist.
 First command: `python build_ingredient_sources.py; python build_app_bundle.py` in the
 pipeline repository, then stage the bundle (REBUILD.md, "Publish").
 
+## Separate Travel city stops — 30 September
+
+`launch/travel-city-stop-walks` is a sub-branch of CALC-4 `f3461cd`.
+Travel routes between individual platforms/arrival points and guild halls, with
+outdoor transfer walks and a real movement estimate on every walk. City searches
+retain every named exterior cell. The published Travel database/bundle already
+retains cell keys, provider/landing positions, Access exits and teleport positions;
+no extraction, exported schema, immutable bundle or D1 migration change is needed.
+Keep `town` as a label/old-link lookup, never a free connection between platforms.
+Outdoor IDs use cell plus rounded published position; indoor IDs use the cell and
+published exterior exits. Local indoor coordinates are never world coordinates.
+Interventions/scripted teleports land at their specific published points; preserve
+membership, quest, inventory and Magicka/scroll constraints. Missing positions or
+exits never imply a free transfer. Indoor movement remains uncounted and terrain
+still cannot see buildings. Old town links choose one explicit platform; new links
+keep the exact stop. Picker drafts survive identical location lists recreated by
+late character/movement data; changing worlds or endpoints cancels the draft.
+CALC-4 buying locations remain open on the parent branch.
+First command: `npm test` in `A:/Claude/mt-account-main-merge`; then the `Travel
+city transfer` Chrome cases in `docs/BROWSER_TESTS.md`. No push, merge or deploy.
+
 ## Reverse alchemy (CALC-4) — 30 September
 
 `launch/calc-4-reverse-alchemy` starts from main `f5b1f56`. Choose up to four
