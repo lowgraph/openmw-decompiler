@@ -1,5 +1,15 @@
 # Coordination
 
+## Premade explanations (QA-12) — 1 October
+
+Each premade card has plays-like/trade-off copy, full Major/Minor skill labels
+and a specialization explanation. Keep choices and save/link shapes unchanged.
+Playstyle groups use category copy; race/ARCE groups use the first Major skill
+for presentation only. Null/unknown inputs use generic copy; frozen inputs stay
+untouched. No exported dataset/schema/rebuild. First command: `npm test`, then
+Chrome QA-12 in BROWSER_TESTS. Verification: §43. Next: QA-11, then QA-15; push
+after each authorized item.
+
 ## Morrowind Game Theme (DESIGN) — 1 October
 
 The Morrowind UI now closely resembles The Elder Scrolls III: Morrowind game menus:
