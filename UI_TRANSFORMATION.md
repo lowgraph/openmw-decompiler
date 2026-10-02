@@ -1,5 +1,16 @@
 # UI Transformation Blueprint: Silt Strider
 
+Owner-authorized QA and Morrowind-theme release `6fab4c5` is live as Worker
+`e29663d3-68eb-45ff-bbef-13447c3b0cbf`, 100% traffic, 2 October 00:13 UTC
+(1 October in São Paulo). Character/world preservation, source-owned share links,
+calculation and Travel fixes, beast eligibility, phone tables/popovers, premade
+explanations and faction/About labels are integrated. Morrowind UI has black
+windows, tan text, procedural frames and the Home stats window; Modern UI retains
+its layout apart from the theme-toggle preview. Bundle `a29adea046e6086c2c7ee654`
+and migrations 0001–0007 remain unchanged. Code rollback is `3879ce7b` / `ef67b3e`;
+recovery record and release verification: LAUNCH_VERIFICATION §§48–49. No new
+extraction, data/schema change or migration. Freeze acceptance remains separate.
+
 With owner approval on 1 October, combined CALC-4 branch `launch/calc-4-reverse-alchemy` at `c2bf5d8` merged into main `55fd07e` as `ef67b3e`, retaining main's Cloud Vault fixes. Every selected Alchemy ingredient has a "Where to get it" button, with the effect-finder pair shortcut retained. It loads profile-specific IngredientSources and Places only when opened, preserves distinct chances/quantities/levels and shows stock/restocking and actual find locations. Replacement, clearing and world changes discard old panels; loading, retry, unavailable catalogs and absent sources are explicit. Pipeline correction `41da92c` was rebuilt and staged locally as `a29adea046e6086c2c7ee654`, removing test/holding-cell sources and rare random creature loot. Only IngredientSources changed; the extraction snapshot and every other catalog remain unchanged. Owner-authorized `ef67b3e` is live as Worker `3879ce7b-c397-4698-83c4-e9d185d9ed5c` at 100% (1 October 05:22 UTC), with corrected bundle `a29adea046e6086c2c7ee654`. Test servers 8792, 8793 and 8794 were stopped at the owner's request. Code rollback is `d523b9ba` / `216cd90`; migration 0007 remains intact. No new extraction or migration in this release.
 
 Travel `f07425c` is on main through its original parent `launch/calc-4-reverse-alchemy`, with owner approval on 1 October. It keeps cities merged unless a specific place is searched or a journey transfers through them. The router retains individual platforms, arrivals and halls, times outdoor transfer walks, and shows their real movement estimates and doors. City boundaries choose suitable stops without creating free intermediate transfers. Equivalent location-list recalculations preserve typed queries; world changes reset them. The existing bundle provides all needed positions and exits; no extraction or schema change. Long walks and open-water swims are a second attempt only when restricted routing fails; valid ordinary journeys retain their normal transport route. No extra toggle, warning or account preference. Mixed legs show walking and swimming time separately and retain terrain/character/resource limits. Indoor time remains uncounted. The effect finder and selected-ingredient source lookup are both included and live as `ef67b3e` / `3879ce7b`.

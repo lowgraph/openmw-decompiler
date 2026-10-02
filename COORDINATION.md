@@ -1,5 +1,17 @@
 # Coordination
 
+## QA and Morrowind theme live — 1 October
+
+Owner-authorized `6fab4c5` is live as Worker `e29663d3-68eb-45ff-bbef-13447c3b0cbf`
+at 100%, 2 October 00:13 UTC (1 October, São Paulo). This includes the character,
+calculation, Travel, equipment, phone-layout and copy QA fixes plus the new theme.
+Keep character/world precedence, source-owned share links and hydration-safe UI.
+Bundle `a29adea046e6086c2c7ee654` and migrations 0001–0007 are unchanged; no data
+rebuild or migration. Code rollback: `3879ce7b` / `ef67b3e`; fresh database bookmark
+and verification: site's LAUNCH_VERIFICATION §§48–49. First command: `npm test`,
+then the read-only QA/touch browser suites against the live URL. Freeze acceptance
+and real-phone/provider checks remain separate.
+
 ## Launch QA integration — 1 October
 
 Owner-authorized merge of launch/character-preservation (c065581) into main
