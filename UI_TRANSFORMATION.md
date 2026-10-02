@@ -1,5 +1,14 @@
 # UI Transformation Blueprint: Silt Strider
 
+The twelve-item launch polish (`8c7b98e`) is merged into main with owner approval:
+cast-style eligibility, cleared seed feedback, calculated-zero Alchemy chance,
+Travel count/rounding explanations, persistent faction identity, whole phone
+labels, rank plurals, accessible deletion/reset confirmations and readable
+ingredient variants. Keep canonical ingredient IDs, precise routing costs,
+character/world precedence and QA-26's dynamic edited kits. No dataset, schema,
+migration or deployment. Verification: LAUNCH_VERIFICATION §54; first command:
+`npm test -- --test-concurrency=4`, then BROWSER_TESTS' bounded launch/Vault groups.
+
 QA-26 (`2b86443`) is merged into main with owner authorization: unchanged premades retain their
 published endgame picks; edited characters and custom namesakes rank every slot
 with the bundle model. Weapon preferences preserve only an unchanged premade's

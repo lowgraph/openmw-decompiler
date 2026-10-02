@@ -1273,3 +1273,56 @@ against the TR catalogs, and player-made items survived the codec round trip. In
 browser: Levitate 50 flies Dagoth Ur to Ald'ruhn over the Ghostfence in 53 min (walking
 about 4 h); Water Walking takes Vivec to Ebonheart across the water in 29 min (58 min);
 carrying 300 of 250 shows the warning and routes no walk.
+
+## Twelve-item launch polish — 2 October 2026 UTC
+
+Implemented locally in `A:\Claude\mt-launch-polish`, on twelve stacked branches
+from `2968fa3` (the fetched `origin/main` when work began), ending at
+`polish/ingredient-labels`. FLOW-01, UI-03/04/05, SS-08/09/10, SUS-02, F-7/10/13
+and F10 / CALC-4-01 are merged into main with owner authorization through
+`polish/launch-checklist-batch` (`8c7b98e`). Not deployed. Claims, commits, causes, tests and
+acceptance limits are in the site's LAUNCH_CHECKLIST and LAUNCH_VERIFICATION.
+Other agents' active site checkout was preserved. The remote-tracking main later
+advanced with other agents' retest documentation; this stack retains its original
+base; main integration retains the later retest and QA-26 records and fix.
+
+For players: enchanting offers only cast styles the chosen kind supports, including
+explicit custom-item kinds; successful challenge generation clears old seed errors;
+a fully calculated zero potion chance displays 0%. Travel explains the different
+routing-stop and mapped-location counts, and why independently rounded in-game
+legs can differ from the total. The Faction Journal always identifies the selected
+faction beside its details; Level Simulator and Vault phone labels stay whole;
+search uses singular/plural rank labels. Deleting saves and resetting settings now
+ask for accessible confirmation and preserve or recover keyboard focus. Ingredient
+variants use readable catalog facts in their names, retaining their own sources.
+Both site changelogs contain each player-facing fix.
+
+Exported dataset/schema changes: none. The existing staged bundle remains
+`a29adea046e6086c2c7ee654`, snapshot
+`1613a1123ed9f5102fa3b266df33a4820d0128e9a9bdf680b8b7a1b40296fd1f`.
+No extraction, real-data rebuild, production migration or licence change was made.
+
+Runtime invariants: cast eligibility is derived before rendering results, with
+OpenMW 0.51 rules; QA-01/02 capacity, chance and price calculations are retained.
+Alchemy separates a completed calculation from potion validity without changing
+its math. Ingredient labels never replace canonical selection/calculation/source
+IDs or collapse distinct records; they infer no curse, quest or size from IDs.
+Routing uses precise costs, and in-game estimates remain separate from real-time
+approximations. Character/world/account precedence and persisted state are retained.
+Confirmations use named alertdialogs with trapped focus and sensible restoration;
+SSR starts with them closed. Saved-world and first-navigation hydration checks
+passed, including shared builds, challenge links and synthetic loaded saves.
+
+Validation: 1,164 site tests, the Cloudflare build, focused Chrome checks for every
+item, the synthetic signed-in launch and existing Vault suites, and 288 hydration
+cases passed. Pipeline: 685 tests passed using cache-isolated TEMP/TMP. Full bounded
+browser groups and screenshots are recorded under `A:\Cache\launch-polish`; the
+site's final verification record identifies accepted reports and excludes incomplete
+runs. Shared handoff records are kept byte-identical in both
+repositories. Synthetic local QA records/settings/tier overrides were removed.
+No ordinary account or production API write was used.
+
+Main integration verification is in the site's LAUNCH_VERIFICATION §54.
+First command for the next agent: from a main checkout, run
+`npm test -- --test-concurrency=4`, then the bounded filters documented in
+`docs/BROWSER_TESTS.md`. Release authorization remains separate.
