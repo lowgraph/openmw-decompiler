@@ -1,5 +1,50 @@
 # Coordination
 
+## Main branch live in production — 2 October
+
+Owner-authorized `250b1b5` is live as Worker `73df6e58-912e-48db-9786-5866ce793efd`
+at 100%, 2 October 04:47 UTC (01:47 in São Paulo). This release publishes QA-26
+(edited premade endgame kits dynamic scoring), the twelve-item launch polish
+batch, and QA-27 through QA-30 (Health display formatting without floating-point
+noise, END 100 target milestone marker, phone premade category wrapping, and
+selected Alchemy apparatus label widening). Bundle `a29adea046e6086c2c7ee654`
+and migrations 0001–0007 are unchanged; no data rebuild or migration. Code
+rollback target: `e29663d3` / `6fab4c5`; fresh database recovery bookmark
+`00000073-00000000-000050f8-07bcfcc5cabac281c64e4bebf751ce41`; release verification:
+site's LAUNCH_VERIFICATION §58. First command: `npm test`, then read-only browser
+verification against `https://siltstrider.tools`.
+
+## QA-27–30 main integration — 2 October locally
+
+Four separate stacked implementation branches are combined on
+`polish/qa-27-30-batch`. The owner authorized their merge into freshly fetched
+main `b8eeb50` and push after all required checks passed. The clean integration
+candidate retains the latest main records and all earlier fixes. No deployment.
+Player-facing changes: Health forecasts show clean totals with at most one
+decimal; Endurance 100 is marked at the forecast endpoint; premade category names,
+counts and actions stay whole on phones; selected apparatus names and qualities
+fit their controls. Both site changelogs record these changes under 2 October.
+
+Exported dataset/schema changes: none. Bundle `a29adea046e6086c2c7ee654` is unchanged.
+The Health formatter is display-only; precise curves, fractional gains and saved
+starting Health remain intact. The Endurance milestone includes the target level
+but does not invent an achievement at an already-maxed starting level. Native
+apparatus options retain their canonical IDs and qualities, including distinct
+records with the same readable name. Character/world/account precedence, source
+queries, hydration safety and all earlier QA fixes remain required invariants.
+
+Implementation commits: QA-27 `7e5b278`, QA-28 `4d9c1e0`, QA-29 `cd91229`,
+QA-30 `bfc074f`. Causes, edge coverage and bounded cumulative results are in
+the site's LAUNCH_VERIFICATION under QA-27–30. Screenshots and reports are in
+`A:/Cache/qa27-30`. Validation: 1,184 site tests, the Cloudflare and synthetic
+Vault builds, 418 Chrome cases (including 192 hydration and 34 signed-in cases)
+and 685 cache-isolated pipeline tests passed. Both disposable Vault databases
+contain zero saves/settings/tier overrides. Shared documents are synchronized in the isolated pipeline
+handoff; other agents' checkouts are preserved. First command for the next agent:
+from a main checkout, run `npm test -- --test-concurrency=4`, then the
+world-filtered QA-27–30 groups in `docs/BROWSER_TESTS.md`. Release authorization
+remains separate.
+
 ## Edited premade endgame kits (QA-26) — 1 October locally
 
 QA-26 (`2b86443`) is merged into main with owner authorization; not deployed.

@@ -1,5 +1,30 @@
 # UI Transformation Blueprint: Silt Strider
 
+Owner-authorized main release `250b1b5` is live as Worker
+`73df6e58-912e-48db-9786-5866ce793efd`, 100% traffic, 2 October 04:47 UTC
+(01:47 in São Paulo). This publishes QA-26 (dynamic endgame scoring for edited
+premades), the twelve-item launch polish batch (cast-style eligibility, seed
+feedback, calculated-zero chance, persistent faction identity, readable
+ingredient variants), and QA-27 through QA-30 (Health display formatting, END
+100 target milestone marker, phone premade wrapping, and widened Alchemy apparatus
+labels). Both Morrowind UI and Modern UI retain their layout and theme-switch
+support. Bundle `a29adea046e6086c2c7ee654` and migrations 0001–0007 remain
+unchanged. Code rollback is `e29663d3` / `6fab4c5`; recovery record and release
+verification: LAUNCH_VERIFICATION §58. No new extraction, data/schema change
+or migration.
+
+QA-27–30 are implemented on `polish/qa-27-30-batch` in four separate stacked
+branches, prepared for the owner-authorized merge and push onto main `b8eeb50`
+after all required checks passed; no deployment. Health
+forecast labels and accessible values use at most one decimal, including Bitter
+Cup plans, while the calculation retains full precision. The Endurance 100 marker
+includes the final forecast level. Phone premade categories wrap between complete
+labels; apparatus selections show complete names and quality multipliers in wider
+native controls. Preserve original catalog IDs/qualities, fractional Health gains,
+saved starting values, character/world/account precedence and earlier QA fixes.
+No exported schema, bundle, extraction, migration or licence change. Verification:
+the site's QA-27–30 LAUNCH_VERIFICATION records and bounded groups in BROWSER_TESTS.
+
 The twelve-item launch polish (`8c7b98e`) is merged into main with owner approval:
 cast-style eligibility, cleared seed feedback, calculated-zero Alchemy chance,
 Travel count/rounding explanations, persistent faction identity, whole phone
