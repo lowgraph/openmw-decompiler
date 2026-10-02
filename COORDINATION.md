@@ -1,5 +1,20 @@
 # Coordination
 
+## Main release and recovery handoff — 2 October
+
+Owner-authorized `672c0d3` is live as Worker `56a07cb7-4daf-4e8c-8348-9da01b18cbdc`
+at 100% traffic since 2026-10-02 23:46:37 UTC (20:46 in São Paulo). This publishes
+QA-31/32, QA-33–39 and the ten beginner-clarity/follow-up items below.
+Selected code rollback: `73df6e58-912e-48db-9786-5866ce793efd` / `250b1b5`.
+Fresh D1 bookmark captured before deployment:
+`00000074-00000000-000050f8-6b7a252ad77140777ca900210cc70b77` (23:42:41 UTC).
+Keep bundle `a29adea046e6086c2c7ee654`, migrations 0001–0007, existing bindings,
+secrets, API-only Worker routing and configuration. No data/schema changes or
+migrations ran; a code rollback switches only the Worker version. Recovery and
+release evidence: site LAUNCH_VERIFICATION §§67–68. F-12's ID-only preset labels
+remain deferred; the physical touchscreen-laptop check remains for freeze.
+First command: `node node_modules/wrangler/bin/wrangler.js deployments list --json`.
+
 ## Beginner clarity and contained follow-ups — 2 October
 
 Integrated into site main from `polish/beginner-clarity-batch` (`133b7ef`) and
@@ -26,7 +41,7 @@ a physical touchscreen-laptop check remains for freeze acceptance. Disposable
 local data is cleared. Both shared documents are identical across repositories.
 First command: `npm run test:browser:plan`, then full BROWSER_TESTS coverage,
 including the new local Worker `npm run test:vault -- --clarity` mode.
-The owner authorized merging and pushing both handoffs. Deployment remains separate.
+The owner authorized merging and pushing both handoffs, then the release recorded above.
 
 ## Ordered launch polish (QA-33–39) — 2 October
 
