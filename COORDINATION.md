@@ -1,5 +1,25 @@
 # Coordination
 
+## Ordered launch polish (QA-33–39) — 2 October
+
+On `fix/qa-33-39`, Gear Advisor derives its initial hand setup from the ranked
+weapon (Spear/Marksman two-handed) until a player explicitly chooses. Preserve
+that choice through edits/restores, lazy catalog loading, beast eligibility,
+published unchanged-premade picks and equip transfer. Kit copy describes the
+current character's attributes/skills; a premade source is never its archetype.
+Alchemy pagination stays outside the scroll viewport with a visible gap. Home
+identity labels and loadout actions stay whole; Specialization wraps at spaces.
+TransitMap uses actual panel width, contained tracked region labels and readable
+text; routing/positions are unchanged. Health loss formats its signed number,
+so zero has no minus; precise curves remain. Faction details use singular rank.
+No exported dataset/schema, bundle, migration, extraction or release changes.
+Seven ordered fixes: 1,221 site and 685 pipeline tests, Cloudflare build (24 pages)
+and 1,272 complete Chrome case executions pass. LAUNCH_VERIFICATION §63 records
+the expected-404 exemption and physical touchscreen-laptop check still required.
+COORDINATION and UI_TRANSFORMATION remain identical in both repositories.
+First command: `npm run test:browser:plan`, then the full suites in BROWSER_TESTS.
+Merge/push/deployment authorization remains separate.
+
 ## Local saves and place search (QA-31/32) — 2 October
 
 On `fix/qa-31-32-local-delete-search`, the Builder's browser saves use the shared
