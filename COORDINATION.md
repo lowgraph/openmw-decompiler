@@ -1,5 +1,24 @@
 # Coordination
 
+## Local saves and place search (QA-31/32) — 2 October
+
+On `fix/qa-31-32-local-delete-search`, the Builder's browser saves use the shared
+confirmation dialog. Opening, Cancel and Escape never write storage; errors stay
+announced and retryable. Confirm deletes only the selected ID, then focuses the
+next/previous saved character or Save this character after the list commits.
+Keep local/cloud storage separate, cross-tab refresh, character/world precedence
+and the modal keyboard contract. No dataset, schema, migration or rebuild changes.
+Global search compares joined place names for exact/prefix matches: apostrophes,
+hyphens and spaces do not split identities. Preserve displayed catalog names,
+canonical stop IDs, word/keyword ranking and original-character highlight maps.
+QA-31 is `2af6d1d`, QA-32 `c5eb0ab`; integrated locally into site main from
+`0d91ba0`, retaining the newer browser planner. It now selects both new case groups.
+Merged-checkout validation: 1,209 site tests, 685 pipeline tests, Cloudflare build
+(24 pages) and 143 targeted Chrome checks passed, including 18 synthetic signed-in
+Vault checks and real-touch phone checks. LAUNCH_VERIFICATION §§60–62.
+First command: `npm test -- --test-concurrency=4`, then BROWSER_TESTS' `QA-31/`
+and `QA-32/` cases. Pipeline master has the identical handoff. No deployment.
+
 ## Main branch live in production — 2 October
 
 Owner-authorized `250b1b5` is live as Worker `73df6e58-912e-48db-9786-5866ce793efd`
