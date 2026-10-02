@@ -1,5 +1,31 @@
 # Coordination
 
+## Beginner clarity and contained follow-ups — 2 October
+
+On site `polish/beginner-clarity-batch`, ten ordered item commits cover beginner
+help, premade collection counts, reverse Alchemy limits, open beast helmets,
+required profile usernames, version/rename limits, copy, FLOW-04/03 and F-12.
+Help uses loaded catalog facts and current choices; preserve calculations,
+character/world precedence, custom edits, source provenance and original saves.
+Reverse pairs remain two ingredients; same-page world changes clear the recipe,
+not typed calculator stats. The 120-character Vault name limit matches the API.
+Travel chamber links wait for ready catalogs and remain selected while save
+indices load; unavailable chambers give No Route. Propylon edges and eligibility
+are unchanged: Rotheran has no direct Andasreth connection; Master Index uses
+Caldera. Journal joins enforce the existing exclusion groups, while leaving and
+imported conflicting memberships remain editable. Vault cards use API `cell`
+before legacy `cell_name`; missing locations are Not recorded. Actual class names
+remain intact; ID-only preset class lookup is explicitly deferred after launch.
+No dataset/schema, bundle, migration, extraction or production changes.
+Site LAUNCH_VERIFICATION §65 records item checks and full merge preparation:
+1,270 site tests, 685 pipeline tests, Cloudflare build (24 pages) and 1,440
+complete Chrome case executions pass. Keep the expected-404 report separate;
+a physical touchscreen-laptop check remains for freeze acceptance. Disposable
+local data is cleared. Both shared documents are identical across repositories.
+First command: `npm run test:browser:plan`, then full BROWSER_TESTS coverage,
+including the new local Worker `npm run test:vault -- --clarity` mode.
+Prepared branches only; merge, push and deployment remain separate asks.
+
 ## Ordered launch polish (QA-33–39) — 2 October
 
 Integrated into site main from `fix/qa-33-39`. Gear Advisor derives its initial
