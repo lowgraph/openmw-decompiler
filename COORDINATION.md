@@ -1,5 +1,16 @@
 # Coordination
 
+## Edited premade endgame kits (QA-26) — 1 October locally
+
+QA-26 (`2b86443`) is merged into main with owner authorization; not deployed.
+Named BestInSlot picks require the full original
+premade identity (sameCharacter), shared with characterName. Edited/custom namesakes
+use the bundle model for every slot; weapon preference restores non-weapon picks
+only for unchanged premades. Keep beast gates, runner-ups, equip transfer and shared
+character titles intact. No exported schema, bundle, migration or rebuild. Verify:
+site LAUNCH_VERIFICATION §§52–53. First command: `npm test`, then BROWSER_TESTS' Chrome
+`--suite qa --filter QA-26/` on main. Bundle and production remain unchanged.
+
 ## QA and Morrowind theme live — 1 October
 
 Owner-authorized `6fab4c5` is live as Worker `e29663d3-68eb-45ff-bbef-13447c3b0cbf`

@@ -1,5 +1,12 @@
 # UI Transformation Blueprint: Silt Strider
 
+QA-26 (`2b86443`) is merged into main with owner authorization: unchanged premades retain their
+published endgame picks; edited characters and custom namesakes rank every slot
+with the bundle model. Weapon preferences preserve only an unchanged premade's
+non-weapon picks. The kit explanation uses characterName, matching Builder/Home.
+Existing beast restrictions and equip transfer remain. No catalog/schema change,
+extraction, migration or deployment. Verification: LAUNCH_VERIFICATION §§52–53.
+
 Owner-authorized QA and Morrowind-theme release `6fab4c5` is live as Worker
 `e29663d3-68eb-45ff-bbef-13447c3b0cbf`, 100% traffic, 2 October 00:13 UTC
 (1 October in São Paulo). Character/world preservation, source-owned share links,
