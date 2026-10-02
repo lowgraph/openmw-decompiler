@@ -1323,6 +1323,8 @@ repositories. Synthetic local QA records/settings/tier overrides were removed.
 No ordinary account or production API write was used.
 
 Main integration verification is in the site's LAUNCH_VERIFICATION §54.
+The Vault test runner waits for enabled shell controls and sets the next synthetic
+user's account theme; timeout captures precede cleanup. No application workaround.
 First command for the next agent: from a main checkout, run
 `npm test -- --test-concurrency=4`, then the bounded filters documented in
 `docs/BROWSER_TESTS.md`. Release authorization remains separate.
