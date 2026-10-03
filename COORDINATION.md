@@ -1,5 +1,24 @@
 # Coordination
 
+## Phone layout and player explanations — 3 October
+
+Continues on site `fix/qa-40-41-flow-04`: QA-42 `24d3a65`, QA-43 `1fb558f`,
+QA-44 `fb21798`, QA-45 `20fea8c`. Compressed-map distances belong below the SVG;
+preserve its break geometry, world positions and routing. Phone faction rosters
+need room for a complete row and contained scrolling above the Viewing bar;
+empty rosters announce status, populated rosters retain listbox options. Effect
+selectors may shrink, but Remove labels stay whole with row-specific names.
+Travel help shares one Cheapest explanation and excludes Mark/Recall. Alchemy
+pair ordering remains extra shared effects, then combined base value (not a shop
+price); display friendly world names without changing canonical profile keys.
+Rival House restrictions supersede qualification labels, while imported/current
+memberships remain intact. Gear's closest archetype describes current skill fit.
+No exported dataset/schema, bundle, migration or real-data rebuild. Shared
+UI_TRANSFORMATION remains unchanged. Verification and merge preparation are in
+site LAUNCH_VERIFICATION §71; branches only, no release.
+First command: `npm test -- --test-concurrency=4`, then BROWSER_TESTS' `QA-42/`
+through `QA-45/` and full release-candidate browser coverage before merging.
+
 ## Weapon ranking, Health display and save verification — 2 October (3 October UTC)
 
 On site `fix/qa-40-41-flow-04`: QA-40 `982fd76`, QA-41 `8425079`, FLOW-04
