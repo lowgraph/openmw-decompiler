@@ -13,6 +13,9 @@ pair ordering remains extra shared effects, then combined base value (not a shop
 price); display friendly world names without changing canonical profile keys.
 Rival House restrictions supersede qualification labels, while imported/current
 memberships remain intact. Gear's closest archetype describes current skill fit.
+Gear audits wait for ready catalogs and settled button opacity. Inventory checks
+wait for settled scroll geometry and verify outer-disclosure state and checkbox
+focus; retain the independent Travel tap/disclosure acceptance cases.
 No exported dataset/schema, bundle, migration or real-data rebuild. Shared
 UI_TRANSFORMATION remains unchanged. Verification and merge preparation are in
 site LAUNCH_VERIFICATION §71; branches only, no release.
