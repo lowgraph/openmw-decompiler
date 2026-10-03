@@ -1,5 +1,21 @@
 # Coordination
 
+## QA-43 remainder and QA-46–52 release — 3 October
+
+Site `e4bc16c` is live as Worker `03e8ff80-d959-4668-bfd8-4e5d1d30093d` at
+100% since 2026-10-03 22:37:44 UTC. Owner-selected code rollback:
+`e4c17cd3-29d4-40ef-950a-1ebefe21ebff` / `65cbd0e`. Fresh pre-release D1 bookmark
+at 22:32:15 UTC: `00000076-00000000-000050f9-e58d9a5e015fb2bd7b9685f4ee5859ff`.
+Preserve the save-confirmation/focus behavior, friendly world labels, complete
+phone rows and words, display-only number formatting, keyboard equipment controls
+and measured Travel labels described below. Bundle `a29adea046e6086c2c7ee654`,
+migrations 0001–0007, bindings, secrets, API-only routing and configuration stay
+unchanged. No migration or dataset rebuild ran; code rollback switches the Worker
+only. Live signed-out Chrome checks pass 16/16 in both themes at 375/1366 px;
+HTTP checks pass 15/15. Recovery and evidence: site LAUNCH_VERIFICATION §§78–79.
+Shared UI_TRANSFORMATION is unchanged.
+First command: `node node_modules/wrangler/bin/wrangler.js deployments list --json`.
+
 ## Phone and panel labels — 3 October
 
 Site branch `fix/qa-46-47-43-51`: QA-48 `97437a8`, QA-49 `6796a89`,
