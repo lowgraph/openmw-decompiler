@@ -1,5 +1,22 @@
 # Coordination
 
+## Loaded-save safety and display follow-ups — 3 October
+
+Site branch `fix/qa-46-47-43-51`: QA-46 `9326a87`, QA-47 `3a03190`,
+QA-43 remainder `3d7725b`, QA-51 `097100c`. Clear-save buttons use the shared
+confirmation dialog: Cancel/Escape keep the browser copy, confirmation returns
+focus, and a replacement save cancels the pending action. Original files and
+cloud records are untouched. Display friendly world names with `worldLabel`;
+retain canonical profile keys. Phone faction filters cannot consume the list's
+height; preserve whole initial Blades rows, scrolling and membership behavior.
+Health gains and weights use the existing display formatter without rounding
+stored/calculated values. Equipment chooser and Unequip must remain separate
+controls for keyboard use and accessibility. Browser theme audits wait for
+finite color transitions to finish. No dataset/schema, bundle or migration
+changes; UI_TRANSFORMATION is unchanged. Verification: site §76.
+First command: `npm test`, then BROWSER_TESTS' `QA-46/`, `QA-47/`,
+`QA-43-remainder/` and `QA-51/` cases before merge/release acceptance.
+
 ## QA-40–45 release and recovery — 3 October
 
 Site `65cbd0e` is live as Worker `e4c17cd3-29d4-40ef-950a-1ebefe21ebff` at
