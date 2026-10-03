@@ -1,5 +1,27 @@
 # Coordination
 
+## Weapon ranking, Health display and save verification — 2 October (3 October UTC)
+
+On site `fix/qa-40-41-flow-04`: QA-40 `982fd76`, QA-41 `8425079`, FLOW-04
+verification `2f1a202`. Owner-authorized primary-weapon scoring supplements
+BestInSlot's constant-effect pool with existing GearRows power shortlists and
+Weapons damage. Keep canonical IDs, acquisition evidence, theft labels, beast
+eligibility and hand setup. No exported dataset/schema, bundle, migration or
+real-data rebuild. The runtime retains 8/5/1 skill-tier damage weights; passive
+bonuses follow skill fit and cannot exceed the damage contribution. Temporary
+enchantments break score ties, never become permanent stats. This authored
+ranking is not engine DPS. Rescore weapons for unchanged premades too; retain
+their other published picks. Display and late-game equip use the same candidates
+and wait for both features. Supplementary sources have no published actor level;
+do not invent one or claim the shortlist covers every weapon.
+Health formatting changes only display; preserve fractions and zero baselines.
+The supplied Pe.omwsave has 69 positive-count inventory records and none of the
+39 listed teleport requirements; Use save defaults is correct. No Travel fix.
+Relevant and full verification is in site LAUNCH_VERIFICATION §70. Keep the
+inventory runner's explicit disclosure setup separate from pointer/touch checks.
+First command in the site: `npm test -- --test-concurrency=4`, then BROWSER_TESTS'
+`QA-40/`, `QA-41/` and `FLOW-04/save-check/` Chrome groups. Branches only; no release.
+
 ## Main release and recovery handoff — 2 October
 
 Owner-authorized `672c0d3` is live as Worker `56a07cb7-4daf-4e8c-8348-9da01b18cbdc`
