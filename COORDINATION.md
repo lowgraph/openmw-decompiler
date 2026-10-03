@@ -1,5 +1,20 @@
 # Coordination
 
+## Phone and panel labels — 3 October
+
+Site branch `fix/qa-46-47-43-51`: QA-48 `97437a8`, QA-49 `6796a89`,
+QA-50 `74ba08e`, QA-52 `327e242`. Priority abbreviations stay whole with
+unchanged reorder controls. Enchanter names/places wrap between words and leave
+room for prices; preserve search, ranking and merchant records. Travel measures
+the active font after loading and theme changes, wraps long names, avoids label
+collisions and links crowded callouts without moving stop dots, route edges or
+compressed gaps. Gear actions wrap below the heading; the narrow Inspector
+stacks its core cards and keeps Armor Rating digits together. Calculations,
+scoring, saved data, schemas, bundle and migrations are unchanged;
+UI_TRANSFORMATION is unchanged. Verification and evidence: site §77.
+First command: `npm test`, then BROWSER_TESTS' `QA-48/`, `QA-49/`,
+`QA-50/`, `QA-52/` and the existing `QA-42/` gap cases before acceptance.
+
 ## Loaded-save safety and display follow-ups — 3 October
 
 Site branch `fix/qa-46-47-43-51`: QA-46 `9326a87`, QA-47 `3a03190`,
